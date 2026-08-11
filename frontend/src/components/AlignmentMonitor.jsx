@@ -151,10 +151,6 @@ function AlignmentMonitor({
           })}
         </div>
       )}
-
-      <p className="alignment-note">
-        O melhor valor é temporário e será apagado ao desconectar. A aprovação do enlace também depende de perda e latência.
-      </p>
     </section>
   );
 }

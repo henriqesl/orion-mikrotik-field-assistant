@@ -288,13 +288,6 @@ h2 {
   line-height: 1.45;
 }
 
-.alignment-note {
-  margin: 0.85rem 0 0;
-  color: #64748b;
-  font-size: 0.7rem;
-  line-height: 1.45;
-}
-
 .section-description {
   max-width: 34rem;
   margin: 0.45rem 0 0;
@@ -314,17 +307,11 @@ h2 {
   margin-bottom: 0;
 }
 
-.step-label,
 .success-badge {
   padding: 0.4rem 0.65rem;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
-}
-
-.step-label {
-  color: #94a3b8;
-  background: #1e293b;
 }
 
 .success-badge {
@@ -1357,13 +1344,6 @@ h2 {
   color: #64748b;
   font-size: 0.68rem;
   line-height: 1.4;
-}
-
-.connectivity-note {
-  margin: 0.8rem 0 0;
-  color: #64748b;
-  font-size: 0.7rem;
-  line-height: 1.45;
 }
 
 .ping-form .primary-button {

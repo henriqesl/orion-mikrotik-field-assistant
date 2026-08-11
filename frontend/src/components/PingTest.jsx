@@ -34,11 +34,7 @@ function PingTest({ connection }) {
         <div>
           <p className="card-kicker">Diagnóstico básico</p>
           <h2 id="ping-title">Testar comunicação</h2>
-          <p className="section-description">
-            O teste parte do MikroTik conectado e envia cinco pacotes.
-          </p>
         </div>
-        <span className="step-label">Ping</span>
       </div>
 
       <form className="ping-form" onSubmit={handleSubmit}>

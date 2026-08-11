@@ -104,9 +104,6 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
         <div>
           <p className="card-kicker">ORION Field V2</p>
           <h2 id="configuration-title">Configurar enlace</h2>
-          <p className="section-description">
-            Preencha, revise as alterações e somente depois aplique no MikroTik.
-          </p>
         </div>
         <span className="write-badge">Altera o equipamento</span>
       </div>
