@@ -125,7 +125,7 @@ Feche o WinBox. No ORION, conecte usando:
 
 No cartão **Configurar enlace**, preencha:
 
-- Função: **Ponto de acesso**
+- Função: **AP**
 - Nome: `ORION-AP-LOCAL`
 - SSID: o nome definido para o enlace
 - Senha WPA2: a senha definida para o enlace
@@ -162,7 +162,7 @@ No terminal da Station, execute **uma vez**:
 
 Conecte o ORION em `<IP_RECUPERACAO_ST>` e configure:
 
-- Função: **Estação do enlace**
+- Função: **Station**
 - Nome: `ORION-ST-REMOTO`
 - SSID: exatamente o mesmo do AP
 - Senha WPA2: exatamente a mesma do AP

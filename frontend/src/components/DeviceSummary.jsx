@@ -39,13 +39,13 @@ function interfaceStatus(wifiInterface) {
 
 function radioModeLabel(mode) {
   const labels = {
-    ap: "Ponto de acesso",
-    "ap-bridge": "Ponto de acesso",
-    bridge: "Ponto de acesso em bridge",
-    station: "Estação",
-    "station-bridge": "Estação de enlace",
-    "station-pseudobridge": "Estação pseudobridge",
-    "station-wds": "Estação WDS",
+    ap: "AP",
+    "ap-bridge": "AP",
+    bridge: "AP em bridge",
+    station: "Station",
+    "station-bridge": "Station bridge",
+    "station-pseudobridge": "Station pseudobridge",
+    "station-wds": "Station WDS",
   };
 
   return labels[mode] || mode || "Não informado";

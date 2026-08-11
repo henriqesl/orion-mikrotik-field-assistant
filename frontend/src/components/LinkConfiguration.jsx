@@ -115,7 +115,7 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
         <fieldset disabled={isPreviewing || isApplying}>
           <legend>Função do rádio</legend>
           <div className="role-selector">
-            <label>
+            <label className={form.role === "ap" ? "role-option role-option--selected" : "role-option"}>
               <input
                 checked={form.role === "ap"}
                 name="role"
@@ -123,9 +123,14 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
                 type="radio"
                 value="ap"
               />
-              <span>Ponto de acesso</span>
+              <span className="role-option__mark" aria-hidden="true">AP</span>
+              <span className="role-option__content">
+                <strong>AP</strong>
+                <small>Cria e transmite a rede do enlace</small>
+              </span>
+              <span className="role-option__check" aria-hidden="true">✓</span>
             </label>
-            <label>
+            <label className={form.role === "station" ? "role-option role-option--selected" : "role-option"}>
               <input
                 checked={form.role === "station"}
                 name="role"
@@ -133,7 +138,12 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
                 type="radio"
                 value="station"
               />
-              <span>Estação do enlace</span>
+              <span className="role-option__mark" aria-hidden="true">ST</span>
+              <span className="role-option__content">
+                <strong>Station</strong>
+                <small>Conecta-se ao AP do outro lado</small>
+              </span>
+              <span className="role-option__check" aria-hidden="true">✓</span>
             </label>
           </div>
         </fieldset>
