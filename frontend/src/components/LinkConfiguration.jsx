@@ -215,7 +215,7 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
         </div>
 
         <p className="configuration-note">
-          Use um usuário com permissão de escrita. O ORION não remove IPs existentes e cria backup antes de alterar.
+          Use um usuário com permissão de escrita. O ORION cria backup, mas não remove IPs, DHCP, NAT ou firewall existentes.
         </p>
         <button className="primary-button" disabled={isPreviewing || isApplying} type="submit">
           {isPreviewing ? "Analisando…" : "Revisar alterações"}

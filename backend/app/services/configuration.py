@@ -198,6 +198,7 @@ def _build_preview(
         "A interface Wi-Fi será reiniciada e o enlace poderá cair temporariamente.",
         "Um backup binário será criado no MikroTik antes da primeira alteração.",
         "Endereços IP existentes não serão removidos; o novo IP será adicionado com comentário do ORION.",
+        "Servidores DHCP, clientes DHCP, regras de NAT e firewall existentes não serão removidos. Em rádios novos, use a preparação limpa do manual de campo.",
     ]
     if context["stack"] == "wireless":
         warnings.append(

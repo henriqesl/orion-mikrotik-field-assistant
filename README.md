@@ -59,6 +59,8 @@ O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada,
 
 ## Fluxo de configuração
 
+O procedimento completo para preparar e instalar dois rádios está no [Manual de campo da V2](docs/manual-de-campo-v2.md).
+
 1. Conecte o computador ao MikroTik por Ethernet.
 2. Acesse o equipamento com um usuário RouterOS que possua leitura e escrita.
 3. Preencha o cartão **Configurar enlace** como AP ou Station.
