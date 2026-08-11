@@ -45,3 +45,18 @@ export function validateConnectivity(connection, remoteTarget) {
     remote_target: remoteTarget || null,
   });
 }
+
+export function previewLinkConfiguration(connection, configuration) {
+  return postJson("/api/mikrotik/configuration/preview", {
+    connection,
+    configuration,
+  });
+}
+
+export function applyLinkConfiguration(connection, configuration) {
+  return postJson("/api/mikrotik/configuration/apply", {
+    connection,
+    configuration,
+    confirmation: "APLICAR",
+  });
+}

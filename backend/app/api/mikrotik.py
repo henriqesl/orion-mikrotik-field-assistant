@@ -1,5 +1,11 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.models.configuration import (
+    ConfigurationApplyRequest,
+    ConfigurationApplyResult,
+    ConfigurationPreview,
+    ConfigurationPreviewRequest,
+)
 from app.models.mikrotik import (
     ConnectivityRequest,
     ConnectivityValidation,
@@ -17,6 +23,11 @@ from app.services.routeros import (
     discover_device,
     ping_device,
     validate_connectivity,
+)
+from app.services.configuration import (
+    ConfigurationConflictError,
+    apply_link_configuration,
+    preview_link_configuration,
 )
 
 
@@ -92,5 +103,31 @@ def connectivity_from_mikrotik(
     """Validate the active gateway, ARP resolution and external reachability."""
     try:
         return validate_connectivity(request)
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/configuration/preview", response_model=ConfigurationPreview)
+def preview_configuration(
+    request: ConfigurationPreviewRequest,
+) -> ConfigurationPreview:
+    """Validate and preview a direct link configuration without changing it."""
+    try:
+        return preview_link_configuration(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/configuration/apply", response_model=ConfigurationApplyResult)
+def apply_configuration(
+    request: ConfigurationApplyRequest,
+) -> ConfigurationApplyResult:
+    """Create a backup and apply a previously confirmed link configuration."""
+    try:
+        return apply_link_configuration(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
         raise _friendly_http_error(error) from error

@@ -4,6 +4,7 @@ import ConnectionForm from "./components/ConnectionForm.jsx";
 import ConnectivityValidation from "./components/ConnectivityValidation.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
+import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
 
@@ -179,6 +180,45 @@ function App() {
     });
   }
 
+  function handleConfigurationApplyStart() {
+    connectionGeneration.current += 1;
+    refreshInFlight.current = false;
+    setIsMonitoring(false);
+    setIsRefreshing(false);
+    setIsAlignmentMode(false);
+    setMonitoringError("");
+  }
+
+  async function handleConfigurationApplied(result) {
+    const nextConnection = {
+      ...activeConnection,
+      host: result.reconnect_ip,
+    };
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const refreshedDevice = await discoverDevice(nextConnection);
+        connectionGeneration.current += 1;
+        setDevice(refreshedDevice);
+        setActiveConnection(nextConnection);
+        setLastUpdatedAt(new Date());
+        setMonitoringError("");
+        setIsMonitoring(true);
+        return true;
+      } catch (error) {
+        if (attempt < 3) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+        }
+      }
+    }
+
+    setMonitoringError(
+      `A configuração foi aplicada, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
+        "Conecte-se novamente nesse IP ou use o IP anterior, que foi preservado.",
+    );
+    return false;
+  }
+
   return (
     <main className="page">
       <header className="app-header">
@@ -210,6 +250,15 @@ function App() {
             <strong>Conexão não concluída</strong>
             <span>{errorMessage}</span>
           </div>
+        )}
+
+        {device && activeConnection && (
+          <LinkConfiguration
+            connection={activeConnection}
+            device={device}
+            onApplyStart={handleConfigurationApplyStart}
+            onApplied={handleConfigurationApplied}
+          />
         )}
 
         {device && (

@@ -1,24 +1,24 @@
 # ORION — MikroTik Field Assistant
 
-O ORION simplifica a leitura, o monitoramento e o diagnóstico de equipamentos MikroTik para equipes de campo. Ele não substitui o RouterOS, WinBox ou WebFig: apresenta os dados mais importantes do enlace com explicações diretas.
+O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces MikroTik para equipes de campo.
 
 > Configure. Monitore. Valide.
 
-## ORION Field V1
+## ORION Field V2
 
-A V1 conecta diretamente ao RouterOS e oferece:
+A V2 conecta diretamente à API do RouterOS e oferece:
 
-- identificação de modelo, versão, arquitetura e pacote Wi-Fi;
+- configuração assistida de rádio como AP ou Station;
+- identidade, SSID, senha WPA2, frequência, largura de canal, bridge, IP e gateway;
 - suporte às pilhas `wifi`, `wifiwave2` e `wireless`;
-- leitura de interfaces, modo AP/Station, SSID, canal e bridge;
-- registration table, sinal, taxas TX/RX e tempo de associação;
-- monitoramento automático e modo rápido de alinhamento;
-- ping com perda e latências média e máxima;
-- avaliação individual das métricas e saúde ponderada do enlace;
-- diagnóstico estrutural de bridge, portas e IP de gerenciamento;
-- validação manual de gateway, ARP e acesso externo por ICMP.
+- pré-visualização das alterações e confirmação explícita antes da escrita;
+- backup binário automático antes da primeira alteração;
+- preservação dos endereços IP preexistentes e tentativa de reconexão no novo IP;
+- leitura de interfaces, registration table, sinal, taxas TX/RX e associação;
+- monitoramento, alinhamento, ping, saúde ponderada e diagnóstico estrutural;
+- validação de gateway, ARP e acesso externo por ICMP.
 
-Os dados são lidos da API do RouterOS. Interpretações e valores calculados são apresentados separadamente. Não existe banco de dados e as credenciais permanecem somente na memória durante a conexão.
+Não existe banco de dados. As credenciais e a senha do enlace permanecem somente na memória durante a conexão e não são devolvidas pelas respostas da API.
 
 ## Tecnologias
 
@@ -27,9 +27,11 @@ Os dados são lidos da API do RouterOS. Interpretações e valores calculados s�
 - `routeros-py` para a API binária do RouterOS;
 - pytest para os testes do backend.
 
+C++ não faz parte da V2. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+
 ## Executar localmente
 
-Requisitos: Node.js, Python 3.11 ou superior e um MikroTik com o serviço API habilitado.
+Requisitos: Node.js, Python 3.11 ou superior e um MikroTik com o serviço API habilitado. Para configurar, o usuário do RouterOS também precisa de permissão de escrita.
 
 ### Backend
 
@@ -41,7 +43,7 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-O backend fica disponível em `http://127.0.0.1:8000`.
+O backend fica em `http://127.0.0.1:8000`.
 
 ### Frontend
 
@@ -53,7 +55,18 @@ npm ci
 npm run dev
 ```
 
-O frontend usa `http://localhost:5174`. A porta foi fixada com `strictPort`, portanto o Vite avisará claramente caso ela também esteja ocupada.
+O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
+
+## Fluxo de configuração
+
+1. Conecte o computador ao MikroTik por Ethernet.
+2. Acesse o equipamento com um usuário RouterOS que possua leitura e escrita.
+3. Preencha o cartão **Configurar enlace** como AP ou Station.
+4. Clique em **Revisar alterações** e confira todos os itens e alertas.
+5. Digite `APLICAR` e confirme. O ORION cria o backup antes de escrever.
+6. Confirme a reconexão e execute os testes de alinhamento e conectividade.
+
+Configure primeiro o AP e depois a Station com o mesmo SSID, senha, frequência e largura. `station-bridge` requer AP MikroTik e a mesma família de driver nos dois lados (`wifi` com `wifi`, ou `wireless` com `wireless`).
 
 ## Testes e build
 
@@ -70,17 +83,13 @@ npm audit --audit-level=high
 
 ## Modo offline
 
-O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para enlace, rede básica e Gateway LoRa sem depender do backend.
+O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para Enlace, Rede básica e Gateway LoRa sem depender do backend.
 
-## Limites conhecidos da V1
+## Limites conhecidos
 
-- conexão somente por IPv4 e RouterOS API;
-- sem descoberta ou comunicação por MAC;
-- sem configuração direta, reset ou alterações no equipamento;
-- sem banco de dados, histórico, relatórios ou autenticação de usuários;
-- ICMP pode ser bloqueado, portanto um teste externo sem resposta não prova sozinho que a internet está indisponível;
-- validação final em equipamentos físicos ainda é necessária antes de uso operacional.
-
-## Evolução planejada
-
-A V2 poderá adicionar configuração direta e assistida de enlaces, com pré-visualização, backup e validação antes de aplicar mudanças. C++ não faz parte da V1 e somente deverá entrar futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+- a primeira conexão ainda exige IPv4 e a API do RouterOS previamente habilitada;
+- não há descoberta ou configuração por MAC, reset ou restauração automática do backup;
+- o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
+- frequências permitidas dependem do modelo, da regulamentação e do RouterOS;
+- ICMP pode ser bloqueado, portanto falta de resposta externa não prova sozinha que a internet está indisponível;
+- os testes automatizados usam clientes RouterOS simulados; a validação final nos dois rádios físicos ainda é obrigatória antes do uso operacional.

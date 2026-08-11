@@ -922,6 +922,3 @@ def validate_connectivity(request: ConnectivityRequest) -> ConnectivityValidatio
         )
 
     return _with_connection(request.connection, run_validation)
-    ConnectivityProbe,
-    ConnectivityRequest,
-    ConnectivityValidation,
