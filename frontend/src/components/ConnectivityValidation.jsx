@@ -116,12 +116,6 @@ function ConnectivityValidation({ connection }) {
         </div>
       )}
 
-      {!result && !errorMessage && (
-        <p className="empty-state">
-          O teste só será executado quando o técnico solicitar.
-        </p>
-      )}
-
       {result && (
         <div className="connectivity-results" aria-live="polite">
           {checks.map((check) => (
@@ -140,9 +134,6 @@ function ConnectivityValidation({ connection }) {
         </div>
       )}
 
-      <p className="connectivity-note">
-        Um teste ICMP sem resposta não prova sozinho que a internet caiu: o destino ou um firewall pode bloquear ping.
-      </p>
     </section>
   );
 }

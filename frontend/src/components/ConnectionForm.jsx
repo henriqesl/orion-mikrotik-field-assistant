@@ -49,7 +49,6 @@ function ConnectionForm({ isLoading, onConnect }) {
           <p className="card-kicker">Conectar ao equipamento</p>
           <h2>Dados de acesso</h2>
         </div>
-        <span className="step-label">Leitura somente</span>
       </div>
 
       <div className="form-grid">

@@ -4,6 +4,7 @@ import ConnectionForm from "./components/ConnectionForm.jsx";
 import ConnectivityValidation from "./components/ConnectivityValidation.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
+import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
 
@@ -24,6 +25,11 @@ const API_STATES = {
 
 const MONITOR_INTERVAL_MS = 15_000;
 const ALIGNMENT_INTERVAL_MS = 3_000;
+const WORKSPACE_TABS = [
+  { id: "routeros", label: "Dados reais do RouterOS" },
+  { id: "configuration", label: "Configuração do rádio" },
+  { id: "tests", label: "Testes" },
+];
 
 function App() {
   const [apiState, setApiState] = useState("checking");
@@ -36,6 +42,7 @@ function App() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [monitoringError, setMonitoringError] = useState("");
   const [isAlignmentMode, setIsAlignmentMode] = useState(false);
+  const [activeTab, setActiveTab] = useState("routeros");
   const refreshInFlight = useRef(false);
   const connectionGeneration = useRef(0);
 
@@ -136,6 +143,7 @@ function App() {
       setMonitoringError("");
       setIsMonitoring(true);
       setIsAlignmentMode(false);
+      setActiveTab("routeros");
       return true;
     } catch (error) {
       setErrorMessage(error.message);
@@ -154,6 +162,7 @@ function App() {
     setLastUpdatedAt(null);
     setMonitoringError("");
     setIsAlignmentMode(false);
+    setActiveTab("routeros");
     refreshInFlight.current = false;
   }
 
@@ -177,6 +186,53 @@ function App() {
 
       return nextValue;
     });
+  }
+
+  function handleConfigurationApplyStart() {
+    connectionGeneration.current += 1;
+    refreshInFlight.current = false;
+    setIsMonitoring(false);
+    setIsRefreshing(false);
+    setIsAlignmentMode(false);
+    setMonitoringError("");
+  }
+
+  function handleTabChange(tabId) {
+    setActiveTab(tabId);
+
+    if (tabId !== "routeros") {
+      setIsAlignmentMode(false);
+    }
+  }
+
+  async function handleConfigurationApplied(result) {
+    const nextConnection = {
+      ...activeConnection,
+      host: result.reconnect_ip,
+    };
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const refreshedDevice = await discoverDevice(nextConnection);
+        connectionGeneration.current += 1;
+        setDevice(refreshedDevice);
+        setActiveConnection(nextConnection);
+        setLastUpdatedAt(new Date());
+        setMonitoringError("");
+        setIsMonitoring(true);
+        return true;
+      } catch (error) {
+        if (attempt < 3) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+        }
+      }
+    }
+
+    setMonitoringError(
+      `A configuração foi aplicada, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
+        "Conecte-se novamente nesse IP ou use o IP anterior, que foi preservado.",
+    );
+    return false;
   }
 
   return (
@@ -213,32 +269,81 @@ function App() {
         )}
 
         {device && (
-          <DeviceSummary
-            device={device}
-            isMonitoring={isMonitoring}
-            isRefreshing={isRefreshing}
-            lastUpdatedAt={lastUpdatedAt}
-            monitoringError={monitoringError}
-            onDisconnect={handleDisconnect}
-            onRefresh={refreshDevice}
-            onToggleMonitoring={handleToggleMonitoring}
-          />
+          <nav className="workspace-tabs" aria-label="Áreas do equipamento" role="tablist">
+            {WORKSPACE_TABS.map((tab) => (
+              <button
+                aria-controls={`panel-${tab.id}`}
+                aria-selected={activeTab === tab.id}
+                className={activeTab === tab.id ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+                id={`tab-${tab.id}`}
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                role="tab"
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
         )}
+
         {device && (
-          <AlignmentMonitor
-            isAlignmentMode={isAlignmentMode}
-            isMonitoring={isMonitoring}
-            lastUpdatedAt={lastUpdatedAt}
-            onToggleAlignment={handleToggleAlignment}
-            peers={device.wifi_peers}
-            registrationTableAvailable={device.registration_table_available}
-          />
+          <section
+            aria-labelledby="tab-routeros"
+            className="tab-panel"
+            hidden={activeTab !== "routeros"}
+            id="panel-routeros"
+            role="tabpanel"
+          >
+            <DeviceSummary
+              device={device}
+              isMonitoring={isMonitoring}
+              isRefreshing={isRefreshing}
+              lastUpdatedAt={lastUpdatedAt}
+              monitoringError={monitoringError}
+              onDisconnect={handleDisconnect}
+              onRefresh={refreshDevice}
+              onToggleMonitoring={handleToggleMonitoring}
+            />
+          </section>
         )}
+
         {device && activeConnection && (
-          <ConnectivityValidation connection={activeConnection} />
+          <section
+            aria-labelledby="tab-configuration"
+            className="tab-panel"
+            hidden={activeTab !== "configuration"}
+            id="panel-configuration"
+            role="tabpanel"
+          >
+            <LinkConfiguration
+              connection={activeConnection}
+              device={device}
+              onApplyStart={handleConfigurationApplyStart}
+              onApplied={handleConfigurationApplied}
+            />
+          </section>
         )}
+
         {device && activeConnection && (
-          <PingTest connection={activeConnection} />
+          <section
+            aria-labelledby="tab-tests"
+            className="tab-panel"
+            hidden={activeTab !== "tests"}
+            id="panel-tests"
+            role="tabpanel"
+          >
+            <AlignmentMonitor
+              isAlignmentMode={isAlignmentMode}
+              isMonitoring={isMonitoring}
+              lastUpdatedAt={lastUpdatedAt}
+              onToggleAlignment={handleToggleAlignment}
+              peers={device.wifi_peers}
+              registrationTableAvailable={device.registration_table_available}
+            />
+            <ConnectivityValidation connection={activeConnection} />
+            <PingTest connection={activeConnection} />
+          </section>
         )}
       </section>
     </main>

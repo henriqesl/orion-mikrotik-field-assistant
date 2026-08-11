@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.api import mikrotik
 from app.main import app
+from app.models.configuration import ConfigurationApplyResult, ConfigurationPreview
 from app.models.mikrotik import ConnectivityValidation, DeviceSummary, PingResult
 from app.services.routeros import (
     MikroTikAuthenticationError,
@@ -19,6 +20,20 @@ VALID_CONNECTION = {
     "port": 8728,
     "use_tls": False,
     "verify_tls": True,
+}
+
+VALID_CONFIGURATION = {
+    "role": "ap",
+    "identity": "ORION-AP",
+    "wifi_interface": "wifi1",
+    "ethernet_interface": "ether1",
+    "bridge_name": "bridge-field",
+    "ssid": "ORION-Link",
+    "passphrase": "safe-field-password",
+    "frequency_mhz": 5805,
+    "channel_width": "20mhz",
+    "management_ip": "192.168.88.2/24",
+    "gateway": "192.168.88.1",
 }
 
 
@@ -353,4 +368,70 @@ def test_connectivity_validation_returns_independent_checks(monkeypatch) -> None
         "average_latency_ms": None,
         "summary": "O destino não respondeu aos três pacotes enviados.",
     }
+    assert "field-secret" not in response.text
+
+
+def test_configuration_preview_does_not_expose_secrets(monkeypatch) -> None:
+    def fake_preview(_request):
+        return ConfigurationPreview(
+            device_identity="Radio-Torre",
+            wifi_stack="wifi",
+            changes=[
+                {
+                    "area": "Segurança",
+                    "field": "Senha WPA2",
+                    "current_value": "Protegida pelo RouterOS",
+                    "new_value": "Será atualizada",
+                    "sensitive": True,
+                }
+            ],
+            warnings=["Backup será criado antes da alteração."],
+            reconnect_ip="192.168.88.2",
+        )
+
+    monkeypatch.setattr(mikrotik, "preview_link_configuration", fake_preview)
+    response = client.post(
+        "/api/mikrotik/configuration/preview",
+        json={"connection": VALID_CONNECTION, "configuration": VALID_CONFIGURATION},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["wifi_stack"] == "wifi"
+    assert "safe-field-password" not in response.text
+    assert "field-secret" not in response.text
+
+
+def test_configuration_apply_requires_explicit_confirmation() -> None:
+    response = client.post(
+        "/api/mikrotik/configuration/apply",
+        json={"connection": VALID_CONNECTION, "configuration": VALID_CONFIGURATION},
+    )
+
+    assert response.status_code == 422
+
+
+def test_configuration_apply_returns_backup_and_reconnect_ip(monkeypatch) -> None:
+    def fake_apply(_request):
+        return ConfigurationApplyResult(
+            status="applied",
+            backup_file="orion-before-20260810-120000.backup",
+            reconnect_ip="192.168.88.2",
+            changes_applied=8,
+            summary="Configuração enviada.",
+        )
+
+    monkeypatch.setattr(mikrotik, "apply_link_configuration", fake_apply)
+    response = client.post(
+        "/api/mikrotik/configuration/apply",
+        json={
+            "connection": VALID_CONNECTION,
+            "configuration": VALID_CONFIGURATION,
+            "confirmation": "APLICAR",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["backup_file"].endswith(".backup")
+    assert response.json()["reconnect_ip"] == "192.168.88.2"
+    assert "safe-field-password" not in response.text
     assert "field-secret" not in response.text
