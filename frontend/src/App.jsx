@@ -7,6 +7,7 @@ import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
+import orionMark from "./assets/orion-mark.svg";
 
 const API_STATES = {
   checking: {
@@ -239,13 +240,16 @@ function App() {
     <main className="page">
       <header className="app-header">
         <section className="hero">
-          <div className="brand-mark" aria-hidden="true">
-            O
+          <div className="brand-mark">
+            <img alt="" aria-hidden="true" src={orionMark} />
           </div>
 
           <div>
+            <div className="brand-name">
+              <h1>ORION</h1>
+              <span>FIELD</span>
+            </div>
             <p className="eyebrow">MikroTik Field Assistant</p>
-            <h1>ORION</h1>
             <p className="tagline">Configure. Monitore. Valide.</p>
           </div>
         </section>
