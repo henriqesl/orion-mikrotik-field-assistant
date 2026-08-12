@@ -1477,6 +1477,190 @@ h2 {
   line-height: 1.4;
 }
 
+.installation-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.installation-form__metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.installation-form .primary-button {
+  width: fit-content;
+  margin-top: 0;
+}
+
+.internet-requirement {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.7rem;
+  background: #091422;
+  cursor: pointer;
+}
+
+.internet-requirement input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  accent-color: var(--color-primary);
+}
+
+.internet-requirement span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.internet-requirement strong {
+  color: var(--color-text);
+  font-size: 0.8rem;
+}
+
+.internet-requirement small {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.installation-report {
+  overflow: hidden;
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-line);
+  border-top: 4px solid var(--color-text-muted);
+  border-radius: 0.85rem;
+  background: #091422;
+}
+
+.installation-report--approved { border-top-color: var(--color-success); }
+.installation-report--attention { border-top-color: var(--color-warning); }
+.installation-report--rejected { border-top-color: var(--color-danger); }
+
+.installation-report__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.installation-report__header p {
+  margin: 0 0 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.installation-report__header h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.5rem;
+}
+
+.installation-report--approved .installation-report__header h3 { color: var(--color-success); }
+.installation-report--attention .installation-report__header h3 { color: var(--color-warning); }
+.installation-report--rejected .installation-report__header h3 { color: var(--color-danger); }
+
+.installation-report__header > span {
+  color: var(--color-text-muted);
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+}
+
+.report-identification,
+.report-checks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--color-line);
+}
+
+.report-identification > div,
+.report-checks > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.report-identification > div:nth-child(3n),
+.report-checks > div:nth-child(3n) { border-right: 0; }
+
+.report-identification span,
+.report-checks span {
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.report-identification strong,
+.report-checks strong {
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+  font-family: var(--font-data);
+  font-size: 0.74rem;
+}
+
+.report-findings {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem 1.25rem;
+}
+
+.report-finding {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid;
+  border-radius: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.report-finding--failed {
+  border-color: var(--color-danger);
+  color: #ffc5ce;
+  background: rgb(240 93 115 / 7%);
+}
+
+.report-finding--warning {
+  border-color: var(--color-warning);
+  color: #ffe0a2;
+  background: rgb(243 181 68 / 7%);
+}
+
+.report-approved-message {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  color: #9aefc5;
+  background: rgb(44 203 127 / 6%);
+  font-size: 0.78rem;
+}
+
+.report-print-button {
+  margin: 1rem 1.25rem 1.25rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.55rem;
+  color: var(--color-text-secondary);
+  background: var(--color-panel-elevated);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.report-print-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
 .ping-form .primary-button {
   margin-top: 0;
 }
@@ -1959,6 +2143,22 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .installation-form__metadata,
+  .report-identification,
+  .report-checks {
+    grid-template-columns: 1fr;
+  }
+
+  .report-identification > div,
+  .report-checks > div {
+    border-right: 0;
+  }
+
+  .installation-report__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .health-panel {
     grid-template-columns: 1fr;
   }
@@ -1987,5 +2187,81 @@ h2 {
 
   .ping-metrics > div:nth-child(-n + 2) {
     border-bottom: 1px solid #1e293b;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    color: #162033;
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .installation-report,
+  .installation-report * {
+    visibility: visible;
+  }
+
+  .installation-report {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    margin: 0;
+    border-color: #cbd5e1;
+    color: #162033;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .installation-report::before {
+    display: block;
+    padding: 0 0 12mm;
+    color: #162033;
+    content: "ORION FIELD  /  RELATÓRIO DE INSTALAÇÃO";
+    font-size: 11pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .installation-report__header,
+  .report-identification,
+  .report-checks {
+    border-color: #cbd5e1;
+  }
+
+  .report-identification > div,
+  .report-checks > div {
+    border-color: #cbd5e1;
+  }
+
+  .installation-report__header h3,
+  .report-identification strong,
+  .report-checks strong {
+    color: #162033;
+  }
+
+  .installation-report__header p,
+  .installation-report__header > span,
+  .report-identification span,
+  .report-checks span {
+    color: #52647b;
+  }
+
+  .report-finding,
+  .report-approved-message {
+    color: #162033;
+    background: #f8fafc;
+  }
+
+  .report-print-button {
+    display: none;
   }
 }
