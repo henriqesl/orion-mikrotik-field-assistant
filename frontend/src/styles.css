@@ -206,6 +206,40 @@ h2 {
   align-items: center;
 }
 
+.alignment-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.audio-toggle {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.6rem;
+  color: var(--color-text-secondary);
+  background: #091422;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.audio-toggle:hover:not(:disabled) {
+  border-color: var(--color-signal);
+  color: var(--color-text);
+}
+
+.audio-toggle--active {
+  border-color: rgb(53 208 226 / 55%);
+  color: #a8f3fa;
+  background: rgb(53 208 226 / 10%);
+}
+
+.audio-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .alignment-toggle {
   padding: 0.65rem 0.85rem;
   border: 1px solid #3b82f6;
@@ -317,6 +351,65 @@ h2 {
   border-radius: inherit;
   background: linear-gradient(90deg, #f43f5e, #eab308 55%, #22c55e);
   transition: width 300ms ease;
+}
+
+.signal-chart {
+  position: relative;
+  height: 11rem;
+  margin-top: 1rem;
+  padding-left: 3.2rem;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgb(44 203 127 / 4%), transparent 42%, rgb(240 93 115 / 4%)),
+    #08111f;
+}
+
+.signal-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.signal-chart__labels {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 3.2rem;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.5rem 0.45rem;
+  border-right: 1px solid var(--color-line);
+  color: var(--color-text-muted);
+  background: rgb(13 25 41 / 72%);
+  font-family: var(--font-data);
+  font-size: 0.58rem;
+  text-align: right;
+}
+
+.signal-chart__grid {
+  stroke: #22334a;
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.signal-chart__line {
+  fill: none;
+  stroke: url(#signal-line);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.signal-chart--empty {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: center;
 }
 
 .alignment-peer > p {
@@ -1610,6 +1703,10 @@ h2 {
   font-size: 0.7rem;
 }
 
+.alignment-values--session {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 /* ORION V3 brand primitives */
 .section-description,
 .configuration-note,
@@ -1813,6 +1910,19 @@ h2 {
 
   .alignment-values {
     grid-template-columns: 1fr;
+  }
+
+  .alignment-controls {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .alignment-controls button {
+    flex: 1;
+  }
+
+  .signal-chart {
+    height: 9rem;
   }
 
   .peer-header {
