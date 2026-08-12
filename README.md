@@ -4,9 +4,9 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
-## ORION Field V2
+## ORION Field V3
 
-A V2 conecta diretamente à API do RouterOS e oferece:
+A V3 conecta diretamente à API do RouterOS e oferece:
 
 - configuração assistida de rádio como AP ou Station;
 - identidade, SSID, senha WPA2, frequência, largura de canal, bridge, IP e gateway;
@@ -16,7 +16,9 @@ A V2 conecta diretamente à API do RouterOS e oferece:
 - preservação dos endereços IP preexistentes e tentativa de reconexão no novo IP;
 - leitura de interfaces, registration table, sinal, taxas TX/RX e associação;
 - monitoramento, alinhamento, ping, saúde ponderada e diagnóstico estrutural;
-- validação de gateway, ARP e acesso externo por ICMP.
+- alinhamento avançado com gráfico, melhor, média e pior sinal da sessão;
+- som opcional que varia conforme o sinal;
+- identidade visual própria, fontes locais e interface preparada para uso offline.
 
 Não existe banco de dados. As credenciais e a senha do enlace permanecem somente na memória durante a conexão e não são devolvidas pelas respostas da API.
 
@@ -27,7 +29,7 @@ Não existe banco de dados. As credenciais e a senha do enlace permanecem soment
 - `routeros-py` para a API binária do RouterOS;
 - pytest para os testes do backend.
 
-C++ não faz parte da V2. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+C++ não faz parte da V3. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
 
 ## Executar localmente
 
@@ -57,9 +59,13 @@ npm run dev
 
 O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
 
+### Demonstração sem MikroTik
+
+Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar pelo ORION com um equipamento simulado. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.
+
 ## Fluxo de configuração
 
-O procedimento completo para preparar e instalar dois rádios está no [Manual de campo da V2](docs/manual-de-campo-v2.md).
+O procedimento para preparar dois rádios está no [Manual de campo da V2](docs/manual-de-campo-v2.md).
 
 1. Conecte o computador ao MikroTik por Ethernet.
 2. Acesse o equipamento com um usuário RouterOS que possua leitura e escrita.
@@ -93,5 +99,9 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 - não há descoberta ou configuração por MAC, reset ou restauração automática do backup;
 - o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
 - frequências permitidas dependem do modelo, da regulamentação e do RouterOS;
-- ICMP pode ser bloqueado, portanto falta de resposta externa não prova sozinha que a internet está indisponível;
-- os testes automatizados usam clientes RouterOS simulados; a validação final nos dois rádios físicos ainda é obrigatória antes do uso operacional.
+- histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
+- os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
+
+## Identidade visual
+
+O sistema de marca, cores, tipografia e uso dos ativos está documentado em [Identidade visual do ORION](docs/brand/visual-identity.md).

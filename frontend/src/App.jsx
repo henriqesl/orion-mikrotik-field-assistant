@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import ConnectionForm from "./components/ConnectionForm.jsx";
-import ConnectivityValidation from "./components/ConnectivityValidation.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
+import orionMark from "./assets/orion-mark.svg";
 
 const API_STATES = {
   checking: {
@@ -126,7 +126,9 @@ function App() {
     };
   }, [activeConnection, isAlignmentMode, isMonitoring, refreshDevice]);
 
-  const currentState = API_STATES[apiState];
+  const currentState = device?.demo_mode
+    ? { label: "Demonstração local", className: "status status--demo" }
+    : API_STATES[apiState];
 
   async function handleConnect(connection) {
     setIsLoading(true);
@@ -239,13 +241,16 @@ function App() {
     <main className="page">
       <header className="app-header">
         <section className="hero">
-          <div className="brand-mark" aria-hidden="true">
-            O
+          <div className="brand-mark">
+            <img alt="" aria-hidden="true" src={orionMark} />
           </div>
 
           <div>
+            <div className="brand-name">
+              <h1>ORION</h1>
+              <span>FIELD</span>
+            </div>
             <p className="eyebrow">MikroTik Field Assistant</p>
-            <h1>ORION</h1>
             <p className="tagline">Configure. Monitore. Valide.</p>
           </div>
         </section>
@@ -266,6 +271,13 @@ function App() {
             <strong>Conexão não concluída</strong>
             <span>{errorMessage}</span>
           </div>
+        )}
+
+        {device?.demo_mode && (
+          <aside className="demo-banner" role="status">
+            <strong>Modo demonstração</strong>
+            <span>Todos os dados são simulados. Nenhuma configuração será aplicada a um equipamento.</span>
+          </aside>
         )}
 
         {device && (
@@ -341,7 +353,6 @@ function App() {
               peers={device.wifi_peers}
               registrationTableAvailable={device.registration_table_available}
             />
-            <ConnectivityValidation connection={activeConnection} />
             <PingTest connection={activeConnection} />
           </section>
         )}

@@ -102,10 +102,10 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
     <section className="configuration-card" aria-labelledby="configuration-title">
       <div className="section-heading">
         <div>
-          <p className="card-kicker">ORION Field V2</p>
+          <p className="card-kicker">ORION Field V3</p>
           <h2 id="configuration-title">Configurar enlace</h2>
         </div>
-        <span className="write-badge">Altera o equipamento</span>
+        <span className="write-badge">{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
 
       <form className="configuration-form" onSubmit={handlePreview}>
@@ -253,18 +253,24 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
           <ul className="configuration-warnings">
             {preview.warnings.map((warning) => <li key={warning}>{warning}</li>)}
           </ul>
-          <label className="confirmation-field">
-            <span>Digite <strong>APLICAR</strong> para confirmar</span>
-            <input onChange={(event) => setConfirmation(event.target.value)} value={confirmation} />
-          </label>
-          <button
-            className="danger-button"
-            disabled={confirmation !== "APLICAR" || isApplying}
-            onClick={handleApply}
-            type="button"
-          >
-            {isApplying ? "Criando backup e aplicando…" : "Criar backup e aplicar"}
-          </button>
+          {device.demo_mode ? (
+            <p className="demo-preview-note">Esta é apenas uma prévia. O modo demonstração não grava configurações.</p>
+          ) : (
+            <>
+              <label className="confirmation-field">
+                <span>Digite <strong>APLICAR</strong> para confirmar</span>
+                <input onChange={(event) => setConfirmation(event.target.value)} value={confirmation} />
+              </label>
+              <button
+                className="danger-button"
+                disabled={confirmation !== "APLICAR" || isApplying}
+                onClick={handleApply}
+                type="button"
+              >
+                {isApplying ? "Criando backup e aplicando…" : "Criar backup e aplicar"}
+              </button>
+            </>
+          )}
         </section>
       )}
 
