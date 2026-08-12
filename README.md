@@ -18,9 +18,6 @@ A V3 conecta diretamente à API do RouterOS e oferece:
 - monitoramento, alinhamento, ping, saúde ponderada e diagnóstico estrutural;
 - alinhamento avançado com gráfico, melhor, média e pior sinal da sessão;
 - som opcional que varia conforme o sinal;
-- validação guiada da instalação;
-- resultado Aprovado, Atenção ou Reprovado com motivos objetivos;
-- checklist físico e relatório final imprimível ou salvo em PDF;
 - identidade visual própria, fontes locais e interface preparada para uso offline.
 
 Não existe banco de dados. As credenciais e a senha do enlace permanecem somente na memória durante a conexão e não são devolvidas pelas respostas da API.
@@ -62,9 +59,13 @@ npm run dev
 
 O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
 
+### Demonstração sem MikroTik
+
+Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar pelo ORION com um equipamento simulado. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.
+
 ## Fluxo de configuração
 
-O procedimento para preparar dois rádios está no [Manual de campo da V2](docs/manual-de-campo-v2.md). O encerramento da instalação está no [Guia de validação da V3](docs/field-validation-v3.md).
+O procedimento para preparar dois rádios está no [Manual de campo da V2](docs/manual-de-campo-v2.md).
 
 1. Conecte o computador ao MikroTik por Ethernet.
 2. Acesse o equipamento com um usuário RouterOS que possua leitura e escrita.
@@ -98,7 +99,6 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 - não há descoberta ou configuração por MAC, reset ou restauração automática do backup;
 - o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
 - frequências permitidas dependem do modelo, da regulamentação e do RouterOS;
-- os relatórios são gerados no navegador e não ficam armazenados pelo ORION;
 - histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
 - os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
 

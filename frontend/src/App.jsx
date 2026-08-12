@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ConnectionForm from "./components/ConnectionForm.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
-import InstallationValidation from "./components/InstallationValidation.jsx";
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
@@ -43,7 +42,6 @@ function App() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [monitoringError, setMonitoringError] = useState("");
   const [isAlignmentMode, setIsAlignmentMode] = useState(false);
-  const [alignmentSession, setAlignmentSession] = useState(null);
   const [activeTab, setActiveTab] = useState("routeros");
   const refreshInFlight = useRef(false);
   const connectionGeneration = useRef(0);
@@ -128,7 +126,9 @@ function App() {
     };
   }, [activeConnection, isAlignmentMode, isMonitoring, refreshDevice]);
 
-  const currentState = API_STATES[apiState];
+  const currentState = device?.demo_mode
+    ? { label: "Demonstração local", className: "status status--demo" }
+    : API_STATES[apiState];
 
   async function handleConnect(connection) {
     setIsLoading(true);
@@ -164,7 +164,6 @@ function App() {
     setLastUpdatedAt(null);
     setMonitoringError("");
     setIsAlignmentMode(false);
-    setAlignmentSession(null);
     setActiveTab("routeros");
     refreshInFlight.current = false;
   }
@@ -197,7 +196,6 @@ function App() {
     setIsMonitoring(false);
     setIsRefreshing(false);
     setIsAlignmentMode(false);
-    setAlignmentSession(null);
     setMonitoringError("");
   }
 
@@ -275,6 +273,13 @@ function App() {
           </div>
         )}
 
+        {device?.demo_mode && (
+          <aside className="demo-banner" role="status">
+            <strong>Modo demonstração</strong>
+            <span>Todos os dados são simulados. Nenhuma configuração será aplicada a um equipamento.</span>
+          </aside>
+        )}
+
         {device && (
           <nav className="workspace-tabs" aria-label="Áreas do equipamento" role="tablist">
             {WORKSPACE_TABS.map((tab) => (
@@ -345,14 +350,8 @@ function App() {
               isMonitoring={isMonitoring}
               lastUpdatedAt={lastUpdatedAt}
               onToggleAlignment={handleToggleAlignment}
-              onSessionUpdate={setAlignmentSession}
               peers={device.wifi_peers}
               registrationTableAvailable={device.registration_table_available}
-            />
-            <InstallationValidation
-              alignmentSession={alignmentSession}
-              connection={activeConnection}
-              device={device}
             />
             <PingTest connection={activeConnection} />
           </section>

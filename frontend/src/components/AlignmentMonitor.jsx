@@ -94,7 +94,6 @@ function AlignmentMonitor({
   isMonitoring,
   lastUpdatedAt,
   onToggleAlignment,
-  onSessionUpdate,
   peers,
   registrationTableAvailable,
 }) {
@@ -169,25 +168,6 @@ function AlignmentMonitor({
       return updated;
     });
   }, [isAlignmentMode, lastUpdatedAt, peers]);
-
-  useEffect(() => {
-    const primaryPeer = peers.find((peer) => peer.signal_dbm !== null);
-
-    if (!primaryPeer) {
-      return;
-    }
-
-    const index = peers.indexOf(primaryPeer);
-    const samples = histories[peerKey(primaryPeer, index)] || [];
-
-    onSessionUpdate({
-      duration_seconds: elapsedSeconds,
-      finished: !isAlignmentMode && samples.length > 0,
-      peer: peerName(primaryPeer),
-      samples: samples.length,
-      ...calculateStats(samples),
-    });
-  }, [elapsedSeconds, histories, isAlignmentMode, onSessionUpdate, peers]);
 
   useEffect(() => {
     if (!audioEnabled || !isAlignmentMode || !lastUpdatedAt) {
