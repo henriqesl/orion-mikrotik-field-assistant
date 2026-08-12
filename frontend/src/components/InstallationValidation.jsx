@@ -138,6 +138,7 @@ function InstallationValidation({ alignmentSession, connection, device }) {
         if (evaluation.status === "approved") evaluation.status = "attention";
       }
       setValidation({
+        alignmentSession: alignmentSession ? { ...alignmentSession } : null,
         connectivity,
         evaluatedAt: new Date(),
         evaluation,
@@ -267,13 +268,17 @@ function InstallationValidation({ alignmentSession, connection, device }) {
             </div>
             <div>
               <span>Sessão de alinhamento</span>
-              <strong>{alignmentSession ? formatSessionDuration(alignmentSession.duration_seconds) : "Não registrada"}</strong>
+              <strong>
+                {validation.alignmentSession
+                  ? `${formatSessionDuration(validation.alignmentSession.duration_seconds)} · ${validation.alignmentSession.samples} leituras`
+                  : "Não registrada"}
+              </strong>
             </div>
             <div>
               <span>Sinal da sessão</span>
               <strong>
-                {alignmentSession?.samples
-                  ? `${alignmentSession.best} / ${alignmentSession.average} / ${alignmentSession.worst} dBm`
+                {validation.alignmentSession?.samples
+                  ? `${validation.alignmentSession.best} / ${validation.alignmentSession.average} / ${validation.alignmentSession.worst} dBm`
                   : "Não registrado"}
               </strong>
             </div>
