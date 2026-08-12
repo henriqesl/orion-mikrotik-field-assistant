@@ -77,7 +77,21 @@ function probeValue(probe) {
   return `${probe.packet_loss_percent}% perda · ${latency}`;
 }
 
-function InstallationValidation({ connection, device }) {
+const DELIVERY_CHECKS = [
+  ["cabling", "Cabos e conectores conferidos"],
+  ["mounting", "Fixação e alinhamento concluídos"],
+  ["sealing", "Vedação e aterramento conferidos"],
+  ["identification", "Equipamentos identificados como AP e Station"],
+];
+
+function formatSessionDuration(totalSeconds) {
+  if (totalSeconds === null || totalSeconds === undefined) return "Não registrado";
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function InstallationValidation({ alignmentSession, connection, device }) {
   const [form, setForm] = useState({
     customer: "",
     location: "",
@@ -86,6 +100,9 @@ function InstallationValidation({ connection, device }) {
     technician: "",
   });
   const [validation, setValidation] = useState(null);
+  const [deliveryChecks, setDeliveryChecks] = useState(
+    Object.fromEntries(DELIVERY_CHECKS.map(([key]) => [key, false])),
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -98,6 +115,12 @@ function InstallationValidation({ connection, device }) {
     setValidation(null);
   }
 
+  function updateDeliveryCheck(event) {
+    const { checked, name } = event.target;
+    setDeliveryChecks((current) => ({ ...current, [name]: checked }));
+    setValidation(null);
+  }
+
   async function handleValidation(event) {
     event.preventDefault();
     setIsLoading(true);
@@ -105,10 +128,19 @@ function InstallationValidation({ connection, device }) {
 
     try {
       const connectivity = await validateConnectivity(connection, form.remoteTarget);
+      const evaluation = evaluateInstallation(device, connectivity, form.requireInternet);
+      const pendingChecks = DELIVERY_CHECKS.filter(([key]) => !deliveryChecks[key]);
+
+      if (pendingChecks.length > 0) {
+        evaluation.warnings.push(
+          `${pendingChecks.length} item(ns) do checklist físico ainda não foram confirmados.`,
+        );
+        if (evaluation.status === "approved") evaluation.status = "attention";
+      }
       setValidation({
         connectivity,
         evaluatedAt: new Date(),
-        evaluation: evaluateInstallation(device, connectivity, form.requireInternet),
+        evaluation,
       });
     } catch (error) {
       setErrorMessage(error.message);
@@ -171,6 +203,21 @@ function InstallationValidation({ connection, device }) {
           </span>
         </label>
 
+        <fieldset className="delivery-checklist">
+          <legend>Checklist físico</legend>
+          {DELIVERY_CHECKS.map(([key, label]) => (
+            <label key={key}>
+              <input
+                checked={deliveryChecks[key]}
+                name={key}
+                onChange={updateDeliveryCheck}
+                type="checkbox"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </fieldset>
+
         <button className="primary-button" disabled={isLoading} type="submit">
           {isLoading ? "Executando validação…" : "Validar instalação"}
         </button>
@@ -218,6 +265,27 @@ function InstallationValidation({ connection, device }) {
               <span>Internet</span>
               <strong>{probeValue(validation.connectivity.internet)}</strong>
             </div>
+            <div>
+              <span>Sessão de alinhamento</span>
+              <strong>{alignmentSession ? formatSessionDuration(alignmentSession.duration_seconds) : "Não registrada"}</strong>
+            </div>
+            <div>
+              <span>Sinal da sessão</span>
+              <strong>
+                {alignmentSession?.samples
+                  ? `${alignmentSession.best} / ${alignmentSession.average} / ${alignmentSession.worst} dBm`
+                  : "Não registrado"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="report-delivery-checklist">
+            {DELIVERY_CHECKS.map(([key, label]) => (
+              <div key={key}>
+                <span>{deliveryChecks[key] ? "✓" : "—"}</span>
+                <strong>{label}</strong>
+              </div>
+            ))}
           </div>
 
           {(validation.evaluation.failures.length > 0 || validation.evaluation.warnings.length > 0) && (

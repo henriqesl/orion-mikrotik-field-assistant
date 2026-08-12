@@ -1526,6 +1526,39 @@ h2 {
   font-size: 0.7rem;
 }
 
+.delivery-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.7rem;
+  background: rgb(9 20 34 / 55%);
+}
+
+.delivery-checklist legend {
+  padding: 0 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.delivery-checklist label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.74rem;
+}
+
+.delivery-checklist input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+}
+
 .installation-report {
   overflow: hidden;
   margin-top: 1.5rem;
@@ -1614,6 +1647,38 @@ h2 {
   display: grid;
   gap: 0.55rem;
   padding: 1rem 1.25rem;
+}
+
+.report-delivery-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.report-delivery-checklist > div {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.report-delivery-checklist span {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.3rem;
+  color: var(--color-success);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.report-delivery-checklist strong {
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
 }
 
 .report-finding {
@@ -2144,8 +2209,10 @@ h2 {
   }
 
   .installation-form__metadata,
+  .delivery-checklist,
   .report-identification,
-  .report-checks {
+  .report-checks,
+  .report-delivery-checklist {
     grid-template-columns: 1fr;
   }
 

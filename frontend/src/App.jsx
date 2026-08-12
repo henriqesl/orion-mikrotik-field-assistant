@@ -43,6 +43,7 @@ function App() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [monitoringError, setMonitoringError] = useState("");
   const [isAlignmentMode, setIsAlignmentMode] = useState(false);
+  const [alignmentSession, setAlignmentSession] = useState(null);
   const [activeTab, setActiveTab] = useState("routeros");
   const refreshInFlight = useRef(false);
   const connectionGeneration = useRef(0);
@@ -163,6 +164,7 @@ function App() {
     setLastUpdatedAt(null);
     setMonitoringError("");
     setIsAlignmentMode(false);
+    setAlignmentSession(null);
     setActiveTab("routeros");
     refreshInFlight.current = false;
   }
@@ -195,6 +197,7 @@ function App() {
     setIsMonitoring(false);
     setIsRefreshing(false);
     setIsAlignmentMode(false);
+    setAlignmentSession(null);
     setMonitoringError("");
   }
 
@@ -342,10 +345,15 @@ function App() {
               isMonitoring={isMonitoring}
               lastUpdatedAt={lastUpdatedAt}
               onToggleAlignment={handleToggleAlignment}
+              onSessionUpdate={setAlignmentSession}
               peers={device.wifi_peers}
               registrationTableAvailable={device.registration_table_available}
             />
-            <InstallationValidation connection={activeConnection} device={device} />
+            <InstallationValidation
+              alignmentSession={alignmentSession}
+              connection={activeConnection}
+              device={device}
+            />
             <PingTest connection={activeConnection} />
           </section>
         )}
