@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from ipaddress import IPv4Address, IPv4Interface
 from typing import Any
 
 from app.models.configuration import (
@@ -60,6 +61,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     dhcp_rows = _rows(client.run("/ip/dhcp-client/print"))
     dns = _first_row(client.run("/ip/dns/print"))
     nat_rows = _rows(client.run("/ip/firewall/nat/print"))
+    dhcp_server_rows = _rows(client.run("/ip/dhcp-server/print"))
     _validate_interfaces(ethernet_rows, configuration)
 
     bridge = _find_row(bridge_rows, "name", configuration.lan_bridge)
@@ -107,6 +109,15 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         and not _optional_bool(row.get("disabled"))
     )
     managed_nat = _find_row(nat_rows, "comment", "ORION Field - NAT")
+    lan_dhcp = next(
+        (
+            row
+            for row in dhcp_server_rows
+            if row.get("interface") == configuration.lan_bridge
+            and not _optional_bool(row.get("disabled"))
+        ),
+        None,
+    )
 
     desired_wan = (
         "DHCP Client"
@@ -146,6 +157,12 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             "NAT",
             "Ativo" if managed_nat and not _optional_bool(managed_nat.get("disabled")) else "Não gerenciado",
             "Ativar masquerade" if configuration.enable_nat else "Não configurar",
+        ),
+        (
+            "LAN",
+            "DHCP Server",
+            "Ativo" if lan_dhcp else "Inativo",
+            "Ativar automaticamente" if configuration.enable_lan_dhcp else "Não configurar",
         ),
     ]
     changes = [
@@ -356,6 +373,97 @@ def _configure_nat(
         )
 
 
+def _dhcp_pool_range(lan_address: IPv4Interface) -> str:
+    network = lan_address.network
+    first = int(network.network_address) + 1
+    last = int(network.broadcast_address) - 1
+    gateway = int(lan_address.ip)
+    segments = [
+        (first, gateway - 1),
+        (gateway + 1, last),
+    ]
+    usable = [(start, end) for start, end in segments if start <= end]
+    if not usable:
+        raise ConfigurationConflictError(
+            "A rede LAN não possui endereços livres para o DHCP Server."
+        )
+    start, end = max(usable, key=lambda segment: segment[1] - segment[0])
+    if end - start + 1 >= 199:
+        start += 98
+    end = min(end, start + 99)
+    return f"{IPv4Address(start)}-{IPv4Address(end)}"
+
+
+def _configure_lan_dhcp(
+    client: Any,
+    context: dict[str, list[dict]],
+    configuration: BasicNetworkConfiguration,
+) -> None:
+    pool = _find_row(context["dhcp_pools"], "name", "orion-lan-pool")
+    server = _find_row(context["dhcp_servers"], "name", "orion-lan-dhcp")
+    network_row = _find_row(
+        context["dhcp_networks"],
+        "comment",
+        "ORION Field - LAN",
+    )
+    if not configuration.enable_lan_dhcp:
+        if server and not _optional_bool(server.get("disabled")):
+            client.run(
+                "/ip/dhcp-server/set",
+                f"=.id={_record_id(server, 'DHCP Server da LAN')}",
+                "=disabled=yes",
+            )
+        return
+
+    pool_range = _dhcp_pool_range(configuration.lan_address)
+    if pool:
+        client.run(
+            "/ip/pool/set",
+            f"=.id={_record_id(pool, 'pool DHCP da LAN')}",
+            f"=ranges={pool_range}",
+        )
+    else:
+        client.run(
+            "/ip/pool/add",
+            "=name=orion-lan-pool",
+            f"=ranges={pool_range}",
+        )
+
+    if server:
+        client.run(
+            "/ip/dhcp-server/set",
+            f"=.id={_record_id(server, 'DHCP Server da LAN')}",
+            f"=interface={configuration.lan_bridge}",
+            "=address-pool=orion-lan-pool",
+            "=disabled=no",
+        )
+    else:
+        client.run(
+            "/ip/dhcp-server/add",
+            "=name=orion-lan-dhcp",
+            f"=interface={configuration.lan_bridge}",
+            "=address-pool=orion-lan-pool",
+            "=disabled=no",
+        )
+
+    network = str(configuration.lan_address.network)
+    dns_servers = ",".join(str(server) for server in configuration.dns_servers)
+    words = (
+        f"=address={network}",
+        f"=gateway={configuration.lan_address.ip}",
+        f"=dns-server={dns_servers}",
+        "=comment=ORION Field - LAN",
+    )
+    if network_row:
+        client.run(
+            "/ip/dhcp-server/network/set",
+            f"=.id={_record_id(network_row, 'rede DHCP da LAN')}",
+            *words,
+        )
+    else:
+        client.run("/ip/dhcp-server/network/add", *words)
+
+
 def apply_basic_network(
     request: BasicNetworkApplyRequest,
 ) -> BasicNetworkApplyResult:
@@ -373,6 +481,9 @@ def apply_basic_network(
             "routes": _rows(client.run("/ip/route/print")),
             "dhcp_clients": _rows(client.run("/ip/dhcp-client/print")),
             "nat": _rows(client.run("/ip/firewall/nat/print")),
+            "dhcp_pools": _rows(client.run("/ip/pool/print")),
+            "dhcp_servers": _rows(client.run("/ip/dhcp-server/print")),
+            "dhcp_networks": _rows(client.run("/ip/dhcp-server/network/print")),
         }
         backup_name = f"orion-before-network-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
@@ -396,6 +507,7 @@ def apply_basic_network(
         else:
             _configure_static_wan(client, context, configuration)
         _configure_nat(client, context["nat"], configuration)
+        _configure_lan_dhcp(client, context, configuration)
 
         # Ports are moved last because changing the ingress interface can end
         # the current API session. The LAN address already exists at this point.

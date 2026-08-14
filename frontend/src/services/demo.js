@@ -142,6 +142,7 @@ export function demoBasicNetworkPreview(configuration) {
       { area: "LAN", field: "Portas", current_value: "ether1", new_value: configuration.lan_ports.join(", ") },
       { area: "DNS", field: "Servidores", current_value: "Não configurado", new_value: configuration.dns_servers.join(", ") },
       { area: "Internet", field: "NAT", current_value: "Não gerenciado", new_value: configuration.enable_nat ? "Ativar masquerade" : "Não configurar" },
+      { area: "LAN", field: "DHCP Server", current_value: "Inativo", new_value: configuration.enable_lan_dhcp ? "Ativar automaticamente" : "Não configurar" },
     ],
     warnings: ["Demonstração: esta prévia não altera nenhum equipamento."],
   };

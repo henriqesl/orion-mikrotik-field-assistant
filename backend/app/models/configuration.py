@@ -80,6 +80,7 @@ class BasicNetworkConfiguration(BaseModel):
     lan_ports: list[str] = Field(min_length=1)
     dns_servers: list[IPv4Address] = Field(min_length=1, max_length=3)
     enable_nat: bool = True
+    enable_lan_dhcp: bool = True
 
     @model_validator(mode="after")
     def validate_basic_network(self):

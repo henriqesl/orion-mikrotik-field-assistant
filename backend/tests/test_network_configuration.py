@@ -22,6 +22,7 @@ def configuration(**updates) -> BasicNetworkConfiguration:
         "lan_ports": ["ether2", "ether3"],
         "dns_servers": ["1.1.1.1", "8.8.8.8"],
         "enable_nat": True,
+        "enable_lan_dhcp": True,
     }
     values.update(updates)
     return BasicNetworkConfiguration(**values)
@@ -43,6 +44,9 @@ class NetworkClient:
             "/ip/dhcp-client/print": [],
             "/ip/dns/print": [{"servers": "9.9.9.9"}],
             "/ip/firewall/nat/print": [],
+            "/ip/pool/print": [],
+            "/ip/dhcp-server/print": [],
+            "/ip/dhcp-server/network/print": [],
         }.get(words[0], [])
         return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
 
@@ -150,6 +154,11 @@ def test_apply_creates_backup_and_moves_lan_ports_last(monkeypatch) -> None:
     assert mutations[-1][0] == "/interface/bridge/port/add"
     assert any(command[0] == "/ip/dhcp-client/add" for command in mutations)
     assert any(command[0] == "/ip/firewall/nat/add" for command in mutations)
+    assert any(
+        command[0] == "/ip/pool/add" and "=ranges=192.168.50.100-192.168.50.199" in command
+        for command in mutations
+    )
+    assert any(command[0] == "/ip/dhcp-server/add" for command in mutations)
     assert not any(command[0].endswith("/remove") for command in commands)
     assert result.backup_file.endswith(".backup")
     assert str(result.reconnect_ip) == "192.168.50.1"
@@ -185,4 +194,13 @@ def test_apply_static_wan_adds_address_and_gateway(monkeypatch) -> None:
     assert any(
         command[0] == "/ip/route/add" and "=gateway=172.16.0.1" in command
         for command in commands
+    )
+
+
+def test_small_lan_pool_avoids_router_address() -> None:
+    assert (
+        service._dhcp_pool_range(
+            configuration(lan_address="192.168.50.1/29").lan_address
+        )
+        == "192.168.50.2-192.168.50.6"
     )

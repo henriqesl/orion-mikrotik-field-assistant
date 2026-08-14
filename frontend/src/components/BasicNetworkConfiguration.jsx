@@ -18,6 +18,7 @@ function initialForm(device) {
     lan_ports: lanPorts,
     dns_servers: "1.1.1.1, 8.8.8.8",
     enable_nat: true,
+    enable_lan_dhcp: true,
   };
 }
 
@@ -194,6 +195,10 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         <label className="check-field network-nat-option">
           <input checked={form.enable_nat} name="enable_nat" onChange={updateField} type="checkbox" />
           <span>Compartilhar a internet com a LAN (NAT)</span>
+        </label>
+        <label className="check-field network-nat-option">
+          <input checked={form.enable_lan_dhcp} name="enable_lan_dhcp" onChange={updateField} type="checkbox" />
+          <span>Entregar IP automaticamente nas portas LAN (DHCP)</span>
         </label>
 
         {form.lan_ports.length === 0 && (

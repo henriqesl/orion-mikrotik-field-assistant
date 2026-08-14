@@ -11,6 +11,7 @@ A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil dispo
 - WAN por DHCP Client ou IP fixo;
 - bridge e endereço da LAN;
 - seleção de portas LAN;
+- DHCP Server automático para os dispositivos da LAN;
 - servidores DNS;
 - NAT opcional;
 - pré-visualização e confirmação explícita;
