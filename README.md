@@ -4,7 +4,7 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
-## ORION Field V4 — em desenvolvimento
+## ORION Field V4
 
 A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil disponível é **Rede básica**, com:
 
@@ -22,6 +22,17 @@ A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil dispo
 - preservação das regras preexistentes.
 
 As portas LAN são alteradas por último, depois que o novo endereço de acesso já foi criado. A sessão atual ainda pode cair, e o técnico deverá reconectar pelo IP configurado para a LAN.
+
+### Configurar uma rede básica
+
+1. Conecte ao MikroTik e abra **Rede básica**.
+2. Escolha **Roteador padrão** ou **WAN com IP fixo**.
+3. Confirme a interface WAN, as portas LAN e o endereço da LAN.
+4. Clique em **Revisar configuração** e confira a prévia e os alertas.
+5. Digite `APLICAR`. O ORION cria um backup e envia a configuração.
+6. Conecte o computador a uma porta LAN e aguarde a validação do novo acesso.
+
+O endereço `192.168.50.1/24` é apenas uma sugestão do perfil. Ele pode ser substituído por qualquer rede válida adequada à instalação.
 
 ## ORION Field V3
 
@@ -48,7 +59,7 @@ Não existe banco de dados. As credenciais e a senha do enlace permanecem soment
 - `routeros-py` para a API binária do RouterOS;
 - pytest para os testes do backend.
 
-C++ não faz parte da V3. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+C++ não faz parte da V4. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
 
 ## Executar localmente
 
