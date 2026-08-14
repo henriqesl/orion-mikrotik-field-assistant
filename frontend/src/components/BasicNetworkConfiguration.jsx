@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { previewBasicNetwork } from "../services/api.js";
+import { applyBasicNetwork, previewBasicNetwork } from "../services/api.js";
 
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
@@ -21,12 +21,15 @@ function initialForm(device) {
   };
 }
 
-function BasicNetworkConfiguration({ connection, device }) {
+function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart }) {
   const defaults = useMemo(() => initialForm(device), [device]);
   const [form, setForm] = useState(defaults);
   const [preview, setPreview] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [result, setResult] = useState(null);
   const availableLanPorts = device.ethernet_interfaces.filter(
     (item) => !item.disabled && item.name !== form.wan_interface,
   );
@@ -44,6 +47,8 @@ function BasicNetworkConfiguration({ connection, device }) {
         : {}),
     }));
     setPreview(null);
+    setResult(null);
+    setConfirmation("");
   }
 
   function toggleLanPort(event) {
@@ -55,6 +60,8 @@ function BasicNetworkConfiguration({ connection, device }) {
         : current.lan_ports.filter((item) => item !== value),
     }));
     setPreview(null);
+    setResult(null);
+    setConfirmation("");
   }
 
   function payload() {
@@ -73,12 +80,32 @@ function BasicNetworkConfiguration({ connection, device }) {
     event.preventDefault();
     setIsPreviewing(true);
     setErrorMessage("");
+    setResult(null);
     try {
       setPreview(await previewBasicNetwork(connection, payload()));
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
       setIsPreviewing(false);
+    }
+  }
+
+  async function handleApply() {
+    setIsApplying(true);
+    setErrorMessage("");
+    onApplyStart();
+    try {
+      const applyResult = await applyBasicNetwork(connection, payload());
+      setResult(applyResult);
+      setPreview(null);
+      setConfirmation("");
+      await onApplied(applyResult);
+    } catch (error) {
+      setErrorMessage(
+        `${error.message} Se a conexão caiu, conecte o computador a uma porta LAN e tente o novo IP.`,
+      );
+    } finally {
+      setIsApplying(false);
     }
   }
 
@@ -89,11 +116,13 @@ function BasicNetworkConfiguration({ connection, device }) {
           <p className="card-kicker">ORION Field V4</p>
           <h2 id="network-configuration-title">Rede básica</h2>
         </div>
-        <span className="preview-badge">Somente prévia</span>
+        <span className={device.demo_mode ? "preview-badge" : "write-badge"}>
+          {device.demo_mode ? "Simulação" : "Altera o equipamento"}
+        </span>
       </div>
 
       <form className="configuration-form" onSubmit={handlePreview}>
-        <fieldset disabled={isPreviewing}>
+        <fieldset disabled={isPreviewing || isApplying}>
           <legend>Como a internet chega ao MikroTik?</legend>
           <div className="role-selector">
             <label className={form.wan_mode === "dhcp" ? "role-option role-option--selected" : "role-option"}>
@@ -150,7 +179,7 @@ function BasicNetworkConfiguration({ connection, device }) {
           </label>
         </div>
 
-        <fieldset className="network-options" disabled={isPreviewing}>
+        <fieldset className="network-options" disabled={isPreviewing || isApplying}>
           <legend>Portas da rede LAN</legend>
           <div className="port-selector">
             {availableLanPorts.map((item) => (
@@ -170,7 +199,7 @@ function BasicNetworkConfiguration({ connection, device }) {
         {form.lan_ports.length === 0 && (
           <div className="inline-error" role="alert">Selecione pelo menos uma porta LAN.</div>
         )}
-        <button className="primary-button" disabled={isPreviewing || form.lan_ports.length === 0} type="submit">
+        <button className="primary-button" disabled={isPreviewing || isApplying || form.lan_ports.length === 0} type="submit">
           {isPreviewing ? "Analisando…" : "Revisar configuração"}
         </button>
       </form>
@@ -192,7 +221,32 @@ function BasicNetworkConfiguration({ connection, device }) {
           <ul className="configuration-warnings">
             {preview.warnings.map((warning) => <li key={warning}>{warning}</li>)}
           </ul>
+          {device.demo_mode ? (
+            <p className="demo-preview-note">Esta é apenas uma prévia. O modo demonstração não grava configurações.</p>
+          ) : (
+            <>
+              <label className="confirmation-field">
+                <span>Digite <strong>APLICAR</strong> para confirmar</span>
+                <input onChange={(event) => setConfirmation(event.target.value)} value={confirmation} />
+              </label>
+              <button
+                className="danger-button"
+                disabled={confirmation !== "APLICAR" || isApplying}
+                onClick={handleApply}
+                type="button"
+              >
+                {isApplying ? "Criando backup e aplicando…" : "Criar backup e aplicar"}
+              </button>
+            </>
+          )}
         </section>
+      )}
+      {result && (
+        <div className="configuration-success" role="status">
+          <strong>Rede básica enviada</strong>
+          <span>{result.summary}</span>
+          <small>Backup: {result.backup_file} · novo IP: {result.reconnect_ip}</small>
+        </div>
       )}
     </section>
   );

@@ -77,3 +77,14 @@ export function previewBasicNetwork(connection, configuration) {
     configuration,
   });
 }
+
+export function applyBasicNetwork(connection, configuration) {
+  if (isDemoConnection(connection)) {
+    return Promise.reject(new Error("O modo demonstração não aplica configurações."));
+  }
+  return postJson("/api/mikrotik/network/apply", {
+    connection,
+    configuration,
+    confirmation: "APLICAR",
+  });
+}

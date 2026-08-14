@@ -370,6 +370,8 @@ function App() {
             <BasicNetworkConfiguration
               connection={activeConnection}
               device={device}
+              onApplyStart={handleConfigurationApplyStart}
+              onApplied={handleConfigurationApplied}
             />
           </section>
         )}

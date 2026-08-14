@@ -122,8 +122,20 @@ class BasicNetworkPreviewRequest(BaseModel):
     configuration: BasicNetworkConfiguration
 
 
+class BasicNetworkApplyRequest(BasicNetworkPreviewRequest):
+    confirmation: Literal["APLICAR"]
+
+
 class BasicNetworkPreview(BaseModel):
     device_identity: str
     changes: list[ConfigurationChange]
     warnings: list[str]
     reconnect_ip: IPv4Address
+
+
+class BasicNetworkApplyResult(BaseModel):
+    status: Literal["applied"]
+    backup_file: str
+    reconnect_ip: IPv4Address
+    changes_applied: int
+    summary: str

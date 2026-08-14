@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.configuration import (
+    BasicNetworkApplyRequest,
     BasicNetworkConfiguration,
     BasicNetworkPreviewRequest,
 )
@@ -54,6 +55,15 @@ def request(settings: BasicNetworkConfiguration) -> BasicNetworkPreviewRequest:
             password="field-secret",
         ),
         configuration=settings,
+    )
+
+
+def apply_request(settings: BasicNetworkConfiguration) -> BasicNetworkApplyRequest:
+    preview_request = request(settings)
+    return BasicNetworkApplyRequest(
+        connection=preview_request.connection,
+        configuration=settings,
+        confirmation="APLICAR",
     )
 
 
@@ -111,3 +121,68 @@ def test_preview_rejects_missing_interface(monkeypatch) -> None:
         service.preview_basic_network(
             request(configuration(lan_ports=["ether9"]))
         )
+
+
+def test_apply_creates_backup_and_moves_lan_ports_last(monkeypatch) -> None:
+    client = NetworkClient()
+    commands = []
+    original_run = client.run
+
+    def tracked_run(*words):
+        commands.append(words)
+        return original_run(*words)
+
+    client.run = tracked_run
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(client),
+    )
+
+    result = service.apply_basic_network(apply_request(configuration()))
+
+    mutations = [
+        command
+        for command in commands
+        if command[0].endswith(("/set", "/add", "/save"))
+    ]
+    assert mutations[0][0] == "/system/backup/save"
+    assert mutations[-1][0] == "/interface/bridge/port/add"
+    assert any(command[0] == "/ip/dhcp-client/add" for command in mutations)
+    assert any(command[0] == "/ip/firewall/nat/add" for command in mutations)
+    assert not any(command[0].endswith("/remove") for command in commands)
+    assert result.backup_file.endswith(".backup")
+    assert str(result.reconnect_ip) == "192.168.50.1"
+
+
+def test_apply_static_wan_adds_address_and_gateway(monkeypatch) -> None:
+    client = NetworkClient()
+    commands = []
+    original_run = client.run
+
+    def tracked_run(*words):
+        commands.append(words)
+        return original_run(*words)
+
+    client.run = tracked_run
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(client),
+    )
+    settings = configuration(
+        wan_mode="static",
+        wan_address="172.16.0.2/24",
+        gateway="172.16.0.1",
+    )
+
+    service.apply_basic_network(apply_request(settings))
+
+    assert any(
+        command[0] == "/ip/address/add" and "=comment=ORION Field - WAN" in command
+        for command in commands
+    )
+    assert any(
+        command[0] == "/ip/route/add" and "=gateway=172.16.0.1" in command
+        for command in commands
+    )

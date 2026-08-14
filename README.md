@@ -4,6 +4,21 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
+## ORION Field V4 — em desenvolvimento
+
+A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil disponível é **Rede básica**, com:
+
+- WAN por DHCP Client ou IP fixo;
+- bridge e endereço da LAN;
+- seleção de portas LAN;
+- servidores DNS;
+- NAT opcional;
+- pré-visualização e confirmação explícita;
+- backup automático antes da aplicação;
+- preservação das regras preexistentes.
+
+As portas LAN são alteradas por último, depois que o novo endereço de acesso já foi criado. A sessão atual ainda pode cair, e o técnico deverá reconectar pelo IP configurado para a LAN.
+
 ## ORION Field V3
 
 A V3 conecta diretamente à API do RouterOS e oferece:
