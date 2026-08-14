@@ -6,7 +6,7 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 ## ORION Field V4
 
-A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil disponível é **Rede básica**, com:
+A V4 amplia o ORION para configurações gerais na tela **Rede básica**, com:
 
 - WAN por DHCP Client ou IP fixo;
 - bridge e endereço da LAN;
@@ -14,8 +14,7 @@ A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil dispo
 - DHCP Server automático para os dispositivos da LAN;
 - servidores DNS;
 - NAT opcional;
-- perfis rápidos para WAN automática ou IP fixo;
-- proteção opcional contra Telnet, FTP e WebFig sem HTTPS;
+- controle individual de Telnet, FTP e WebFig sem HTTPS;
 - bloqueio preventivo de interfaces desativadas e conflitos de nomes;
 - pré-visualização e confirmação explícita;
 - backup automático antes da aplicação;
@@ -26,7 +25,7 @@ As portas LAN são alteradas por último, depois que o novo endereço de acesso 
 ### Configurar uma rede básica
 
 1. Conecte ao MikroTik e abra **Rede básica**.
-2. Escolha **Roteador padrão** ou **WAN com IP fixo**.
+2. Escolha se a WAN receberá o endereço por DHCP ou usará IP fixo.
 3. Confirme a interface WAN, as portas LAN e o endereço da LAN.
 4. Clique em **Revisar configuração** e confira a prévia e os alertas.
 5. Digite `APLICAR`. O ORION cria um backup e envia a configuração.

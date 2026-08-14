@@ -23,7 +23,9 @@ def configuration(**updates) -> BasicNetworkConfiguration:
         "dns_servers": ["1.1.1.1", "8.8.8.8"],
         "enable_nat": True,
         "enable_lan_dhcp": True,
-        "disable_legacy_services": True,
+        "enable_telnet": False,
+        "enable_ftp": False,
+        "enable_webfig_http": False,
     }
     values.update(updates)
     return BasicNetworkConfiguration(**values)
@@ -100,7 +102,7 @@ def test_preview_basic_network_without_mutating_router(monkeypatch) -> None:
     assert str(result.reconnect_ip) == "192.168.50.1"
     assert any(change.field == "Endereçamento" for change in result.changes)
     assert any(change.field == "NAT" for change in result.changes)
-    assert any(change.field == "Serviços legados" for change in result.changes)
+    assert any(change.field == "Telnet" for change in result.changes)
     assert all(command[0].endswith("/print") for command in commands)
 
 
@@ -280,7 +282,7 @@ def test_small_lan_pool_avoids_router_address() -> None:
     )
 
 
-def test_apply_can_preserve_legacy_services(monkeypatch) -> None:
+def test_apply_can_enable_selected_access_service(monkeypatch) -> None:
     client = NetworkClient()
     commands = []
     original_run = client.run
@@ -296,8 +298,11 @@ def test_apply_can_preserve_legacy_services(monkeypatch) -> None:
         lambda _connection, callback: callback(client),
     )
 
-    service.apply_basic_network(
-        apply_request(configuration(disable_legacy_services=False))
-    )
+    service.apply_basic_network(apply_request(configuration(enable_ftp=True)))
 
-    assert not any(command[0] == "/ip/service/set" for command in commands)
+    assert any(
+        command[0] == "/ip/service/set"
+        and "=.id=*2" in command
+        and "=disabled=no" in command
+        for command in commands
+    )

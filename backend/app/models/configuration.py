@@ -81,7 +81,9 @@ class BasicNetworkConfiguration(BaseModel):
     dns_servers: list[IPv4Address] = Field(min_length=1, max_length=3)
     enable_nat: bool = True
     enable_lan_dhcp: bool = True
-    disable_legacy_services: bool = True
+    enable_telnet: bool = False
+    enable_ftp: bool = False
+    enable_webfig_http: bool = False
 
     @model_validator(mode="after")
     def validate_basic_network(self):

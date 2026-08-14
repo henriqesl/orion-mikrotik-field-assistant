@@ -143,7 +143,9 @@ export function demoBasicNetworkPreview(configuration) {
       { area: "DNS", field: "Servidores", current_value: "Não configurado", new_value: configuration.dns_servers.join(", ") },
       { area: "Internet", field: "NAT", current_value: "Não gerenciado", new_value: configuration.enable_nat ? "Ativar masquerade" : "Não configurar" },
       { area: "LAN", field: "DHCP Server", current_value: "Inativo", new_value: configuration.enable_lan_dhcp ? "Ativar automaticamente" : "Não configurar" },
-      { area: "Segurança", field: "Serviços legados", current_value: "telnet, ftp, www", new_value: configuration.disable_legacy_services ? "Desativados" : "telnet, ftp, www" },
+      { area: "Serviços", field: "Telnet", current_value: "Ativo", new_value: configuration.enable_telnet ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "FTP", current_value: "Desativado", new_value: configuration.enable_ftp ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "WebFig HTTP", current_value: "Ativo", new_value: configuration.enable_webfig_http ? "Ativo" : "Desativado" },
     ],
     warnings: ["Demonstração: esta prévia não altera nenhum equipamento."],
   };

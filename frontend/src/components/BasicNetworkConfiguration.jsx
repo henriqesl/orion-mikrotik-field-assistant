@@ -6,43 +6,6 @@ import {
   validateConnectivity,
 } from "../services/api.js";
 
-const NETWORK_PROFILES = [
-  {
-    id: "router-dhcp",
-    mark: "DH",
-    title: "Roteador padrão",
-    description: "Internet automática, NAT e DHCP na LAN",
-    values: {
-      wan_mode: "dhcp",
-      wan_address: "",
-      gateway: "",
-      lan_bridge: "bridge-lan",
-      lan_address: "192.168.50.1/24",
-      dns_servers: "1.1.1.1, 8.8.8.8",
-      enable_nat: true,
-      enable_lan_dhcp: true,
-      disable_legacy_services: true,
-    },
-  },
-  {
-    id: "router-static",
-    mark: "IP",
-    title: "WAN com IP fixo",
-    description: "Endereço do provedor definido manualmente",
-    values: {
-      wan_mode: "static",
-      wan_address: "",
-      gateway: "",
-      lan_bridge: "bridge-lan",
-      lan_address: "192.168.50.1/24",
-      dns_servers: "1.1.1.1, 8.8.8.8",
-      enable_nat: true,
-      enable_lan_dhcp: true,
-      disable_legacy_services: true,
-    },
-  },
-];
-
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
   const wan = interfaces[0]?.name || "";
@@ -60,14 +23,15 @@ function initialForm(device) {
     dns_servers: "1.1.1.1, 8.8.8.8",
     enable_nat: true,
     enable_lan_dhcp: true,
-    disable_legacy_services: true,
+    enable_telnet: false,
+    enable_ftp: false,
+    enable_webfig_http: false,
   };
 }
 
 function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart }) {
   const defaults = useMemo(() => initialForm(device), [device]);
   const [form, setForm] = useState(defaults);
-  const [activeProfile, setActiveProfile] = useState("router-dhcp");
   const [preview, setPreview] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -91,7 +55,6 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         ? { wan_address: "", gateway: "" }
         : {}),
     }));
-    setActiveProfile("custom");
     setPreview(null);
     setResult(null);
     setConfirmation("");
@@ -106,21 +69,10 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         ? [...current.lan_ports, value]
         : current.lan_ports.filter((item) => item !== value),
     }));
-    setActiveProfile("custom");
     setPreview(null);
     setResult(null);
     setConfirmation("");
     setPostApply(null);
-  }
-
-  function applyProfile(profile) {
-    setForm((current) => ({ ...current, ...profile.values }));
-    setActiveProfile(profile.id);
-    setPreview(null);
-    setResult(null);
-    setConfirmation("");
-    setPostApply(null);
-    setErrorMessage("");
   }
 
   function payload() {
@@ -201,30 +153,6 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
 
       <form className="configuration-form" onSubmit={handlePreview}>
         <fieldset disabled={isPreviewing || isApplying}>
-          <legend>Escolha um ponto de partida</legend>
-          <div className="network-profile-selector">
-            {NETWORK_PROFILES.map((profile) => (
-              <button
-                className={activeProfile === profile.id ? "network-profile network-profile--selected" : "network-profile"}
-                key={profile.id}
-                onClick={() => applyProfile(profile)}
-                type="button"
-              >
-                <span className="network-profile__mark">{profile.mark}</span>
-                <span>
-                  <strong>{profile.title}</strong>
-                  <small>{profile.description}</small>
-                </span>
-                <b aria-hidden="true">✓</b>
-              </button>
-            ))}
-          </div>
-          {activeProfile === "custom" && (
-            <p className="network-profile-custom">Configuração personalizada</p>
-          )}
-        </fieldset>
-
-        <fieldset disabled={isPreviewing || isApplying}>
           <legend>Como a internet chega ao MikroTik?</legend>
           <div className="role-selector">
             <label className={form.wan_mode === "dhcp" ? "role-option role-option--selected" : "role-option"}>
@@ -293,18 +221,42 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
           </div>
         </fieldset>
 
-        <label className="check-field network-nat-option">
-          <input checked={form.enable_nat} name="enable_nat" onChange={updateField} type="checkbox" />
-          <span>Compartilhar a internet com a LAN (NAT)</span>
-        </label>
-        <label className="check-field network-nat-option">
-          <input checked={form.enable_lan_dhcp} name="enable_lan_dhcp" onChange={updateField} type="checkbox" />
-          <span>Entregar IP automaticamente nas portas LAN (DHCP)</span>
-        </label>
-        <label className="check-field network-nat-option">
-          <input checked={form.disable_legacy_services} name="disable_legacy_services" onChange={updateField} type="checkbox" />
-          <span>Desativar acessos inseguros: Telnet, FTP e WebFig HTTP</span>
-        </label>
+        <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
+          <legend>Recursos da LAN</legend>
+          <div className="setting-toggle-grid">
+            <label className="setting-toggle">
+              <span><strong>Liberar internet na LAN</strong><small>Ativa o compartilhamento por NAT</small></span>
+              <input checked={form.enable_nat} name="enable_nat" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+            <label className="setting-toggle">
+              <span><strong>DHCP nas portas LAN</strong><small>Entrega endereços IP automaticamente</small></span>
+              <input checked={form.enable_lan_dhcp} name="enable_lan_dhcp" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
+          <legend>Serviços de acesso</legend>
+          <div className="service-toggle-grid">
+            <label className="setting-toggle setting-toggle--service">
+              <span><strong>Telnet</strong><small>Acesso sem criptografia</small></span>
+              <input checked={form.enable_telnet} name="enable_telnet" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+            <label className="setting-toggle setting-toggle--service">
+              <span><strong>FTP</strong><small>Transferência sem criptografia</small></span>
+              <input checked={form.enable_ftp} name="enable_ftp" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+            <label className="setting-toggle setting-toggle--service">
+              <span><strong>WebFig HTTP</strong><small>Painel web sem HTTPS</small></span>
+              <input checked={form.enable_webfig_http} name="enable_webfig_http" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+          </div>
+        </fieldset>
 
         {form.lan_ports.length === 0 && (
           <div className="inline-error" role="alert">Selecione pelo menos uma porta LAN.</div>

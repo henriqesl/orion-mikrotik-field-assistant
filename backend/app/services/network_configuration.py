@@ -140,13 +140,11 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         ),
         None,
     )
-    active_legacy_services = [
-        row.get("name")
+    service_states = {
+        row.get("name"): not _optional_bool(row.get("disabled"))
         for row in service_rows
         if row.get("name") in {"telnet", "ftp", "www"}
-        and not _optional_bool(row.get("disabled"))
-    ]
-    current_legacy_services = ", ".join(active_legacy_services) or "Desativados"
+    }
 
     desired_wan = (
         "DHCP Client"
@@ -193,13 +191,18 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             "Ativo" if lan_dhcp else "Inativo",
             "Ativar automaticamente" if configuration.enable_lan_dhcp else "Não configurar",
         ),
-        (
-            "Segurança",
-            "Serviços legados",
-            current_legacy_services,
-            "Desativados"
-            if configuration.disable_legacy_services
-            else current_legacy_services,
+        *(
+            (
+                "Serviços",
+                label,
+                "Ativo" if service_states.get(name, False) else "Desativado",
+                "Ativo" if enabled else "Desativado",
+            )
+            for name, label, enabled in (
+                ("telnet", "Telnet", configuration.enable_telnet),
+                ("ftp", "FTP", configuration.enable_ftp),
+                ("www", "WebFig HTTP", configuration.enable_webfig_http),
+            )
         ),
     ]
     changes = [
@@ -514,17 +517,27 @@ def _configure_lan_dhcp(
         client.run("/ip/dhcp-server/network/add", *words)
 
 
-def _disable_legacy_services(client: Any, rows: list[dict]) -> None:
+def _configure_access_services(
+    client: Any,
+    rows: list[dict],
+    configuration: BasicNetworkConfiguration,
+) -> None:
+    desired_states = {
+        "telnet": configuration.enable_telnet,
+        "ftp": configuration.enable_ftp,
+        "www": configuration.enable_webfig_http,
+    }
     for row in rows:
         service_name = row.get("name")
-        if (
-            service_name in {"telnet", "ftp", "www"}
-            and not _optional_bool(row.get("disabled"))
-        ):
+        if service_name in desired_states:
+            enabled = not _optional_bool(row.get("disabled"))
+            desired_enabled = desired_states[service_name]
+            if enabled == desired_enabled:
+                continue
             client.run(
                 "/ip/service/set",
                 f"=.id={_record_id(row, f'serviço {service_name}')}",
-                "=disabled=yes",
+                f"=disabled={'no' if desired_enabled else 'yes'}",
             )
 
 
@@ -573,8 +586,7 @@ def apply_basic_network(
             _configure_static_wan(client, context, configuration)
         _configure_nat(client, context["nat"], configuration)
         _configure_lan_dhcp(client, context, configuration)
-        if configuration.disable_legacy_services:
-            _disable_legacy_services(client, context["services"])
+        _configure_access_services(client, context["services"], configuration)
 
         # Ports are moved last because changing the ingress interface can end
         # the current API session. The LAN address already exists at this point.
