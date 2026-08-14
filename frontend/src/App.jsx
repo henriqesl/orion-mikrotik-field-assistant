@@ -224,7 +224,10 @@ function App() {
         setLastUpdatedAt(new Date());
         setMonitoringError("");
         setIsMonitoring(true);
-        return true;
+        return {
+          connection: nextConnection,
+          device: refreshedDevice,
+        };
       } catch (error) {
         if (attempt < 3) {
           await new Promise((resolve) => window.setTimeout(resolve, 1_000));
@@ -236,7 +239,7 @@ function App() {
       `A configuração foi aplicada, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
         "Conecte-se novamente nesse IP ou use o IP anterior, que foi preservado.",
     );
-    return false;
+    return null;
   }
 
   return (

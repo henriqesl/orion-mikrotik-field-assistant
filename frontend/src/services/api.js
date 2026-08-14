@@ -68,6 +68,13 @@ export function applyLinkConfiguration(connection, configuration) {
   });
 }
 
+export function validateConnectivity(connection) {
+  return postJson("/api/mikrotik/connectivity", {
+    connection,
+    remote_target: null,
+  });
+}
+
 export function previewBasicNetwork(connection, configuration) {
   if (isDemoConnection(connection)) {
     return Promise.resolve(demoBasicNetworkPreview(configuration));

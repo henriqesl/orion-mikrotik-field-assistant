@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 
-import { applyBasicNetwork, previewBasicNetwork } from "../services/api.js";
+import {
+  applyBasicNetwork,
+  previewBasicNetwork,
+  validateConnectivity,
+} from "../services/api.js";
 
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
@@ -31,6 +35,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
   const [isApplying, setIsApplying] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [result, setResult] = useState(null);
+  const [postApply, setPostApply] = useState(null);
   const availableLanPorts = device.ethernet_interfaces.filter(
     (item) => !item.disabled && item.name !== form.wan_interface,
   );
@@ -50,6 +55,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
     setPreview(null);
     setResult(null);
     setConfirmation("");
+    setPostApply(null);
   }
 
   function toggleLanPort(event) {
@@ -63,6 +69,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
     setPreview(null);
     setResult(null);
     setConfirmation("");
+    setPostApply(null);
   }
 
   function payload() {
@@ -82,6 +89,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
     setIsPreviewing(true);
     setErrorMessage("");
     setResult(null);
+    setPostApply(null);
     try {
       setPreview(await previewBasicNetwork(connection, payload()));
     } catch (error) {
@@ -100,7 +108,25 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       setResult(applyResult);
       setPreview(null);
       setConfirmation("");
-      await onApplied(applyResult);
+      setPostApply({ status: "reconnecting" });
+      const reconnected = await onApplied(applyResult);
+      if (!reconnected) {
+        setPostApply({
+          status: "recovery",
+          previousIp: connection.host,
+        });
+        return;
+      }
+
+      try {
+        const connectivity = await validateConnectivity(reconnected.connection);
+        setPostApply({ status: "validated", connectivity });
+      } catch (error) {
+        setPostApply({
+          status: "validation-error",
+          message: error.message,
+        });
+      }
     } catch (error) {
       setErrorMessage(
         `${error.message} Se a conexão caiu, conecte o computador a uma porta LAN e tente o novo IP.`,
@@ -251,6 +277,53 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
           <strong>Rede básica enviada</strong>
           <span>{result.summary}</span>
           <small>Backup: {result.backup_file} · novo IP: {result.reconnect_ip}</small>
+        </div>
+      )}
+      {postApply?.status === "reconnecting" && (
+        <div className="network-post-check network-post-check--running" role="status">
+          <strong>Reconectando no novo IP…</strong>
+          <span>O ORION está aguardando o MikroTik responder novamente.</span>
+        </div>
+      )}
+      {postApply?.status === "validated" && (
+        <div className="network-post-check network-post-check--success" role="status">
+          <strong>Novo acesso confirmado</strong>
+          <div className="network-check-grid">
+            <span>
+              Gateway
+              <b>{postApply.connectivity.gateway.status === "passed" ? "Acessível" : "Sem resposta"}</b>
+            </span>
+            <span>
+              ARP
+              <b>{postApply.connectivity.arp.status === "passed" ? "Resolvido" : "Não resolvido"}</b>
+            </span>
+            <span>
+              Internet
+              <b>{postApply.connectivity.internet.status === "passed" ? "Acessível" : "Sem resposta"}</b>
+            </span>
+          </div>
+        </div>
+      )}
+      {postApply?.status === "validation-error" && (
+        <div className="network-post-check network-post-check--attention" role="alert">
+          <strong>Novo IP acessível, testes incompletos</strong>
+          <span>{postApply.message}</span>
+        </div>
+      )}
+      {postApply?.status === "recovery" && (
+        <div className="network-recovery" role="alert">
+          <strong>O novo IP ainda não respondeu</strong>
+          <ol>
+            <li>Conecte o computador a uma das portas LAN selecionadas.</li>
+            <li>
+              {form.enable_lan_dhcp
+                ? "Deixe o adaptador de rede configurado para obter IP automaticamente."
+                : "Configure manualmente no computador um IP compatível com a nova rede LAN."}
+            </li>
+            <li>Tente acessar novamente o endereço {result.reconnect_ip}.</li>
+            <li>Se necessário, tente o IP anterior {postApply.previousIp}.</li>
+          </ol>
+          <small>Backup criado: {result.backup_file}</small>
         </div>
       )}
     </section>
