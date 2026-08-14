@@ -6,6 +6,41 @@ import {
   validateConnectivity,
 } from "../services/api.js";
 
+const NETWORK_PROFILES = [
+  {
+    id: "router-dhcp",
+    mark: "DH",
+    title: "Roteador padrão",
+    description: "Internet automática, NAT e DHCP na LAN",
+    values: {
+      wan_mode: "dhcp",
+      wan_address: "",
+      gateway: "",
+      lan_bridge: "bridge-lan",
+      lan_address: "192.168.50.1/24",
+      dns_servers: "1.1.1.1, 8.8.8.8",
+      enable_nat: true,
+      enable_lan_dhcp: true,
+    },
+  },
+  {
+    id: "router-static",
+    mark: "IP",
+    title: "WAN com IP fixo",
+    description: "Endereço do provedor definido manualmente",
+    values: {
+      wan_mode: "static",
+      wan_address: "",
+      gateway: "",
+      lan_bridge: "bridge-lan",
+      lan_address: "192.168.50.1/24",
+      dns_servers: "1.1.1.1, 8.8.8.8",
+      enable_nat: true,
+      enable_lan_dhcp: true,
+    },
+  },
+];
+
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
   const wan = interfaces[0]?.name || "";
@@ -29,6 +64,7 @@ function initialForm(device) {
 function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart }) {
   const defaults = useMemo(() => initialForm(device), [device]);
   const [form, setForm] = useState(defaults);
+  const [activeProfile, setActiveProfile] = useState("router-dhcp");
   const [preview, setPreview] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -52,6 +88,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         ? { wan_address: "", gateway: "" }
         : {}),
     }));
+    setActiveProfile("custom");
     setPreview(null);
     setResult(null);
     setConfirmation("");
@@ -66,10 +103,21 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         ? [...current.lan_ports, value]
         : current.lan_ports.filter((item) => item !== value),
     }));
+    setActiveProfile("custom");
     setPreview(null);
     setResult(null);
     setConfirmation("");
     setPostApply(null);
+  }
+
+  function applyProfile(profile) {
+    setForm((current) => ({ ...current, ...profile.values }));
+    setActiveProfile(profile.id);
+    setPreview(null);
+    setResult(null);
+    setConfirmation("");
+    setPostApply(null);
+    setErrorMessage("");
   }
 
   function payload() {
@@ -149,6 +197,30 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       </div>
 
       <form className="configuration-form" onSubmit={handlePreview}>
+        <fieldset disabled={isPreviewing || isApplying}>
+          <legend>Escolha um ponto de partida</legend>
+          <div className="network-profile-selector">
+            {NETWORK_PROFILES.map((profile) => (
+              <button
+                className={activeProfile === profile.id ? "network-profile network-profile--selected" : "network-profile"}
+                key={profile.id}
+                onClick={() => applyProfile(profile)}
+                type="button"
+              >
+                <span className="network-profile__mark">{profile.mark}</span>
+                <span>
+                  <strong>{profile.title}</strong>
+                  <small>{profile.description}</small>
+                </span>
+                <b aria-hidden="true">✓</b>
+              </button>
+            ))}
+          </div>
+          {activeProfile === "custom" && (
+            <p className="network-profile-custom">Configuração personalizada</p>
+          )}
+        </fieldset>
+
         <fieldset disabled={isPreviewing || isApplying}>
           <legend>Como a internet chega ao MikroTik?</legend>
           <div className="role-selector">

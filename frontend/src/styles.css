@@ -622,6 +622,87 @@ h2 {
   background: #091422;
 }
 
+.network-profile-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+
+.network-profile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 4.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.8rem;
+  color: var(--color-text);
+  text-align: left;
+  background: #091422;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.network-profile:hover:not(:disabled) {
+  border-color: var(--color-line-strong);
+  transform: translateY(-1px);
+}
+
+.network-profile--selected {
+  border-color: var(--color-primary);
+  background: linear-gradient(145deg, rgb(47 125 246 / 18%), rgb(9 20 34 / 96%));
+}
+
+.network-profile__mark {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.65rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.network-profile--selected .network-profile__mark {
+  border-color: #70a9ff;
+  color: #eff6ff;
+  background: var(--color-primary);
+}
+
+.network-profile > span:nth-child(2) {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.network-profile strong {
+  font-size: 0.84rem;
+}
+
+.network-profile small {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.network-profile > b {
+  color: transparent;
+}
+
+.network-profile--selected > b {
+  color: var(--color-primary);
+}
+
+.network-profile-custom {
+  margin: -0.4rem 0 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
 .port-selector {
   display: flex;
   flex-wrap: wrap;
@@ -1881,6 +1962,7 @@ h2 {
 
   .form-grid,
   .configuration-grid,
+  .network-profile-selector,
   .role-selector,
   .device-grid,
   .advanced-grid {
