@@ -21,6 +21,7 @@ const NETWORK_PROFILES = [
       dns_servers: "1.1.1.1, 8.8.8.8",
       enable_nat: true,
       enable_lan_dhcp: true,
+      disable_legacy_services: true,
     },
   },
   {
@@ -37,6 +38,7 @@ const NETWORK_PROFILES = [
       dns_servers: "1.1.1.1, 8.8.8.8",
       enable_nat: true,
       enable_lan_dhcp: true,
+      disable_legacy_services: true,
     },
   },
 ];
@@ -58,6 +60,7 @@ function initialForm(device) {
     dns_servers: "1.1.1.1, 8.8.8.8",
     enable_nat: true,
     enable_lan_dhcp: true,
+    disable_legacy_services: true,
   };
 }
 
@@ -297,6 +300,10 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         <label className="check-field network-nat-option">
           <input checked={form.enable_lan_dhcp} name="enable_lan_dhcp" onChange={updateField} type="checkbox" />
           <span>Entregar IP automaticamente nas portas LAN (DHCP)</span>
+        </label>
+        <label className="check-field network-nat-option">
+          <input checked={form.disable_legacy_services} name="disable_legacy_services" onChange={updateField} type="checkbox" />
+          <span>Desativar acessos inseguros: Telnet, FTP e WebFig HTTP</span>
         </label>
 
         {form.lan_ports.length === 0 && (

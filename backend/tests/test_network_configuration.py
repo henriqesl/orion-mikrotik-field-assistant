@@ -23,6 +23,7 @@ def configuration(**updates) -> BasicNetworkConfiguration:
         "dns_servers": ["1.1.1.1", "8.8.8.8"],
         "enable_nat": True,
         "enable_lan_dhcp": True,
+        "disable_legacy_services": True,
     }
     values.update(updates)
     return BasicNetworkConfiguration(**values)
@@ -47,6 +48,13 @@ class NetworkClient:
             "/ip/pool/print": [],
             "/ip/dhcp-server/print": [],
             "/ip/dhcp-server/network/print": [],
+            "/ip/service/print": [
+                {".id": "*1", "name": "telnet", "disabled": "false"},
+                {".id": "*2", "name": "ftp", "disabled": "true"},
+                {".id": "*3", "name": "www", "disabled": "false"},
+                {".id": "*4", "name": "ssh", "disabled": "false"},
+                {".id": "*5", "name": "api", "disabled": "false"},
+            ],
         }.get(words[0], [])
         return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
 
@@ -92,6 +100,7 @@ def test_preview_basic_network_without_mutating_router(monkeypatch) -> None:
     assert str(result.reconnect_ip) == "192.168.50.1"
     assert any(change.field == "Endereçamento" for change in result.changes)
     assert any(change.field == "NAT" for change in result.changes)
+    assert any(change.field == "Serviços legados" for change in result.changes)
     assert all(command[0].endswith("/print") for command in commands)
 
 
@@ -159,6 +168,13 @@ def test_apply_creates_backup_and_moves_lan_ports_last(monkeypatch) -> None:
         for command in mutations
     )
     assert any(command[0] == "/ip/dhcp-server/add" for command in mutations)
+    disabled_services = [
+        command
+        for command in mutations
+        if command[0] == "/ip/service/set" and "=disabled=yes" in command
+    ]
+    assert {command[1] for command in disabled_services} == {"=.id=*1", "=.id=*3"}
+    assert not any("=.id=*4" in command or "=.id=*5" in command for command in commands)
     assert not any(command[0].endswith("/remove") for command in commands)
     assert result.backup_file.endswith(".backup")
     assert str(result.reconnect_ip) == "192.168.50.1"
@@ -204,3 +220,26 @@ def test_small_lan_pool_avoids_router_address() -> None:
         )
         == "192.168.50.2-192.168.50.6"
     )
+
+
+def test_apply_can_preserve_legacy_services(monkeypatch) -> None:
+    client = NetworkClient()
+    commands = []
+    original_run = client.run
+
+    def tracked_run(*words):
+        commands.append(words)
+        return original_run(*words)
+
+    client.run = tracked_run
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(client),
+    )
+
+    service.apply_basic_network(
+        apply_request(configuration(disable_legacy_services=False))
+    )
+
+    assert not any(command[0] == "/ip/service/set" for command in commands)

@@ -62,6 +62,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     dns = _first_row(client.run("/ip/dns/print"))
     nat_rows = _rows(client.run("/ip/firewall/nat/print"))
     dhcp_server_rows = _rows(client.run("/ip/dhcp-server/print"))
+    service_rows = _rows(client.run("/ip/service/print"))
     _validate_interfaces(ethernet_rows, configuration)
 
     bridge = _find_row(bridge_rows, "name", configuration.lan_bridge)
@@ -118,6 +119,13 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         ),
         None,
     )
+    active_legacy_services = [
+        row.get("name")
+        for row in service_rows
+        if row.get("name") in {"telnet", "ftp", "www"}
+        and not _optional_bool(row.get("disabled"))
+    ]
+    current_legacy_services = ", ".join(active_legacy_services) or "Desativados"
 
     desired_wan = (
         "DHCP Client"
@@ -163,6 +171,14 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             "DHCP Server",
             "Ativo" if lan_dhcp else "Inativo",
             "Ativar automaticamente" if configuration.enable_lan_dhcp else "Não configurar",
+        ),
+        (
+            "Segurança",
+            "Serviços legados",
+            current_legacy_services,
+            "Desativados"
+            if configuration.disable_legacy_services
+            else current_legacy_services,
         ),
     ]
     changes = [
@@ -464,6 +480,20 @@ def _configure_lan_dhcp(
         client.run("/ip/dhcp-server/network/add", *words)
 
 
+def _disable_legacy_services(client: Any, rows: list[dict]) -> None:
+    for row in rows:
+        service_name = row.get("name")
+        if (
+            service_name in {"telnet", "ftp", "www"}
+            and not _optional_bool(row.get("disabled"))
+        ):
+            client.run(
+                "/ip/service/set",
+                f"=.id={_record_id(row, f'serviço {service_name}')}",
+                "=disabled=yes",
+            )
+
+
 def apply_basic_network(
     request: BasicNetworkApplyRequest,
 ) -> BasicNetworkApplyResult:
@@ -484,6 +514,7 @@ def apply_basic_network(
             "dhcp_pools": _rows(client.run("/ip/pool/print")),
             "dhcp_servers": _rows(client.run("/ip/dhcp-server/print")),
             "dhcp_networks": _rows(client.run("/ip/dhcp-server/network/print")),
+            "services": _rows(client.run("/ip/service/print")),
         }
         backup_name = f"orion-before-network-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
@@ -508,6 +539,8 @@ def apply_basic_network(
             _configure_static_wan(client, context, configuration)
         _configure_nat(client, context["nat"], configuration)
         _configure_lan_dhcp(client, context, configuration)
+        if configuration.disable_legacy_services:
+            _disable_legacy_services(client, context["services"])
 
         # Ports are moved last because changing the ingress interface can end
         # the current API session. The LAN address already exists at this point.
