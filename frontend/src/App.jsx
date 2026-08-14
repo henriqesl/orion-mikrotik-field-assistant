@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ConnectionForm from "./components/ConnectionForm.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
+import BasicNetworkConfiguration from "./components/BasicNetworkConfiguration.jsx";
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
@@ -28,6 +29,7 @@ const ALIGNMENT_INTERVAL_MS = 3_000;
 const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
   { id: "configuration", label: "Configuração do rádio" },
+  { id: "network", label: "Rede básica" },
   { id: "tests", label: "Testes" },
 ];
 
@@ -354,6 +356,21 @@ function App() {
               registrationTableAvailable={device.registration_table_available}
             />
             <PingTest connection={activeConnection} />
+          </section>
+        )}
+
+        {device && activeConnection && (
+          <section
+            aria-labelledby="tab-network"
+            className="tab-panel"
+            hidden={activeTab !== "network"}
+            id="panel-network"
+            role="tabpanel"
+          >
+            <BasicNetworkConfiguration
+              connection={activeConnection}
+              device={device}
+            />
           </section>
         )}
       </section>

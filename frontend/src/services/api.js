@@ -1,4 +1,5 @@
 import {
+  demoBasicNetworkPreview,
   demoConfigurationPreview,
   demoDevice,
   demoPing,
@@ -64,5 +65,15 @@ export function applyLinkConfiguration(connection, configuration) {
     connection,
     configuration,
     confirmation: "APLICAR",
+  });
+}
+
+export function previewBasicNetwork(connection, configuration) {
+  if (isDemoConnection(connection)) {
+    return Promise.resolve(demoBasicNetworkPreview(configuration));
+  }
+  return postJson("/api/mikrotik/network/preview", {
+    connection,
+    configuration,
   });
 }

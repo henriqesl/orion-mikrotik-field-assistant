@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.configuration import (
+    BasicNetworkPreview,
+    BasicNetworkPreviewRequest,
     ConfigurationApplyRequest,
     ConfigurationApplyResult,
     ConfigurationPreview,
@@ -29,6 +31,7 @@ from app.services.configuration import (
     apply_link_configuration,
     preview_link_configuration,
 )
+from app.services.network_configuration import preview_basic_network
 
 
 router = APIRouter(prefix="/api/mikrotik", tags=["mikrotik"])
@@ -127,6 +130,19 @@ def apply_configuration(
     """Create a backup and apply a previously confirmed link configuration."""
     try:
         return apply_link_configuration(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/network/preview", response_model=BasicNetworkPreview)
+def preview_network_configuration(
+    request: BasicNetworkPreviewRequest,
+) -> BasicNetworkPreview:
+    """Validate and preview a basic network profile without changing it."""
+    try:
+        return preview_basic_network(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:

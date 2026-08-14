@@ -140,7 +140,7 @@ h2 {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 0.35rem;
   border: 1px solid var(--color-line);
   border-radius: 0.9rem;
@@ -598,10 +598,43 @@ h2 {
   font-weight: 750;
 }
 
+.preview-badge {
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(53 208 226 / 35%);
+  border-radius: 999px;
+  color: var(--color-signal);
+  background: rgb(53 208 226 / 8%);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
 .configuration-form fieldset {
   margin: 0 0 1rem;
   padding: 0;
   border: 0;
+}
+
+.configuration-form .network-options {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: #091422;
+}
+
+.port-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.network-nat-option {
+  width: fit-content;
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.7rem;
+  background: #091422;
 }
 
 .configuration-form legend {

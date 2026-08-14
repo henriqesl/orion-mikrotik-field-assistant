@@ -50,13 +50,11 @@ export function demoDevice() {
       signal_assessment: demoAssessment("excellent", "Excelente", "Sinal com boa margem para a demonstração."),
       association_assessment: demoAssessment("good", "Autorizado", "Peer associado e autorizado."),
     }],
-    ethernet_interfaces: [{
-      name: "ether1",
-      default_name: "ether1",
-      mac_address: "02:00:00:00:03:03",
-      disabled: false,
-      running: true,
-    }],
+    ethernet_interfaces: [
+      { name: "ether1", default_name: "ether1", mac_address: "02:00:00:00:03:03", disabled: false, running: true },
+      { name: "ether2", default_name: "ether2", mac_address: "02:00:00:00:03:04", disabled: false, running: true },
+      { name: "ether3", default_name: "ether3", mac_address: "02:00:00:00:03:05", disabled: false, running: true },
+    ],
     bridges: [{ name: "bridge-field", disabled: false, running: true }],
     bridge_ports: [
       { interface: "ether1", bridge: "bridge-field", disabled: false, inactive: false, hw_offload: true },
@@ -129,5 +127,22 @@ export function demoConfigurationPreview(configuration) {
       { area: "Segurança", field: "Senha WPA2", current_value: "Protegida", new_value: "Será atualizada", sensitive: true },
     ],
     warnings: ["Demonstração: nenhuma alteração será enviada a um equipamento."],
+  };
+}
+
+export function demoBasicNetworkPreview(configuration) {
+  return {
+    device_identity: "ORION-DEMO-STATION",
+    reconnect_ip: configuration.lan_address.split("/")[0],
+    changes: [
+      { area: "Equipamento", field: "Identidade", current_value: "ORION-DEMO-STATION", new_value: configuration.identity },
+      { area: "WAN", field: "Endereçamento", current_value: "Não configurado", new_value: configuration.wan_mode === "dhcp" ? "DHCP Client" : configuration.wan_address },
+      { area: "LAN", field: "Bridge", current_value: "bridge-field", new_value: configuration.lan_bridge },
+      { area: "LAN", field: "Endereço", current_value: "192.0.2.1/24", new_value: configuration.lan_address },
+      { area: "LAN", field: "Portas", current_value: "ether1", new_value: configuration.lan_ports.join(", ") },
+      { area: "DNS", field: "Servidores", current_value: "Não configurado", new_value: configuration.dns_servers.join(", ") },
+      { area: "Internet", field: "NAT", current_value: "Não gerenciado", new_value: configuration.enable_nat ? "Ativar masquerade" : "Não configurar" },
+    ],
+    warnings: ["Demonstração: esta prévia não altera nenhum equipamento."],
   };
 }
