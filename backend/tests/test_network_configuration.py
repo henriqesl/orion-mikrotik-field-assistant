@@ -136,6 +136,64 @@ def test_preview_rejects_missing_interface(monkeypatch) -> None:
         )
 
 
+def test_preview_rejects_disabled_interface(monkeypatch) -> None:
+    class DisabledInterfaceClient(NetworkClient):
+        def run(self, *words):
+            if words[0] == "/interface/ethernet/print":
+                rows = [
+                    {"name": "ether1"},
+                    {"name": "ether2", "disabled": "true"},
+                    {"name": "ether3"},
+                ]
+                return SimpleNamespace(
+                    re=[SimpleNamespace(map=row) for row in rows]
+                )
+            return super().run(*words)
+
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(DisabledInterfaceClient()),
+    )
+
+    with pytest.raises(service.ConfigurationConflictError, match="Ative as interfaces"):
+        service.preview_basic_network(request(configuration()))
+
+
+def test_preview_rejects_bridge_name_equal_to_physical_interface(monkeypatch) -> None:
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(NetworkClient()),
+    )
+
+    with pytest.raises(service.ConfigurationConflictError, match="interface física"):
+        service.preview_basic_network(
+            request(configuration(lan_bridge="ether1"))
+        )
+
+
+def test_preview_warns_before_moving_port_from_another_bridge(monkeypatch) -> None:
+    class ExistingBridgePortClient(NetworkClient):
+        def run(self, *words):
+            if words[0] == "/interface/bridge/port/print":
+                rows = [{"interface": "ether2", "bridge": "bridge-antiga"}]
+                return SimpleNamespace(
+                    re=[SimpleNamespace(map=row) for row in rows]
+                )
+            return super().run(*words)
+
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(ExistingBridgePortClient()),
+    )
+
+    result = service.preview_basic_network(request(configuration()))
+
+    assert any("ether2" in warning for warning in result.warnings)
+
+
 def test_apply_creates_backup_and_moves_lan_ports_last(monkeypatch) -> None:
     client = NetworkClient()
     commands = []

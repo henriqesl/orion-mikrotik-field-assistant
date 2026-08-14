@@ -16,6 +16,7 @@ A V4 amplia o ORION para configurações gerais de rede. O primeiro perfil dispo
 - NAT opcional;
 - perfis rápidos para WAN automática ou IP fixo;
 - proteção opcional contra Telnet, FTP e WebFig sem HTTPS;
+- bloqueio preventivo de interfaces desativadas e conflitos de nomes;
 - pré-visualização e confirmação explícita;
 - backup automático antes da aplicação;
 - preservação das regras preexistentes.

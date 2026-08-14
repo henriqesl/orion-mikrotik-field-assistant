@@ -34,6 +34,20 @@ def _validate_interfaces(
         raise ConfigurationConflictError(
             f"As interfaces selecionadas não existem mais: {', '.join(missing)}."
         )
+    disabled = sorted(
+        (row.get("name") or row.get("default-name"))
+        for row in ethernet_rows
+        if (row.get("name") or row.get("default-name")) in selected
+        and _optional_bool(row.get("disabled"))
+    )
+    if disabled:
+        raise ConfigurationConflictError(
+            f"Ative as interfaces antes de continuar: {', '.join(disabled)}."
+        )
+    if configuration.lan_bridge in available:
+        raise ConfigurationConflictError(
+            "O nome da bridge LAN não pode ser igual ao de uma interface física."
+        )
 
 
 def _change(
@@ -107,6 +121,13 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         for row in bridge_ports
         if row.get("bridge") == configuration.lan_bridge
         and row.get("interface")
+        and not _optional_bool(row.get("disabled"))
+    )
+    ports_moved_from_other_bridges = sorted(
+        row.get("interface")
+        for row in bridge_ports
+        if row.get("interface") in configuration.lan_ports
+        and row.get("bridge") != configuration.lan_bridge
         and not _optional_bool(row.get("disabled"))
     )
     managed_nat = _find_row(nat_rows, "comment", "ORION Field - NAT")
@@ -191,6 +212,19 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         "A sessão pode cair ao mover as portas LAN; reconecte pelo novo IP da LAN.",
         "Regras existentes não serão apagadas automaticamente.",
     ]
+    if ports_moved_from_other_bridges:
+        warnings.append(
+            "Estas portas sairão da bridge atual: "
+            f"{', '.join(ports_moved_from_other_bridges)}."
+        )
+    if configuration.wan_mode == "dhcp" and current_wan_ip:
+        warnings.append(
+            "O IP fixo existente na WAN será preservado junto com o DHCP Client."
+        )
+    if configuration.wan_mode == "static" and active_dhcp:
+        warnings.append(
+            "O DHCP Client preexistente na WAN será preservado junto com o IP fixo."
+        )
     return BasicNetworkPreview(
         device_identity=identity.get("name") or "MikroTik",
         changes=changes,
