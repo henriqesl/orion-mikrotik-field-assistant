@@ -76,6 +76,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     dns = _first_row(client.run("/ip/dns/print"))
     nat_rows = _rows(client.run("/ip/firewall/nat/print"))
     dhcp_server_rows = _rows(client.run("/ip/dhcp-server/print"))
+    pool_rows = _rows(client.run("/ip/pool/print"))
     service_rows = _rows(client.run("/ip/service/print"))
     _validate_interfaces(ethernet_rows, configuration)
 
@@ -140,10 +141,11 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         ),
         None,
     )
+    lan_pool = _find_row(pool_rows, "name", "orion-lan-pool")
     service_states = {
         row.get("name"): not _optional_bool(row.get("disabled"))
         for row in service_rows
-        if row.get("name") in {"telnet", "ftp", "www"}
+        if row.get("name") in {"ssh", "winbox", "www-ssl", "telnet", "ftp", "www"}
     }
 
     desired_wan = (
@@ -199,12 +201,24 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
                 "Ativo" if enabled else "Desativado",
             )
             for name, label, enabled in (
+                ("ssh", "SSH", configuration.enable_ssh),
+                ("winbox", "WinBox", configuration.enable_winbox),
+                ("www-ssl", "WebFig HTTPS", configuration.enable_webfig_https),
                 ("telnet", "Telnet", configuration.enable_telnet),
                 ("ftp", "FTP", configuration.enable_ftp),
                 ("www", "WebFig HTTP", configuration.enable_webfig_http),
             )
         ),
     ]
+    if configuration.enable_lan_dhcp:
+        comparisons.append(
+            (
+                "LAN",
+                "Pool DHCP",
+                lan_pool.get("ranges") if lan_pool else None,
+                _resolved_dhcp_pool(configuration),
+            )
+        )
     changes = [
         _change(area, field, current, new)
         for area, field, current, new in comparisons
@@ -447,6 +461,12 @@ def _dhcp_pool_range(lan_address: IPv4Interface) -> str:
     return f"{IPv4Address(start)}-{IPv4Address(end)}"
 
 
+def _resolved_dhcp_pool(configuration: BasicNetworkConfiguration) -> str:
+    if configuration.dhcp_pool_start and configuration.dhcp_pool_end:
+        return f"{configuration.dhcp_pool_start}-{configuration.dhcp_pool_end}"
+    return _dhcp_pool_range(configuration.lan_address)
+
+
 def _configure_lan_dhcp(
     client: Any,
     context: dict[str, list[dict]],
@@ -468,7 +488,7 @@ def _configure_lan_dhcp(
             )
         return
 
-    pool_range = _dhcp_pool_range(configuration.lan_address)
+    pool_range = _resolved_dhcp_pool(configuration)
     if pool:
         client.run(
             "/ip/pool/set",
@@ -523,6 +543,9 @@ def _configure_access_services(
     configuration: BasicNetworkConfiguration,
 ) -> None:
     desired_states = {
+        "ssh": configuration.enable_ssh,
+        "winbox": configuration.enable_winbox,
+        "www-ssl": configuration.enable_webfig_https,
         "telnet": configuration.enable_telnet,
         "ftp": configuration.enable_ftp,
         "www": configuration.enable_webfig_http,

@@ -81,6 +81,11 @@ class BasicNetworkConfiguration(BaseModel):
     dns_servers: list[IPv4Address] = Field(min_length=1, max_length=3)
     enable_nat: bool = True
     enable_lan_dhcp: bool = True
+    dhcp_pool_start: IPv4Address | None = None
+    dhcp_pool_end: IPv4Address | None = None
+    enable_ssh: bool = True
+    enable_winbox: bool = True
+    enable_webfig_https: bool = False
     enable_telnet: bool = False
     enable_ftp: bool = False
     enable_webfig_http: bool = False
@@ -98,6 +103,21 @@ class BasicNetworkConfiguration(BaseModel):
             lan_network.broadcast_address,
         }:
             raise ValueError("O IP da LAN não pode ser rede ou broadcast.")
+
+        pool_addresses = (self.dhcp_pool_start, self.dhcp_pool_end)
+        if any(pool_addresses) and not all(pool_addresses):
+            raise ValueError("Informe o início e o fim do pool DHCP.")
+        if all(pool_addresses):
+            if not self.enable_lan_dhcp:
+                raise ValueError("O pool DHCP exige o DHCP Server ativo na LAN.")
+            if self.dhcp_pool_start not in lan_network or self.dhcp_pool_end not in lan_network:
+                raise ValueError("O pool DHCP deve pertencer à rede LAN.")
+            if self.dhcp_pool_start in {lan_network.network_address, lan_network.broadcast_address} or self.dhcp_pool_end in {lan_network.network_address, lan_network.broadcast_address}:
+                raise ValueError("O pool DHCP não pode usar rede ou broadcast.")
+            if self.dhcp_pool_start <= self.lan_address.ip <= self.dhcp_pool_end:
+                raise ValueError("O pool DHCP não pode incluir o IP do MikroTik.")
+            if self.dhcp_pool_start > self.dhcp_pool_end:
+                raise ValueError("O início do pool DHCP deve ser menor que o fim.")
 
         if self.wan_mode == "dhcp":
             if self.wan_address is not None or self.gateway is not None:

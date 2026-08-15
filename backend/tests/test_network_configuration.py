@@ -23,6 +23,11 @@ def configuration(**updates) -> BasicNetworkConfiguration:
         "dns_servers": ["1.1.1.1", "8.8.8.8"],
         "enable_nat": True,
         "enable_lan_dhcp": True,
+        "dhcp_pool_start": None,
+        "dhcp_pool_end": None,
+        "enable_ssh": True,
+        "enable_winbox": True,
+        "enable_webfig_https": False,
         "enable_telnet": False,
         "enable_ftp": False,
         "enable_webfig_http": False,
@@ -56,6 +61,8 @@ class NetworkClient:
                 {".id": "*3", "name": "www", "disabled": "false"},
                 {".id": "*4", "name": "ssh", "disabled": "false"},
                 {".id": "*5", "name": "api", "disabled": "false"},
+                {".id": "*6", "name": "winbox", "disabled": "false"},
+                {".id": "*7", "name": "www-ssl", "disabled": "true"},
             ],
         }.get(words[0], [])
         return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
@@ -279,6 +286,43 @@ def test_small_lan_pool_avoids_router_address() -> None:
             configuration(lan_address="192.168.50.1/29").lan_address
         )
         == "192.168.50.2-192.168.50.6"
+    )
+
+
+def test_custom_dhcp_pool_must_belong_to_lan() -> None:
+    with pytest.raises(ValidationError, match="rede LAN"):
+        configuration(
+            dhcp_pool_start="10.0.0.100",
+            dhcp_pool_end="10.0.0.199",
+        )
+
+
+def test_apply_uses_custom_dhcp_pool(monkeypatch) -> None:
+    client = NetworkClient()
+    commands = []
+    original_run = client.run
+
+    def tracked_run(*words):
+        commands.append(words)
+        return original_run(*words)
+
+    client.run = tracked_run
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(client),
+    )
+
+    settings = configuration(
+        dhcp_pool_start="192.168.50.20",
+        dhcp_pool_end="192.168.50.80",
+    )
+    service.apply_basic_network(apply_request(settings))
+
+    assert any(
+        command[0] == "/ip/pool/add"
+        and "=ranges=192.168.50.20-192.168.50.80" in command
+        for command in commands
     )
 
 

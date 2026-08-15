@@ -12,9 +12,10 @@ A V4 amplia o ORION para configurações gerais na tela **Rede básica**, com:
 - bridge e endereço da LAN;
 - seleção de portas LAN;
 - DHCP Server automático para os dispositivos da LAN;
+- pool DHCP automático ou definido manualmente;
 - servidores DNS;
 - NAT opcional;
-- controle individual de Telnet, FTP e WebFig sem HTTPS;
+- controle individual de SSH, WinBox, WebFig, Telnet e FTP;
 - bloqueio preventivo de interfaces desativadas e conflitos de nomes;
 - pré-visualização e confirmação explícita;
 - backup automático antes da aplicação;

@@ -23,6 +23,11 @@ function initialForm(device) {
     dns_servers: "1.1.1.1, 8.8.8.8",
     enable_nat: true,
     enable_lan_dhcp: true,
+    dhcp_pool_start: "",
+    dhcp_pool_end: "",
+    enable_ssh: true,
+    enable_winbox: true,
+    enable_webfig_https: false,
     enable_telnet: false,
     enable_ftp: false,
     enable_webfig_http: false,
@@ -54,6 +59,9 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       ...(name === "wan_mode" && value === "dhcp"
         ? { wan_address: "", gateway: "" }
         : {}),
+      ...(name === "enable_lan_dhcp" && !checked
+        ? { dhcp_pool_start: "", dhcp_pool_end: "" }
+        : {}),
     }));
     setPreview(null);
     setResult(null);
@@ -84,6 +92,8 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
+      dhcp_pool_start: form.dhcp_pool_start || null,
+      dhcp_pool_end: form.dhcp_pool_end || null,
     };
   }
 
@@ -235,11 +245,38 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
               <span aria-hidden="true" className="toggle-control"><i /></span>
             </label>
           </div>
+          {form.enable_lan_dhcp && (
+            <div className="dhcp-pool-grid">
+              <label className="field">
+                <span>Início do pool DHCP</span>
+                <input name="dhcp_pool_start" onChange={updateField} placeholder="Automático" required={Boolean(form.dhcp_pool_end)} value={form.dhcp_pool_start} />
+              </label>
+              <label className="field">
+                <span>Fim do pool DHCP</span>
+                <input name="dhcp_pool_end" onChange={updateField} placeholder="Automático" required={Boolean(form.dhcp_pool_start)} value={form.dhcp_pool_end} />
+              </label>
+            </div>
+          )}
         </fieldset>
 
         <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
           <legend>Serviços de acesso</legend>
           <div className="service-toggle-grid">
+            <label className="setting-toggle">
+              <span><strong>SSH</strong><small>Terminal seguro</small></span>
+              <input checked={form.enable_ssh} name="enable_ssh" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+            <label className="setting-toggle">
+              <span><strong>WinBox</strong><small>Gerenciamento pelo aplicativo</small></span>
+              <input checked={form.enable_winbox} name="enable_winbox" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+            <label className="setting-toggle">
+              <span><strong>WebFig HTTPS</strong><small>Painel web criptografado</small></span>
+              <input checked={form.enable_webfig_https} name="enable_webfig_https" onChange={updateField} type="checkbox" />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
             <label className="setting-toggle setting-toggle--service">
               <span><strong>Telnet</strong><small>Acesso sem criptografia</small></span>
               <input checked={form.enable_telnet} name="enable_telnet" onChange={updateField} type="checkbox" />
@@ -256,6 +293,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
               <span aria-hidden="true" className="toggle-control"><i /></span>
             </label>
           </div>
+          <p className="configuration-note">API e API-SSL são preservadas para não interromper o acesso do ORION.</p>
         </fieldset>
 
         {form.lan_ports.length === 0 && (
