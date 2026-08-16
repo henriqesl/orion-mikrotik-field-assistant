@@ -50,13 +50,11 @@ export function demoDevice() {
       signal_assessment: demoAssessment("excellent", "Excelente", "Sinal com boa margem para a demonstração."),
       association_assessment: demoAssessment("good", "Autorizado", "Peer associado e autorizado."),
     }],
-    ethernet_interfaces: [{
-      name: "ether1",
-      default_name: "ether1",
-      mac_address: "02:00:00:00:03:03",
-      disabled: false,
-      running: true,
-    }],
+    ethernet_interfaces: [
+      { name: "ether1", default_name: "ether1", mac_address: "02:00:00:00:03:03", disabled: false, running: true },
+      { name: "ether2", default_name: "ether2", mac_address: "02:00:00:00:03:04", disabled: false, running: true },
+      { name: "ether3", default_name: "ether3", mac_address: "02:00:00:00:03:05", disabled: false, running: true },
+    ],
     bridges: [{ name: "bridge-field", disabled: false, running: true }],
     bridge_ports: [
       { interface: "ether1", bridge: "bridge-field", disabled: false, inactive: false, hw_offload: true },
@@ -129,5 +127,30 @@ export function demoConfigurationPreview(configuration) {
       { area: "Segurança", field: "Senha WPA2", current_value: "Protegida", new_value: "Será atualizada", sensitive: true },
     ],
     warnings: ["Demonstração: nenhuma alteração será enviada a um equipamento."],
+  };
+}
+
+export function demoBasicNetworkPreview(configuration) {
+  return {
+    device_identity: "ORION-DEMO-STATION",
+    reconnect_ip: configuration.lan_address.split("/")[0],
+    changes: [
+      { area: "Equipamento", field: "Identidade", current_value: "ORION-DEMO-STATION", new_value: configuration.identity },
+      { area: "WAN", field: "Endereçamento", current_value: "Não configurado", new_value: configuration.wan_mode === "dhcp" ? "DHCP Client" : configuration.wan_address },
+      { area: "LAN", field: "Bridge", current_value: "bridge-field", new_value: configuration.lan_bridge },
+      { area: "LAN", field: "Endereço", current_value: "192.0.2.1/24", new_value: configuration.lan_address },
+      { area: "LAN", field: "Portas", current_value: "ether1", new_value: configuration.lan_ports.join(", ") },
+      { area: "DNS", field: "Servidores", current_value: "Não configurado", new_value: configuration.dns_servers.join(", ") },
+      { area: "Internet", field: "NAT", current_value: "Não gerenciado", new_value: configuration.enable_nat ? "Ativar masquerade" : "Não configurar" },
+      { area: "LAN", field: "DHCP Server", current_value: "Inativo", new_value: configuration.enable_lan_dhcp ? "Ativar automaticamente" : "Não configurar" },
+      ...(configuration.enable_lan_dhcp ? [{ area: "LAN", field: "Pool DHCP", current_value: null, new_value: configuration.dhcp_pool_start && configuration.dhcp_pool_end ? `${configuration.dhcp_pool_start}-${configuration.dhcp_pool_end}` : "Calculado automaticamente" }] : []),
+      { area: "Serviços", field: "SSH", current_value: "Ativo", new_value: configuration.enable_ssh ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "WinBox", current_value: "Ativo", new_value: configuration.enable_winbox ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "WebFig HTTPS", current_value: "Desativado", new_value: configuration.enable_webfig_https ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "Telnet", current_value: "Ativo", new_value: configuration.enable_telnet ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "FTP", current_value: "Desativado", new_value: configuration.enable_ftp ? "Ativo" : "Desativado" },
+      { area: "Serviços", field: "WebFig HTTP", current_value: "Ativo", new_value: configuration.enable_webfig_http ? "Ativo" : "Desativado" },
+    ],
+    warnings: ["Demonstração: esta prévia não altera nenhum equipamento."],
   };
 }

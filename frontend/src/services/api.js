@@ -1,4 +1,5 @@
 import {
+  demoBasicNetworkPreview,
   demoConfigurationPreview,
   demoDevice,
   demoPing,
@@ -61,6 +62,34 @@ export function applyLinkConfiguration(connection, configuration) {
     return Promise.reject(new Error("O modo demonstração não aplica configurações."));
   }
   return postJson("/api/mikrotik/configuration/apply", {
+    connection,
+    configuration,
+    confirmation: "APLICAR",
+  });
+}
+
+export function validateConnectivity(connection) {
+  return postJson("/api/mikrotik/connectivity", {
+    connection,
+    remote_target: null,
+  });
+}
+
+export function previewBasicNetwork(connection, configuration) {
+  if (isDemoConnection(connection)) {
+    return Promise.resolve(demoBasicNetworkPreview(configuration));
+  }
+  return postJson("/api/mikrotik/network/preview", {
+    connection,
+    configuration,
+  });
+}
+
+export function applyBasicNetwork(connection, configuration) {
+  if (isDemoConnection(connection)) {
+    return Promise.reject(new Error("O modo demonstração não aplica configurações."));
+  }
+  return postJson("/api/mikrotik/network/apply", {
     connection,
     configuration,
     confirmation: "APLICAR",

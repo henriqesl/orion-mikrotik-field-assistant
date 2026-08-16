@@ -140,7 +140,7 @@ h2 {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 0.35rem;
   border: 1px solid var(--color-line);
   border-radius: 0.9rem;
@@ -598,10 +598,211 @@ h2 {
   font-weight: 750;
 }
 
+.preview-badge {
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(53 208 226 / 35%);
+  border-radius: 999px;
+  color: var(--color-signal);
+  background: rgb(53 208 226 / 8%);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
 .configuration-form fieldset {
   margin: 0 0 1rem;
   padding: 0;
   border: 0;
+}
+
+.configuration-form .network-options {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: #091422;
+}
+
+.port-selector {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.port-selector .check-field {
+  position: relative;
+  min-width: 6.5rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.65rem;
+  background: #07111f;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.port-selector .check-field:hover {
+  border-color: var(--color-line-strong);
+}
+
+.port-selector .check-field:has(input:checked) {
+  border-color: var(--color-primary);
+  color: #eff6ff;
+  background: rgb(47 125 246 / 12%);
+}
+
+.port-selector .check-field:has(input:focus-visible) {
+  outline: 2px solid #93c5fd;
+  outline-offset: 0.15rem;
+}
+
+.port-selector .check-field input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.port-selector .check-field span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-data);
+  font-size: 0.76rem;
+}
+
+.port-selector .check-field span::before {
+  display: grid;
+  width: 1.05rem;
+  height: 1.05rem;
+  place-items: center;
+  border: 1px solid #40516a;
+  border-radius: 0.3rem;
+  color: transparent;
+  content: "✓";
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.port-selector .check-field input:checked + span::before {
+  border-color: var(--color-primary);
+  color: #fff;
+  background: var(--color-primary);
+}
+
+.setting-toggle-grid,
+.service-toggle-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.setting-toggle-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.service-toggle-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dhcp-pool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.setting-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 4.3rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.8rem;
+  background: #07111f;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.setting-toggle:hover {
+  border-color: var(--color-line-strong);
+}
+
+.setting-toggle:has(input:checked) {
+  border-color: rgb(47 125 246 / 65%);
+  background: rgb(47 125 246 / 9%);
+}
+
+.setting-toggle:has(input:focus-visible) {
+  outline: 2px solid #93c5fd;
+  outline-offset: 0.15rem;
+}
+
+.setting-toggle > span:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.setting-toggle strong {
+  color: var(--color-text);
+  font-size: 0.82rem;
+}
+
+.setting-toggle small {
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+  line-height: 1.35;
+}
+
+.setting-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.toggle-control {
+  position: relative;
+  width: 2.4rem;
+  height: 1.35rem;
+  border: 1px solid #40516a;
+  border-radius: 999px;
+  background: #111d2d;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.toggle-control i {
+  position: absolute;
+  top: 0.16rem;
+  left: 0.16rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: #7f8ea3;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.setting-toggle input:checked + .toggle-control {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.setting-toggle input:checked + .toggle-control i {
+  background: #fff;
+  transform: translateX(1rem);
+}
+
+.setting-toggle--service:has(input:checked) {
+  border-color: rgb(245 158 11 / 60%);
+  background: rgb(245 158 11 / 8%);
+}
+
+.setting-toggle--service input:checked + .toggle-control {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
 }
 
 .configuration-form legend {
@@ -853,6 +1054,73 @@ h2 {
 .configuration-success span,
 .configuration-success small {
   color: #86efac;
+}
+
+.network-post-check,
+.network-recovery {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: #091422;
+}
+
+.network-post-check--running {
+  border-color: rgb(53 208 226 / 30%);
+}
+
+.network-post-check--success {
+  border-color: rgb(44 203 127 / 35%);
+}
+
+.network-post-check--attention,
+.network-recovery {
+  border-color: rgb(243 181 68 / 40%);
+}
+
+.network-post-check strong,
+.network-recovery strong {
+  color: var(--color-text);
+}
+
+.network-post-check > span,
+.network-recovery li,
+.network-recovery small {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.network-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.network-check-grid span {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.7rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.6rem;
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.network-check-grid b {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  text-transform: none;
+}
+
+.network-recovery ol {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.25rem;
 }
 
 .connection-options {
@@ -1775,8 +2043,15 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .network-check-grid {
+    grid-template-columns: 1fr;
+  }
+
   .form-grid,
   .configuration-grid,
+  .dhcp-pool-grid,
+  .setting-toggle-grid,
+  .service-toggle-grid,
   .role-selector,
   .device-grid,
   .advanced-grid {

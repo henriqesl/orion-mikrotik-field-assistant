@@ -4,6 +4,36 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
+## ORION Field V4
+
+A V4 amplia o ORION para configurações gerais na tela **Rede básica**, com:
+
+- WAN por DHCP Client ou IP fixo;
+- bridge e endereço da LAN;
+- seleção de portas LAN;
+- DHCP Server automático para os dispositivos da LAN;
+- pool DHCP automático ou definido manualmente;
+- servidores DNS;
+- NAT opcional;
+- controle individual de SSH, WinBox, WebFig, Telnet e FTP;
+- bloqueio preventivo de interfaces desativadas e conflitos de nomes;
+- pré-visualização e confirmação explícita;
+- backup automático antes da aplicação;
+- preservação das regras preexistentes.
+
+As portas LAN são alteradas por último, depois que o novo endereço de acesso já foi criado. A sessão atual ainda pode cair, e o técnico deverá reconectar pelo IP configurado para a LAN.
+
+### Configurar uma rede básica
+
+1. Conecte ao MikroTik e abra **Rede básica**.
+2. Escolha se a WAN receberá o endereço por DHCP ou usará IP fixo.
+3. Confirme a interface WAN, as portas LAN e o endereço da LAN.
+4. Clique em **Revisar configuração** e confira a prévia e os alertas.
+5. Digite `APLICAR`. O ORION cria um backup e envia a configuração.
+6. Conecte o computador a uma porta LAN e aguarde a validação do novo acesso.
+
+O endereço `192.168.50.1/24` é apenas uma sugestão do perfil. Ele pode ser substituído por qualquer rede válida adequada à instalação.
+
 ## ORION Field V3
 
 A V3 conecta diretamente à API do RouterOS e oferece:
@@ -29,7 +59,7 @@ Não existe banco de dados. As credenciais e a senha do enlace permanecem soment
 - `routeros-py` para a API binária do RouterOS;
 - pytest para os testes do backend.
 
-C++ não faz parte da V3. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+C++ não faz parte da V4. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
 
 ## Executar localmente
 
