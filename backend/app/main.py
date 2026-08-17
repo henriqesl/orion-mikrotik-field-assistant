@@ -10,7 +10,7 @@ from app.api.mikrotik import router as mikrotik_router
 app = FastAPI(
     title="ORION Field API",
     description="Backend do MikroTik Field Assistant.",
-    version="0.4.0",
+    version="0.5.0",
 )
 
 app.add_middleware(
