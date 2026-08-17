@@ -140,7 +140,7 @@ h2 {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 0.35rem;
   border: 1px solid var(--color-line);
   border-radius: 0.9rem;
@@ -1152,6 +1152,39 @@ h2 {
 .vlan-port-list strong { color: var(--color-text); font-family: var(--font-data); font-size: 0.75rem; }
 .vlan-port-list label { display: flex; align-items: center; gap: 0.3rem; color: var(--color-text-muted); font-size: 0.67rem; cursor: pointer; }
 .vlan-port-list input { accent-color: var(--color-primary); }
+
+.lora-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.lora-detected {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgb(44 203 127 / 35%);
+  border-radius: 0.7rem;
+  background: rgb(44 203 127 / 7%);
+}
+
+.lora-detected span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.lora-detected strong {
+  color: var(--color-text);
+  font-family: var(--font-data);
+}
+
+.lora-detected b {
+  color: var(--color-success);
+  font-size: 0.72rem;
+}
 
 .lan-discovery {
   display: grid;
@@ -2291,6 +2324,7 @@ h2 {
   .dhcp-pool-grid,
   .setting-toggle-grid,
   .service-toggle-grid,
+  .lora-toggle-grid,
   .role-selector,
   .device-grid,
   .advanced-grid {

@@ -228,3 +228,41 @@ class VlanApplyResult(BaseModel):
     backup_file: str
     changes_applied: int
     summary: str
+
+
+class LoraProtectionConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    wan_interface: str = Field(min_length=1, max_length=64)
+    enable_lns_watchdog: bool = True
+    enable_lora_guard: bool = True
+    enable_wan_watchdog: bool = True
+    ping_target: IPv4Address = IPv4Address("1.1.1.1")
+    failure_threshold: int = Field(default=3, ge=1, le=10)
+    lora_interval: Literal["5m", "10m", "30m", "1h"] = "30m"
+    wan_interval: Literal["1m", "5m", "10m", "30m"] = "10m"
+
+
+class LoraProtectionPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    connection: MikroTikConnection
+    configuration: LoraProtectionConfiguration
+
+
+class LoraProtectionApplyRequest(LoraProtectionPreviewRequest):
+    confirmation: Literal["APLICAR"]
+
+
+class LoraProtectionPreview(BaseModel):
+    device_identity: str
+    lora_interface: str
+    lora_status: str
+    changes: list[ConfigurationChange]
+    warnings: list[str]
+
+
+class LoraProtectionApplyResult(BaseModel):
+    status: Literal["applied"]
+    backup_file: str
+    changes_applied: int
+    summary: str

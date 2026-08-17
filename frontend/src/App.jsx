@@ -5,6 +5,7 @@ import DeviceSummary from "./components/DeviceSummary.jsx";
 import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
 import BasicNetworkConfiguration from "./components/BasicNetworkConfiguration.jsx";
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
+import LoraProtection from "./components/LoraProtection.jsx";
 import PingTest from "./components/PingTest.jsx";
 import VlanConfiguration from "./components/VlanConfiguration.jsx";
 import { discoverDevice } from "./services/api.js";
@@ -32,6 +33,7 @@ const WORKSPACE_TABS = [
   { id: "configuration", label: "Configuração do rádio" },
   { id: "network", label: "Rede básica" },
   { id: "vlan", label: "VLAN" },
+  { id: "lora", label: "Gateway LoRa" },
   { id: "tests", label: "Testes" },
 ];
 
@@ -335,6 +337,12 @@ function App() {
         {device && activeConnection && (
           <section aria-labelledby="tab-vlan" className="tab-panel" hidden={activeTab !== "vlan"} id="panel-vlan" role="tabpanel">
             <VlanConfiguration connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleVlanApplied} />
+          </section>
+        )}
+
+        {device && activeConnection && (
+          <section aria-labelledby="tab-lora" className="tab-panel" hidden={activeTab !== "lora"} id="panel-lora" role="tabpanel">
+            <LoraProtection connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleVlanApplied} />
           </section>
         )}
 
