@@ -4,9 +4,39 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
+## ORION Field V5
+
+A V5 fecha o fluxo local de campo em uma única aplicação:
+
+- inicialização pelo `start-orion.cmd`, em `http://127.0.0.1:8765`;
+- descoberta de MikroTiks na LAN por MNDP;
+- abertura assistida do WinBox pelo MAC;
+- geração do `.rsc` mínimo para equipamentos ainda sem IP;
+- configuração direta de enlace e rede básica;
+- configuração LoRa com watchdogs de interface, LNS e WAN;
+- prévia, confirmação explícita e backup antes das alterações;
+- modo demonstração para navegar sem um MikroTik disponível.
+
+O ORION não armazena credenciais, instalações ou dados de técnicos. A aplicação continua local e sem banco de dados.
+
+### Acesso a um equipamento sem IP
+
+1. Conecte o computador e o MikroTik à mesma rede local.
+2. Abra o ORION e aguarde o equipamento aparecer na descoberta LAN.
+3. Coloque o `winbox.exe` oficial na pasta principal do projeto.
+4. Clique em **Preparar via MAC** e entre no equipamento pelo WinBox.
+5. Importe o `.rsc` gerado pelo ORION para criar um IP temporário e habilitar a API apenas na sub-rede escolhida.
+6. Volte ao ORION e prossiga pela conexão IP normal.
+
+O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
+
+### LoRa
+
+Na aba **LoRa**, o ORION confirma a existência de `/iot lora` antes de oferecer os watchdogs. Ele altera somente scripts e agendamentos identificados como ORION; a configuração do servidor LoRaWAN permanece intacta.
+
 ## ORION Field V4
 
-A V4 amplia o ORION para configurações gerais na tela **Rede básica**, com:
+A V4 introduziu as configurações gerais na tela **Rede básica**, com:
 
 - WAN por DHCP Client ou IP fixo;
 - bridge e endereço da LAN;
@@ -59,11 +89,27 @@ Não existe banco de dados. As credenciais e a senha do enlace permanecem soment
 - `routeros-py` para a API binária do RouterOS;
 - pytest para os testes do backend.
 
-C++ não faz parte da V4. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+C++ não faz parte da V5. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
 
 ## Executar localmente
 
-Requisitos: Node.js, Python 3.11 ou superior e um MikroTik com o serviço API habilitado. Para configurar, o usuário do RouterOS também precisa de permissão de escrita.
+Requisitos: Windows, Node.js, Python 3.11 ou superior e um MikroTik. Para a configuração direta, o serviço API precisa estar habilitado e o usuário do RouterOS deve ter permissão de escrita. O WinBox é opcional e necessário somente para a preparação assistida por MAC.
+
+### Inicialização simplificada
+
+No Windows, execute `start-orion.cmd`. O inicializador prepara as dependências quando necessário, compila a interface, inicia todo o ORION em `http://127.0.0.1:8765` e abre o navegador automaticamente.
+
+Para escolher outra porta:
+
+```powershell
+.\scripts\start-orion.ps1 -Port 8877
+```
+
+O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
+
+Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, coloque o `winbox.exe` oficial na pasta principal do ORION e use **Preparar via MAC**. O ORION abre o WinBox e gera um `.rsc` mínimo que atribui um IP temporário e habilita a API somente para a sub-rede escolhida.
+
+### Desenvolvimento
 
 ### Backend
 
@@ -121,15 +167,17 @@ npm audit --audit-level=high
 
 ## Modo offline
 
-O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para Enlace, Rede básica e Gateway LoRa sem depender do backend.
+O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para Enlace, Rede básica e LoRa sem depender do backend.
 
 ## Limites conhecidos
 
-- a primeira conexão ainda exige IPv4 e a API do RouterOS previamente habilitada;
-- não há descoberta ou configuração por MAC, reset ou restauração automática do backup;
+- o acesso por MAC prepara o equipamento, mas a operação direta do ORION ainda acontece pela API IPv4;
+- não há reset nem restauração automática do backup;
 - o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
 - frequências permitidas dependem do modelo, da regulamentação e do RouterOS;
 - histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
+- a proteção LoRa exige RouterOS 7, pacote IoT e uma interface compatível em `/iot lora`;
+- a configuração LoRa ainda precisa de validação física no equipamento de destino;
 - os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
 
 ## Identidade visual

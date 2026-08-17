@@ -140,7 +140,7 @@ h2 {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 0.35rem;
   border: 1px solid var(--color-line);
   border-radius: 0.9rem;
@@ -1130,6 +1130,255 @@ h2 {
   min-height: 2.9rem;
 }
 
+.lora-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.lora-detected {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgb(44 203 127 / 35%);
+  border-radius: 0.7rem;
+  background: rgb(44 203 127 / 7%);
+}
+
+.lora-detected span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.lora-detected strong {
+  color: var(--color-text);
+  font-family: var(--font-data);
+}
+
+.lora-detected b {
+  color: var(--color-success);
+  font-size: 0.72rem;
+}
+
+.lan-discovery {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.85rem;
+  background: #07111f;
+}
+
+.lan-discovery > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lan-discovery > header > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.lan-discovery > header strong {
+  color: var(--color-text);
+  font-size: 0.85rem;
+}
+
+.lan-discovery > header span,
+.lan-discovery__empty,
+.lan-discovery__warning,
+.lan-discovery__message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.lan-discovery button,
+.lan-device__actions button {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.5rem;
+  color: var(--color-text-secondary);
+  background: #101d2e;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.lan-discovery button:hover:not(:disabled),
+.lan-device__actions button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.lan-device-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lan-device {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(8rem, 0.8fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.7rem;
+  background: #091422;
+}
+
+.lan-device__identity,
+.lan-device__addresses {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.lan-device__identity strong {
+  color: var(--color-text);
+  font-size: 0.78rem;
+}
+
+.lan-device__identity span,
+.lan-device__addresses small {
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+}
+
+.lan-device__addresses span,
+.lan-device__addresses small {
+  font-family: var(--font-data);
+}
+
+.lan-device__addresses span {
+  color: var(--color-signal);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.lan-device__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.lan-device__actions .lan-device__primary-action {
+  border-color: rgb(47 125 246 / 60%);
+  color: #dbeafe;
+  background: rgb(47 125 246 / 15%);
+}
+
+.lan-discovery__warning {
+  color: var(--color-warning);
+}
+
+.lan-discovery__message {
+  color: var(--color-success);
+}
+
+.bootstrap-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgb(47 125 246 / 45%);
+  border-radius: 0.75rem;
+  background: rgb(47 125 246 / 7%);
+}
+
+.bootstrap-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bootstrap-panel > header > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.bootstrap-panel > header p {
+  margin: 0;
+}
+
+.bootstrap-panel > header strong {
+  color: var(--color-text);
+  font-size: 0.84rem;
+}
+
+.bootstrap-steps {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.bootstrap-steps span {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+}
+
+.bootstrap-steps b {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--color-primary);
+  font-size: 0.65rem;
+}
+
+.bootstrap-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.bootstrap-panel > .primary-button {
+  width: fit-content;
+}
+
+.bootstrap-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.3rem 0.8rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(44 203 127 / 35%);
+  border-radius: 0.65rem;
+  background: rgb(44 203 127 / 7%);
+}
+
+.bootstrap-result strong,
+.bootstrap-result span,
+.bootstrap-result small {
+  grid-column: 1;
+}
+
+.bootstrap-result strong {
+  color: var(--color-success);
+  font-size: 0.75rem;
+}
+
+.bootstrap-result span,
+.bootstrap-result small {
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+}
+
+.bootstrap-result button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .check-field {
   display: inline-flex;
   align-items: center;
@@ -2052,6 +2301,7 @@ h2 {
   .dhcp-pool-grid,
   .setting-toggle-grid,
   .service-toggle-grid,
+  .lora-toggle-grid,
   .role-selector,
   .device-grid,
   .advanced-grid {
@@ -2071,6 +2321,28 @@ h2 {
     flex-direction: column;
     gap: 0.75rem;
     padding-top: 0.5rem;
+  }
+
+  .lan-discovery > header,
+  .bootstrap-panel > header,
+  .lan-device {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .lan-device__actions {
+    justify-content: flex-start;
+  }
+
+  .bootstrap-fields,
+  .bootstrap-result {
+    grid-template-columns: 1fr;
+  }
+
+  .bootstrap-result button {
+    grid-column: 1;
+    grid-row: auto;
+    width: fit-content;
   }
 
   .wifi-heading {

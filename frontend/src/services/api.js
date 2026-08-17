@@ -35,6 +35,38 @@ async function postJson(path, body) {
   return data;
 }
 
+async function getJson(path) {
+  let response;
+  try {
+    response = await fetch(path);
+  } catch {
+    throw new Error("A descoberta local ainda não está disponível.");
+  }
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.detail || "Não foi possível consultar a rede local.");
+  }
+  return data;
+}
+
+export function discoverLanDevices() {
+  return getJson("/api/mikrotik/lan-devices");
+}
+
+export function openWinBox(macAddress, username) {
+  return postJson("/api/mikrotik/winbox/open", {
+    mac_address: macAddress,
+    username,
+  });
+}
+
+export function generateBootstrap(interfaceName, address) {
+  return postJson("/api/mikrotik/bootstrap", {
+    interface_name: interfaceName,
+    address,
+  });
+}
+
 export function discoverDevice(connection) {
   if (isDemoConnection(connection)) return Promise.resolve(demoDevice());
   return postJson("/api/mikrotik/discover", connection);
@@ -94,4 +126,26 @@ export function applyBasicNetwork(connection, configuration) {
     configuration,
     confirmation: "APLICAR",
   });
+}
+
+export function previewLoraProtection(connection, configuration) {
+  if (isDemoConnection(connection)) {
+    const loraEnabled = configuration.enable_lns_watchdog || configuration.enable_lora_guard;
+    return Promise.resolve({
+      device_identity: "ORION-DEMO-LORA",
+      lora_interface: "lora1",
+      lora_status: "connected",
+      changes: [
+        { area: "LoRa", field: "Proteção da interface", current_value: "Não configurado", new_value: loraEnabled ? "Ativo" : "Inativo" },
+        { area: "WAN", field: "Watchdog de conectividade", current_value: "Não configurado", new_value: configuration.enable_wan_watchdog ? "Ativo" : "Inativo" },
+      ],
+      warnings: ["Demonstração: nenhuma alteração será aplicada."],
+    });
+  }
+  return postJson("/api/mikrotik/lora/preview", { connection, configuration });
+}
+
+export function applyLoraProtection(connection, configuration) {
+  if (isDemoConnection(connection)) return Promise.reject(new Error("O modo demonstração não aplica configurações."));
+  return postJson("/api/mikrotik/lora/apply", { connection, configuration, confirmation: "APLICAR" });
 }
