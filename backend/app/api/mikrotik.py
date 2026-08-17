@@ -19,6 +19,8 @@ from app.models.mikrotik import (
     PingResult,
 )
 from app.models.discovery import (
+    BootstrapRequest,
+    BootstrapResult,
     LanDiscoveryResult,
     WinBoxLaunchRequest,
     WinBoxLaunchResult,
@@ -41,12 +43,19 @@ from app.services.configuration import (
 from app.services.network_configuration import apply_basic_network, preview_basic_network
 from app.services.lan_discovery import (
     WinBoxNotFoundError,
+    build_bootstrap,
     mndp_collector,
     open_winbox,
 )
 
 
 router = APIRouter(prefix="/api/mikrotik", tags=["mikrotik"])
+
+
+@router.post("/bootstrap", response_model=BootstrapResult)
+def generate_bootstrap(request: BootstrapRequest) -> BootstrapResult:
+    """Generate the minimal script needed to continue through the IP API."""
+    return build_bootstrap(request)
 
 
 @router.get("/lan-devices", response_model=LanDiscoveryResult)

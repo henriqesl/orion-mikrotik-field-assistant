@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { discoverLanDevices, openWinBox } from "../services/api.js";
+import BootstrapPanel from "./BootstrapPanel.jsx";
 
 const INITIAL_FORM = {
   host: "192.168.88.1",
@@ -17,6 +18,7 @@ function ConnectionForm({ isLoading, onConnect }) {
   const [discoveryError, setDiscoveryError] = useState("");
   const [openingMac, setOpeningMac] = useState("");
   const [winboxMessage, setWinboxMessage] = useState("");
+  const [bootstrapMac, setBootstrapMac] = useState("");
 
   const refreshLanDevices = useCallback(async () => {
     try {
@@ -33,6 +35,20 @@ function ConnectionForm({ isLoading, onConnect }) {
     const intervalId = window.setInterval(refreshLanDevices, 5_000);
     return () => window.clearInterval(intervalId);
   }, [refreshLanDevices]);
+
+  useEffect(() => {
+    if (!bootstrapMac) return;
+    const preparedDevice = lanDiscovery.devices.find(
+      (device) => device.mac_address === bootstrapMac,
+    );
+    if (
+      preparedDevice?.ip_address
+      && preparedDevice.ip_address !== "0.0.0.0"
+    ) {
+      setForm((current) => ({ ...current, host: preparedDevice.ip_address }));
+      setWinboxMessage(`Novo IP detectado: ${preparedDevice.ip_address}.`);
+    }
+  }, [bootstrapMac, lanDiscovery.devices]);
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
@@ -70,6 +86,9 @@ function ConnectionForm({ isLoading, onConnect }) {
   }
 
   async function handleOpenWinBox(device) {
+    if (!device.ip_address || device.ip_address === "0.0.0.0") {
+      setBootstrapMac(device.mac_address);
+    }
     setOpeningMac(device.mac_address);
     setWinboxMessage("");
     try {
@@ -126,7 +145,9 @@ function ConnectionForm({ isLoading, onConnect }) {
                       onClick={() => handleOpenWinBox(device)}
                       type="button"
                     >
-                      {openingMac === device.mac_address ? "Abrindo…" : "Abrir no WinBox"}
+                      {openingMac === device.mac_address
+                        ? "Abrindo…"
+                        : hasUsableIp ? "Abrir no WinBox" : "Preparar via MAC"}
                     </button>
                   </div>
                 </article>
@@ -135,6 +156,13 @@ function ConnectionForm({ isLoading, onConnect }) {
           </div>
         ) : (
           <p className="lan-discovery__empty">Procurando equipamentos conectados à mesma rede local…</p>
+        )}
+
+        {bootstrapMac && (
+          <BootstrapPanel
+            device={lanDiscovery.devices.find((device) => device.mac_address === bootstrapMac) || { mac_address: bootstrapMac }}
+            onClose={() => setBootstrapMac("")}
+          />
         )}
 
         {discoveryError && <p className="lan-discovery__warning">{discoveryError}</p>}

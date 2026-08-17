@@ -60,6 +60,13 @@ export function openWinBox(macAddress, username) {
   });
 }
 
+export function generateBootstrap(interfaceName, address) {
+  return postJson("/api/mikrotik/bootstrap", {
+    interface_name: interfaceName,
+    address,
+  });
+}
+
 export function discoverDevice(connection) {
   if (isDemoConnection(connection)) return Promise.resolve(demoDevice());
   return postJson("/api/mikrotik/discover", connection);

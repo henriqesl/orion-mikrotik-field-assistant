@@ -1248,6 +1248,104 @@ h2 {
   color: var(--color-success);
 }
 
+.bootstrap-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgb(47 125 246 / 45%);
+  border-radius: 0.75rem;
+  background: rgb(47 125 246 / 7%);
+}
+
+.bootstrap-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bootstrap-panel > header > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.bootstrap-panel > header p {
+  margin: 0;
+}
+
+.bootstrap-panel > header strong {
+  color: var(--color-text);
+  font-size: 0.84rem;
+}
+
+.bootstrap-steps {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.bootstrap-steps span {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+}
+
+.bootstrap-steps b {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--color-primary);
+  font-size: 0.65rem;
+}
+
+.bootstrap-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.bootstrap-panel > .primary-button {
+  width: fit-content;
+}
+
+.bootstrap-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.3rem 0.8rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(44 203 127 / 35%);
+  border-radius: 0.65rem;
+  background: rgb(44 203 127 / 7%);
+}
+
+.bootstrap-result strong,
+.bootstrap-result span,
+.bootstrap-result small {
+  grid-column: 1;
+}
+
+.bootstrap-result strong {
+  color: var(--color-success);
+  font-size: 0.75rem;
+}
+
+.bootstrap-result span,
+.bootstrap-result small {
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+}
+
+.bootstrap-result button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .check-field {
   display: inline-flex;
   align-items: center;
@@ -2192,6 +2290,7 @@ h2 {
   }
 
   .lan-discovery > header,
+  .bootstrap-panel > header,
   .lan-device {
     align-items: flex-start;
     grid-template-columns: 1fr;
@@ -2199,6 +2298,17 @@ h2 {
 
   .lan-device__actions {
     justify-content: flex-start;
+  }
+
+  .bootstrap-fields,
+  .bootstrap-result {
+    grid-template-columns: 1fr;
+  }
+
+  .bootstrap-result button {
+    grid-column: 1;
+    grid-row: auto;
+    width: fit-content;
   }
 
   .wifi-heading {

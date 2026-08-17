@@ -1,7 +1,9 @@
 import struct
+from ipaddress import IPv4Address
 from pathlib import Path
 
 from app.services import lan_discovery as service
+from app.models.discovery import BootstrapRequest
 
 
 def tlv(field_type: int, value: bytes) -> bytes:
@@ -69,3 +71,21 @@ def test_open_winbox_explains_where_to_place_executable(monkeypatch) -> None:
         assert "pasta principal" in str(error)
     else:
         raise AssertionError("WinBoxNotFoundError was not raised")
+
+
+def test_bootstrap_restricts_api_and_does_not_reset_device() -> None:
+    result = service.build_bootstrap(
+        BootstrapRequest(
+            interface_name="ether1",
+            address="192.168.88.1/24",
+        )
+    )
+
+    assert result.filename == "orion-bootstrap.rsc"
+    assert result.reconnect_ip == IPv4Address("192.168.88.1")
+    assert result.computer_ip_suggestion == IPv4Address("192.168.88.2")
+    assert 'address="192.168.88.0/24"' in result.script
+    assert 'name="api"' in result.script
+    assert "reset-configuration" not in result.script
+    assert "/user" not in result.script
+    assert "password" not in result.script.lower()

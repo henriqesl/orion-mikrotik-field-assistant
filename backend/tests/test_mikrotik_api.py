@@ -79,6 +79,20 @@ def test_winbox_launch_does_not_receive_password(monkeypatch) -> None:
     assert calls == [("AA:BB:CC:DD:EE:FF", "orion")]
 
 
+def test_bootstrap_endpoint_returns_downloadable_script() -> None:
+    response = client.post(
+        "/api/mikrotik/bootstrap",
+        json={
+            "interface_name": "ether1",
+            "address": "192.168.88.1/24",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["filename"] == "orion-bootstrap.rsc"
+    assert response.json()["reconnect_ip"] == "192.168.88.1"
+
+
 def test_cors_allows_orion_frontend_port() -> None:
     response = client.options(
         "/api/mikrotik/discover",

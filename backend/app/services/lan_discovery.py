@@ -9,7 +9,7 @@ import time
 from ipaddress import IPv4Address
 from pathlib import Path
 
-from app.models.discovery import LanDevice, LanDiscoveryResult
+from app.models.discovery import BootstrapRequest, BootstrapResult, LanDevice, LanDiscoveryResult
 
 
 MNDP_PORT = 5678
@@ -202,6 +202,35 @@ def open_winbox(mac_address: str, username: str) -> None:
     subprocess.Popen(
         [str(executable), mac_address, username],
         cwd=executable.parent,
+    )
+
+
+def build_bootstrap(request: BootstrapRequest) -> BootstrapResult:
+    network = request.address.network
+    computer_ip = next(
+        host for host in network.hosts() if host != request.address.ip
+    )
+    script = "\n".join(
+        [
+            "# ORION Field V5 - bootstrap de acesso",
+            f':local orionInterface "{request.interface_name}"',
+            f':local orionAddress "{request.address}"',
+            ':if ([:len [/interface find where name=$orionInterface]] = 0) do={ :error "Interface nao encontrada" }',
+            "/ip address",
+            ':local orionAddressId [find where comment="ORION Field - bootstrap"]',
+            ':if ([:len $orionAddressId] = 0) do={ add address=$orionAddress interface=$orionInterface comment="ORION Field - bootstrap" } else={ set $orionAddressId address=$orionAddress interface=$orionInterface disabled=no }',
+            "/ip service",
+            f'set [find where name="api"] disabled=no port=8728 address="{network}"',
+            ':put "ORION bootstrap concluido"',
+            "",
+        ]
+    )
+    return BootstrapResult(
+        filename="orion-bootstrap.rsc",
+        script=script,
+        reconnect_ip=request.address.ip,
+        computer_ip_suggestion=computer_ip,
+        prefix_length=network.prefixlen,
     )
 
 
