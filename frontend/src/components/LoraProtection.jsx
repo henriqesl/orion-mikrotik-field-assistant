@@ -84,7 +84,7 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
   return (
     <section className="configuration-card">
       <div className="section-heading">
-        <div><p className="card-kicker">ORION Field V5</p><h2>Proteção do Gateway LoRa</h2></div>
+        <div><p className="card-kicker">ORION Field V5</p><h2>Configuração LoRa</h2></div>
         <span className={device.demo_mode ? "preview-badge" : "write-badge"}>{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
       <p className="section-description">Monitora a interface LoRa e a conexão WAN do gateway sem substituir a configuração do servidor LoRaWAN.</p>
@@ -120,7 +120,7 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
         <ul className="configuration-warnings">{preview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
         {!device.demo_mode && <><label className="confirmation-field"><span>Digite <strong>APLICAR</strong> para confirmar</span><input onChange={(event) => setConfirmation(event.target.value)} value={confirmation} /></label><button className="danger-button" disabled={confirmation !== "APLICAR" || busy} onClick={apply} type="button">Criar backup e aplicar</button></>}
       </section>}
-      {result && <div className="configuration-success"><strong>Gateway protegido</strong><span>{result.summary}</span><small>Backup: {result.backup_file}</small></div>}
+      {result && <div className="configuration-success"><strong>LoRa configurado</strong><span>{result.summary}</span><small>Backup: {result.backup_file}</small></div>}
     </section>
   );
 }

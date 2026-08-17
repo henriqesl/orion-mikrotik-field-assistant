@@ -12,8 +12,8 @@ A V5 fecha o fluxo local de campo em uma única aplicação:
 - descoberta de MikroTiks na LAN por MNDP;
 - abertura assistida do WinBox pelo MAC;
 - geração do `.rsc` mínimo para equipamentos ainda sem IP;
-- configuração direta de enlace, rede básica e VLAN;
-- proteção de Gateway LoRa com watchdogs de interface, LNS e WAN;
+- configuração direta de enlace e rede básica;
+- configuração LoRa com watchdogs de interface, LNS e WAN;
 - prévia, confirmação explícita e backup antes das alterações;
 - modo demonstração para navegar sem um MikroTik disponível.
 
@@ -30,11 +30,9 @@ O ORION não armazena credenciais, instalações ou dados de técnicos. A aplica
 
 O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
 
-### VLAN e Gateway LoRa
+### LoRa
 
-Na aba **VLAN**, o técnico escolhe o ID, a bridge, o endereço, as portas tagged e untagged, o DHCP opcional e a ativação da filtragem. O ORION preserva regras preexistentes e exige uma porta de recuperação antes de ativar `vlan-filtering`.
-
-Na aba **Gateway LoRa**, o ORION confirma a existência de `/iot lora` antes de oferecer os watchdogs. Ele altera somente scripts e agendamentos identificados como ORION; a configuração do servidor LoRaWAN permanece intacta.
+Na aba **LoRa**, o ORION confirma a existência de `/iot lora` antes de oferecer os watchdogs. Ele altera somente scripts e agendamentos identificados como ORION; a configuração do servidor LoRaWAN permanece intacta.
 
 ## ORION Field V4
 
@@ -169,7 +167,7 @@ npm audit --audit-level=high
 
 ## Modo offline
 
-O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para Enlace, Rede básica e Gateway LoRa sem depender do backend.
+O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para Enlace, Rede básica e LoRa sem depender do backend.
 
 ## Limites conhecidos
 
@@ -179,7 +177,7 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 - frequências permitidas dependem do modelo, da regulamentação e do RouterOS;
 - histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
 - a proteção LoRa exige RouterOS 7, pacote IoT e uma interface compatível em `/iot lora`;
-- a proteção do Gateway LoRa ainda precisa de validação física no equipamento de destino;
+- a configuração LoRa ainda precisa de validação física no equipamento de destino;
 - os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
 
 ## Identidade visual

@@ -128,27 +128,6 @@ export function applyBasicNetwork(connection, configuration) {
   });
 }
 
-export function previewVlan(connection, configuration) {
-  if (isDemoConnection(connection)) {
-    return Promise.resolve({
-      device_identity: "ORION-DEMO-STATION",
-      changes: [
-        { area: "VLAN", field: "ID", current_value: null, new_value: String(configuration.vlan_id) },
-        { area: "VLAN", field: "Endereço", current_value: null, new_value: configuration.address },
-        { area: "Portas", field: "Tagged", current_value: null, new_value: [configuration.bridge, ...configuration.tagged_ports].join(", ") },
-        { area: "Portas", field: "Untagged", current_value: null, new_value: configuration.untagged_ports.join(", ") || "Nenhuma" },
-      ],
-      warnings: ["Demonstração: nenhuma alteração será aplicada."],
-    });
-  }
-  return postJson("/api/mikrotik/vlan/preview", { connection, configuration });
-}
-
-export function applyVlan(connection, configuration) {
-  if (isDemoConnection(connection)) return Promise.reject(new Error("O modo demonstração não aplica configurações."));
-  return postJson("/api/mikrotik/vlan/apply", { connection, configuration, confirmation: "APLICAR" });
-}
-
 export function previewLoraProtection(connection, configuration) {
   if (isDemoConnection(connection)) {
     const loraEnabled = configuration.enable_lns_watchdog || configuration.enable_lora_guard;

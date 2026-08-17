@@ -13,10 +13,6 @@ from app.models.configuration import (
     LoraProtectionApplyResult,
     LoraProtectionPreview,
     LoraProtectionPreviewRequest,
-    VlanApplyRequest,
-    VlanApplyResult,
-    VlanPreview,
-    VlanPreviewRequest,
 )
 from app.models.mikrotik import (
     ConnectivityRequest,
@@ -49,7 +45,6 @@ from app.services.configuration import (
     preview_link_configuration,
 )
 from app.services.network_configuration import apply_basic_network, preview_basic_network
-from app.services.vlan_configuration import apply_vlan, preview_vlan
 from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
 from app.services.lan_discovery import (
     WinBoxNotFoundError,
@@ -80,26 +75,6 @@ def apply_lora_configuration(
 ) -> LoraProtectionApplyResult:
     try:
         return apply_lora_protection(request)
-    except ConfigurationConflictError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
-    except MikroTikError as error:
-        raise _friendly_http_error(error) from error
-
-
-@router.post("/vlan/preview", response_model=VlanPreview)
-def preview_vlan_configuration(request: VlanPreviewRequest) -> VlanPreview:
-    try:
-        return preview_vlan(request)
-    except ConfigurationConflictError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
-    except MikroTikError as error:
-        raise _friendly_http_error(error) from error
-
-
-@router.post("/vlan/apply", response_model=VlanApplyResult)
-def apply_vlan_configuration(request: VlanApplyRequest) -> VlanApplyResult:
-    try:
-        return apply_vlan(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:

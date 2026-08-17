@@ -7,7 +7,6 @@ import BasicNetworkConfiguration from "./components/BasicNetworkConfiguration.js
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import LoraProtection from "./components/LoraProtection.jsx";
 import PingTest from "./components/PingTest.jsx";
-import VlanConfiguration from "./components/VlanConfiguration.jsx";
 import { discoverDevice } from "./services/api.js";
 import orionMark from "./assets/orion-mark.svg";
 
@@ -32,8 +31,7 @@ const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
   { id: "configuration", label: "Configuração do rádio" },
   { id: "network", label: "Rede básica" },
-  { id: "vlan", label: "VLAN" },
-  { id: "lora", label: "Gateway LoRa" },
+  { id: "lora", label: "LoRa" },
   { id: "tests", label: "Testes" },
 ];
 
@@ -246,7 +244,7 @@ function App() {
     return null;
   }
 
-  async function handleVlanApplied() {
+  async function handleInPlaceConfigurationApplied() {
     setIsMonitoring(true);
     await refreshDevice();
   }
@@ -335,14 +333,8 @@ function App() {
         )}
 
         {device && activeConnection && (
-          <section aria-labelledby="tab-vlan" className="tab-panel" hidden={activeTab !== "vlan"} id="panel-vlan" role="tabpanel">
-            <VlanConfiguration connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleVlanApplied} />
-          </section>
-        )}
-
-        {device && activeConnection && (
           <section aria-labelledby="tab-lora" className="tab-panel" hidden={activeTab !== "lora"} id="panel-lora" role="tabpanel">
-            <LoraProtection connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleVlanApplied} />
+            <LoraProtection connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleInPlaceConfigurationApplied} />
           </section>
         )}
 

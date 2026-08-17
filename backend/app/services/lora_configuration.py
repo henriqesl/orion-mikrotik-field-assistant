@@ -339,7 +339,7 @@ def apply_lora_protection(
             status="applied",
             backup_file=f"{backup}.backup",
             changes_applied=len(preview.changes),
-            summary="As proteções do gateway LoRa foram configuradas.",
+            summary="As proteções LoRa foram configuradas.",
         )
 
     return _with_connection(request.connection, apply)
