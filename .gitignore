@@ -8,6 +8,8 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
+backend/build/
+frontend/src-tauri/binaries/*.exe
 
 # Editors and operating systems
 .vscode/
