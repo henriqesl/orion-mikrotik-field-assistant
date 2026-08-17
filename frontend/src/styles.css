@@ -1130,6 +1130,124 @@ h2 {
   min-height: 2.9rem;
 }
 
+.lan-discovery {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.85rem;
+  background: #07111f;
+}
+
+.lan-discovery > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lan-discovery > header > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.lan-discovery > header strong {
+  color: var(--color-text);
+  font-size: 0.85rem;
+}
+
+.lan-discovery > header span,
+.lan-discovery__empty,
+.lan-discovery__warning,
+.lan-discovery__message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.lan-discovery button,
+.lan-device__actions button {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.5rem;
+  color: var(--color-text-secondary);
+  background: #101d2e;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.lan-discovery button:hover:not(:disabled),
+.lan-device__actions button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.lan-device-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lan-device {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(8rem, 0.8fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.7rem;
+  background: #091422;
+}
+
+.lan-device__identity,
+.lan-device__addresses {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.lan-device__identity strong {
+  color: var(--color-text);
+  font-size: 0.78rem;
+}
+
+.lan-device__identity span,
+.lan-device__addresses small {
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+}
+
+.lan-device__addresses span,
+.lan-device__addresses small {
+  font-family: var(--font-data);
+}
+
+.lan-device__addresses span {
+  color: var(--color-signal);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.lan-device__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.lan-device__actions .lan-device__primary-action {
+  border-color: rgb(47 125 246 / 60%);
+  color: #dbeafe;
+  background: rgb(47 125 246 / 15%);
+}
+
+.lan-discovery__warning {
+  color: var(--color-warning);
+}
+
+.lan-discovery__message {
+  color: var(--color-success);
+}
+
 .check-field {
   display: inline-flex;
   align-items: center;
@@ -2071,6 +2189,16 @@ h2 {
     flex-direction: column;
     gap: 0.75rem;
     padding-top: 0.5rem;
+  }
+
+  .lan-discovery > header,
+  .lan-device {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .lan-device__actions {
+    justify-content: flex-start;
   }
 
   .wifi-heading {

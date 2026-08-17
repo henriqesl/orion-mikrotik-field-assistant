@@ -77,6 +77,8 @@ Para escolher outra porta:
 
 O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
 
+Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, coloque o `winbox.exe` oficial na pasta principal do ORION e use **Abrir no WinBox** para iniciar o acesso pelo MAC.
+
 ### Desenvolvimento
 
 ### Backend

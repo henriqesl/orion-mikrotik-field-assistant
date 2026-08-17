@@ -18,6 +18,11 @@ from app.models.mikrotik import (
     PingRequest,
     PingResult,
 )
+from app.models.discovery import (
+    LanDiscoveryResult,
+    WinBoxLaunchRequest,
+    WinBoxLaunchResult,
+)
 from app.services.routeros import (
     MikroTikAuthenticationError,
     MikroTikError,
@@ -34,9 +39,38 @@ from app.services.configuration import (
     preview_link_configuration,
 )
 from app.services.network_configuration import apply_basic_network, preview_basic_network
+from app.services.lan_discovery import (
+    WinBoxNotFoundError,
+    mndp_collector,
+    open_winbox,
+)
 
 
 router = APIRouter(prefix="/api/mikrotik", tags=["mikrotik"])
+
+
+@router.get("/lan-devices", response_model=LanDiscoveryResult)
+def discover_lan_devices() -> LanDiscoveryResult:
+    """Return MikroTik devices announced through MNDP on the local network."""
+    return mndp_collector.snapshot()
+
+
+@router.post("/winbox/open", response_model=WinBoxLaunchResult)
+def launch_winbox(request: WinBoxLaunchRequest) -> WinBoxLaunchResult:
+    """Open the official WinBox client at a discovered MAC without a password."""
+    try:
+        open_winbox(request.mac_address, request.username)
+    except WinBoxNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=502,
+            detail="O Windows não conseguiu abrir o WinBox.",
+        ) from error
+    return WinBoxLaunchResult(
+        status="opened",
+        summary="WinBox aberto. Informe a senha diretamente na janela oficial.",
+    )
 
 
 def _friendly_http_error(error: MikroTikError) -> HTTPException:

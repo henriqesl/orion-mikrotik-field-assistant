@@ -35,6 +35,31 @@ async function postJson(path, body) {
   return data;
 }
 
+async function getJson(path) {
+  let response;
+  try {
+    response = await fetch(path);
+  } catch {
+    throw new Error("A descoberta local ainda não está disponível.");
+  }
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.detail || "Não foi possível consultar a rede local.");
+  }
+  return data;
+}
+
+export function discoverLanDevices() {
+  return getJson("/api/mikrotik/lan-devices");
+}
+
+export function openWinBox(macAddress, username) {
+  return postJson("/api/mikrotik/winbox/open", {
+    mac_address: macAddress,
+    username,
+  });
+}
+
 export function discoverDevice(connection) {
   if (isDemoConnection(connection)) return Promise.resolve(demoDevice());
   return postJson("/api/mikrotik/discover", connection);

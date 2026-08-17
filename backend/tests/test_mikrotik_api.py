@@ -4,6 +4,7 @@ from app.api import mikrotik
 from app.main import app
 from app.models.configuration import ConfigurationApplyResult, ConfigurationPreview
 from app.models.mikrotik import ConnectivityValidation, DeviceSummary, PingResult
+from app.models.discovery import LanDiscoveryResult
 from app.services.routeros import (
     MikroTikAuthenticationError,
     MikroTikConnectionError,
@@ -35,6 +36,47 @@ VALID_CONFIGURATION = {
     "management_ip": "192.168.88.2/24",
     "gateway": "192.168.88.1",
 }
+
+
+def test_lan_discovery_returns_mndp_devices(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mikrotik.mndp_collector,
+        "snapshot",
+        lambda: LanDiscoveryResult(
+            status="listening",
+            devices=[
+                {
+                    "mac_address": "AA:BB:CC:DD:EE:FF",
+                    "identity": "MikroTik",
+                    "ip_address": "0.0.0.0",
+                    "board": "hAP ax2",
+                    "last_seen_seconds": 1.2,
+                }
+            ],
+        ),
+    )
+
+    response = client.get("/api/mikrotik/lan-devices")
+
+    assert response.status_code == 200
+    assert response.json()["devices"][0]["mac_address"] == "AA:BB:CC:DD:EE:FF"
+
+
+def test_winbox_launch_does_not_receive_password(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        mikrotik,
+        "open_winbox",
+        lambda mac_address, username: calls.append((mac_address, username)),
+    )
+
+    response = client.post(
+        "/api/mikrotik/winbox/open",
+        json={"mac_address": "AA:BB:CC:DD:EE:FF", "username": "orion"},
+    )
+
+    assert response.status_code == 200
+    assert calls == [("AA:BB:CC:DD:EE:FF", "orion")]
 
 
 def test_cors_allows_orion_frontend_port() -> None:

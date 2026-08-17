@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import { discoverLanDevices, openWinBox } from "../services/api.js";
 
 const INITIAL_FORM = {
   host: "192.168.88.1",
@@ -11,6 +13,26 @@ const INITIAL_FORM = {
 
 function ConnectionForm({ isLoading, onConnect }) {
   const [form, setForm] = useState(INITIAL_FORM);
+  const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
+  const [discoveryError, setDiscoveryError] = useState("");
+  const [openingMac, setOpeningMac] = useState("");
+  const [winboxMessage, setWinboxMessage] = useState("");
+
+  const refreshLanDevices = useCallback(async () => {
+    try {
+      const result = await discoverLanDevices();
+      setLanDiscovery(result);
+      setDiscoveryError(result.message || "");
+    } catch (error) {
+      setDiscoveryError(error.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLanDevices();
+    const intervalId = window.setInterval(refreshLanDevices, 5_000);
+    return () => window.clearInterval(intervalId);
+  }, [refreshLanDevices]);
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
@@ -42,6 +64,24 @@ function ConnectionForm({ isLoading, onConnect }) {
     }
   }
 
+  function useDeviceIp(device) {
+    setForm((current) => ({ ...current, host: device.ip_address }));
+    setWinboxMessage("");
+  }
+
+  async function handleOpenWinBox(device) {
+    setOpeningMac(device.mac_address);
+    setWinboxMessage("");
+    try {
+      const result = await openWinBox(device.mac_address, form.username);
+      setWinboxMessage(result.summary);
+    } catch (error) {
+      setWinboxMessage(error.message);
+    } finally {
+      setOpeningMac("");
+    }
+  }
+
   return (
     <form className="connection-form" onSubmit={handleSubmit}>
       <div className="section-heading">
@@ -50,6 +90,56 @@ function ConnectionForm({ isLoading, onConnect }) {
           <h2>Dados de acesso</h2>
         </div>
       </div>
+
+      <section className="lan-discovery" aria-labelledby="lan-discovery-title">
+        <header>
+          <div>
+            <strong id="lan-discovery-title">MikroTiks na rede</strong>
+            <span>Descoberta local por MNDP</span>
+          </div>
+          <button disabled={isLoading} onClick={refreshLanDevices} type="button">
+            Atualizar
+          </button>
+        </header>
+
+        {lanDiscovery.devices.length > 0 ? (
+          <div className="lan-device-list">
+            {lanDiscovery.devices.map((device) => {
+              const hasUsableIp = device.ip_address && device.ip_address !== "0.0.0.0";
+              return (
+                <article className="lan-device" key={device.mac_address}>
+                  <div className="lan-device__identity">
+                    <strong>{device.identity || "MikroTik sem identidade"}</strong>
+                    <span>{device.board || device.platform || "Modelo não informado"}</span>
+                  </div>
+                  <div className="lan-device__addresses">
+                    <span>{hasUsableIp ? device.ip_address : "Sem IP"}</span>
+                    <small>{device.mac_address}</small>
+                  </div>
+                  <div className="lan-device__actions">
+                    {hasUsableIp && (
+                      <button onClick={() => useDeviceIp(device)} type="button">Usar IP</button>
+                    )}
+                    <button
+                      className={!hasUsableIp ? "lan-device__primary-action" : ""}
+                      disabled={openingMac === device.mac_address}
+                      onClick={() => handleOpenWinBox(device)}
+                      type="button"
+                    >
+                      {openingMac === device.mac_address ? "Abrindo…" : "Abrir no WinBox"}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="lan-discovery__empty">Procurando equipamentos conectados à mesma rede local…</p>
+        )}
+
+        {discoveryError && <p className="lan-discovery__warning">{discoveryError}</p>}
+        {winboxMessage && <p className="lan-discovery__message">{winboxMessage}</p>}
+      </section>
 
       <div className="form-grid">
         <label className="field field--wide">
