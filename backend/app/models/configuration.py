@@ -163,3 +163,68 @@ class BasicNetworkApplyResult(BaseModel):
     reconnect_ip: IPv4Address
     changes_applied: int
     summary: str
+
+
+class VlanConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    vlan_id: int = Field(ge=1, le=4094)
+    bridge: str = Field(min_length=1, max_length=64)
+    address: IPv4Interface
+    tagged_ports: list[str] = Field(default_factory=list)
+    untagged_ports: list[str] = Field(default_factory=list)
+    enable_dhcp: bool = False
+    dhcp_pool_start: IPv4Address | None = None
+    dhcp_pool_end: IPv4Address | None = None
+    dns_servers: list[IPv4Address] = Field(default_factory=lambda: [IPv4Address("1.1.1.1")], min_length=1, max_length=3)
+    enable_filtering: bool = False
+
+    @model_validator(mode="after")
+    def validate_vlan(self):
+        if not self.tagged_ports and not self.untagged_ports:
+            raise ValueError("Selecione ao menos uma porta para a VLAN.")
+        selected = [*self.tagged_ports, *self.untagged_ports]
+        if len(selected) != len(set(selected)):
+            raise ValueError("Uma porta não pode ser tagged e untagged ao mesmo tempo.")
+        network = self.address.network
+        if self.address.ip in {network.network_address, network.broadcast_address}:
+            raise ValueError("O IP da VLAN não pode ser rede ou broadcast.")
+        pool = (self.dhcp_pool_start, self.dhcp_pool_end)
+        if any(pool) and not all(pool):
+            raise ValueError("Informe o início e o fim do pool DHCP.")
+        if all(pool):
+            if not self.enable_dhcp:
+                raise ValueError("O pool exige o DHCP Server ativo.")
+            if self.dhcp_pool_start not in network or self.dhcp_pool_end not in network:
+                raise ValueError("O pool DHCP deve pertencer à rede da VLAN.")
+            if self.dhcp_pool_start in {network.network_address, network.broadcast_address} or self.dhcp_pool_end in {network.network_address, network.broadcast_address}:
+                raise ValueError("O pool DHCP não pode usar rede ou broadcast.")
+            if self.dhcp_pool_start <= self.address.ip <= self.dhcp_pool_end:
+                raise ValueError("O pool DHCP não pode incluir o IP do MikroTik.")
+            if self.dhcp_pool_start > self.dhcp_pool_end:
+                raise ValueError("O início do pool deve ser menor que o fim.")
+        return self
+
+
+class VlanPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    connection: MikroTikConnection
+    configuration: VlanConfiguration
+
+
+class VlanApplyRequest(VlanPreviewRequest):
+    confirmation: Literal["APLICAR"]
+
+
+class VlanPreview(BaseModel):
+    device_identity: str
+    changes: list[ConfigurationChange]
+    warnings: list[str]
+
+
+class VlanApplyResult(BaseModel):
+    status: Literal["applied"]
+    backup_file: str
+    changes_applied: int
+    summary: str

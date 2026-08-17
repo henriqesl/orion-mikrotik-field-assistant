@@ -6,6 +6,7 @@ import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
 import BasicNetworkConfiguration from "./components/BasicNetworkConfiguration.jsx";
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import PingTest from "./components/PingTest.jsx";
+import VlanConfiguration from "./components/VlanConfiguration.jsx";
 import { discoverDevice } from "./services/api.js";
 import orionMark from "./assets/orion-mark.svg";
 
@@ -30,6 +31,7 @@ const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
   { id: "configuration", label: "Configuração do rádio" },
   { id: "network", label: "Rede básica" },
+  { id: "vlan", label: "VLAN" },
   { id: "tests", label: "Testes" },
 ];
 
@@ -242,6 +244,11 @@ function App() {
     return null;
   }
 
+  async function handleVlanApplied() {
+    setIsMonitoring(true);
+    await refreshDevice();
+  }
+
   return (
     <main className="page">
       <header className="app-header">
@@ -322,6 +329,12 @@ function App() {
               onRefresh={refreshDevice}
               onToggleMonitoring={handleToggleMonitoring}
             />
+          </section>
+        )}
+
+        {device && activeConnection && (
+          <section aria-labelledby="tab-vlan" className="tab-panel" hidden={activeTab !== "vlan"} id="panel-vlan" role="tabpanel">
+            <VlanConfiguration connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleVlanApplied} />
           </section>
         )}
 
