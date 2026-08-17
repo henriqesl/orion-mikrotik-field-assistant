@@ -65,6 +65,20 @@ C++ não faz parte da V4. Ele só deverá ser considerado futuramente se houver 
 
 Requisitos: Node.js, Python 3.11 ou superior e um MikroTik com o serviço API habilitado. Para configurar, o usuário do RouterOS também precisa de permissão de escrita.
 
+### Inicialização simplificada
+
+No Windows, execute `start-orion.cmd`. O inicializador prepara as dependências quando necessário, compila a interface, inicia todo o ORION em `http://127.0.0.1:8765` e abre o navegador automaticamente.
+
+Para escolher outra porta:
+
+```powershell
+.\scripts\start-orion.ps1 -Port 8877
+```
+
+O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
+
+### Desenvolvimento
+
 ### Backend
 
 ```powershell
