@@ -64,7 +64,11 @@ function App() {
           });
           const data = await response.json();
 
-          if (response.ok && data.status === "ok") {
+          if (
+            response.ok &&
+            data.status === "ok" &&
+            data.service === "orion-field-api"
+          ) {
             setApiState("online");
             return;
           }

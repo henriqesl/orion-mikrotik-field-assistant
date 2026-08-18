@@ -13,6 +13,7 @@ A V6 transforma o ORION em um aplicativo Windows x64 independente e adiciona dia
 - instalador NSIS com WebView2 offline;
 - ORION Network Engine em C++ para jitter, p95, p99, picos e estabilidade;
 - ping executado pelo próprio MikroTik, preservando o ponto real da medição;
+- instância única: abrir o ORION novamente apenas restaura a janela existente;
 - encerramento conjunto do aplicativo e do backend, sem deixar a porta local ocupada.
 
 RSSI, ruído e SNR continuam sendo lidos do RouterOS quando o equipamento os fornece. O motor C++ não inventa nem estima métricas de rádio.
