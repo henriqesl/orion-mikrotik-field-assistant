@@ -20,6 +20,8 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://localhost:8765",
         "http://127.0.0.1:8765",
+        "http://tauri.localhost",
+        "tauri://localhost",
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST"],

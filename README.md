@@ -135,6 +135,23 @@ npm run dev
 
 O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
 
+### Aplicativo desktop (V6 em desenvolvimento)
+
+Para desenvolver ou gerar o aplicativo Windows, instale também o Rust e a carga de trabalho **Desenvolvimento para desktop com C++** do Visual Studio Build Tools 2022.
+
+```powershell
+cd frontend
+npm run desktop:dev
+```
+
+O comando prepara o backend empacotado e abre o ORION como aplicativo Tauri. Para gerar o instalador x64:
+
+```powershell
+npm run desktop:build
+```
+
+O instalador é criado em `frontend/src-tauri/target/release/bundle/nsis`. Depois de instalado, o usuário final não precisa instalar Node.js, Python, Rust ou Visual Studio. O backend inicia e encerra junto com o aplicativo e atende somente em `127.0.0.1:8765`.
+
 ### Demonstração sem MikroTik
 
 Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar pelo ORION com um equipamento simulado. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.

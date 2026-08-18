@@ -5,12 +5,13 @@ import {
   demoPing,
   isDemoConnection,
 } from "./demo.js";
+import { apiUrl } from "./runtime.js";
 
 async function postJson(path, body) {
   let response;
 
   try {
-    response = await fetch(path, {
+    response = await fetch(apiUrl(path), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,7 +39,7 @@ async function postJson(path, body) {
 async function getJson(path) {
   let response;
   try {
-    response = await fetch(path);
+    response = await fetch(apiUrl(path));
   } catch {
     throw new Error("A descoberta local ainda não está disponível.");
   }

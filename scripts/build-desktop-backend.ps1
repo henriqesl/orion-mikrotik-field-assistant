@@ -21,7 +21,6 @@ Push-Location $BackendDirectory
 try {
     & $PythonExecutable -m PyInstaller `
         --noconfirm `
-        --clean `
         --onefile `
         --windowed `
         --collect-all uvicorn `

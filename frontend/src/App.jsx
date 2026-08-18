@@ -8,6 +8,7 @@ import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import LoraProtection from "./components/LoraProtection.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
+import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
 
 const API_STATES = {
@@ -54,18 +55,29 @@ function App() {
     const controller = new AbortController();
 
     async function checkApi() {
-      try {
-        const response = await fetch("/api/health", {
-          signal: controller.signal,
-        });
-        const data = await response.json();
+      const attempts = isDesktopRuntime() ? 12 : 1;
 
-        setApiState(response.ok && data.status === "ok" ? "online" : "offline");
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          setApiState("offline");
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          const response = await fetch(apiUrl("/api/health"), {
+            signal: controller.signal,
+          });
+          const data = await response.json();
+
+          if (response.ok && data.status === "ok") {
+            setApiState("online");
+            return;
+          }
+        } catch (error) {
+          if (error.name === "AbortError") return;
+        }
+
+        if (attempt < attempts) {
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
         }
       }
+
+      setApiState("offline");
     }
 
     checkApi();

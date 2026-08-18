@@ -10,6 +10,8 @@ node_modules/
 frontend/dist/
 backend/build/
 frontend/src-tauri/binaries/*.exe
+frontend/src-tauri/target/
+frontend/src-tauri/gen/schemas/
 
 # Editors and operating systems
 .vscode/

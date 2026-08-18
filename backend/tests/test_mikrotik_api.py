@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api import mikrotik
@@ -93,19 +94,21 @@ def test_bootstrap_endpoint_returns_downloadable_script() -> None:
     assert response.json()["reconnect_ip"] == "192.168.88.1"
 
 
-def test_cors_allows_orion_frontend_port() -> None:
+@pytest.mark.parametrize(
+    "origin",
+    ["http://localhost:5174", "http://tauri.localhost", "tauri://localhost"],
+)
+def test_cors_allows_orion_frontends(origin) -> None:
     response = client.options(
         "/api/mikrotik/discover",
         headers={
-            "Origin": "http://localhost:5174",
+            "Origin": origin,
             "Access-Control-Request-Method": "POST",
         },
     )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == (
-        "http://localhost:5174"
-    )
+    assert response.headers["access-control-allow-origin"] == origin
 
 
 def test_cors_does_not_allow_previous_frontend_port() -> None:
