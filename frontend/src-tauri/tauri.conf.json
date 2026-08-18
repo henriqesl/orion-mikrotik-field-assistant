@@ -5,7 +5,7 @@
   "identifier": "br.com.bionic.orion-field",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build && npm run desktop:backend",
+    "beforeBuildCommand": "npm run build && npm run desktop:engine && npm run desktop:backend",
     "devUrl": "http://localhost:5174",
     "frontendDist": "../dist"
   },
@@ -29,7 +29,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "externalBin": ["binaries/orion-backend"],
+    "externalBin": ["binaries/orion-backend", "binaries/orion-network-engine"],
     "icon": ["icons/icon.ico"],
     "windows": {
       "webviewInstallMode": {

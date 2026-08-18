@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "desktop:backend": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-desktop-backend.ps1",
-    "desktop:dev": "npm run desktop:backend && tauri dev",
+    "desktop:engine": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-network-engine.ps1",
+    "desktop:dev": "npm run desktop:engine && npm run desktop:backend && tauri dev",
     "desktop:build": "tauri build"
   },
   "dependencies": {

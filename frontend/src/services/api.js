@@ -78,7 +78,7 @@ export function runPing(connection, target) {
   return postJson("/api/mikrotik/ping", {
     connection,
     target,
-    count: 5,
+    count: 10,
   });
 }
 

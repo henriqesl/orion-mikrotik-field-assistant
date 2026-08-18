@@ -4,6 +4,19 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
+## ORION Field V6 — em desenvolvimento
+
+A V6 transforma o ORION em um aplicativo Windows x64 independente e adiciona diagnóstico nativo:
+
+- aplicativo desktop Tauri para Windows 10 e Windows 11;
+- FastAPI empacotado e iniciado automaticamente;
+- instalador NSIS com WebView2 offline;
+- ORION Network Engine em C++ para jitter, p95, p99, picos e estabilidade;
+- ping executado pelo próprio MikroTik, preservando o ponto real da medição;
+- encerramento conjunto do aplicativo e do backend, sem deixar a porta local ocupada.
+
+RSSI, ruído e SNR continuam sendo lidos do RouterOS quando o equipamento os fornece. O motor C++ não inventa nem estima métricas de rádio.
+
 ## ORION Field V5
 
 A V5 fecha o fluxo local de campo em uma única aplicação:
@@ -87,9 +100,11 @@ Não existe banco de dados. As credenciais e a senha do enlace permanecem soment
 - React 19 e Vite no frontend;
 - FastAPI no backend;
 - `routeros-py` para a API binária do RouterOS;
+- Rust e Tauri no aplicativo desktop da V6;
+- C++ no motor de métricas avançadas da V6;
 - pytest para os testes do backend.
 
-C++ não faz parte da V5. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+C++ não faz parte da lógica de formulários, configuração ou API. Ele permanece restrito ao processamento nativo de diagnóstico avançado.
 
 ## Executar localmente
 
