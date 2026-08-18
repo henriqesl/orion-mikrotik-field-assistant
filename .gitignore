@@ -12,6 +12,7 @@ backend/build/
 frontend/src-tauri/binaries/*.exe
 frontend/src-tauri/target/
 frontend/src-tauri/gen/schemas/
+native/network-engine/build/
 
 # Editors and operating systems
 .vscode/
