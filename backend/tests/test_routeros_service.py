@@ -151,6 +151,8 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
     assert result.wifi_interfaces[0].running is True
     assert result.radio_device is True
     assert result.lora_available is False
+    assert result.compatibility.profile_id == "mikrotik-sxt"
+    assert result.compatibility.support_level == "recognized"
     assert result.wifi_interfaces[0].mode == "station"
     assert result.wifi_interfaces[0].ssid == "ORION-Link"
     assert result.wifi_interfaces[0].frequency == "5805"
@@ -549,6 +551,9 @@ def test_ping_device_calculates_fallback_when_summary_is_missing(
             jitter_ms=2,
             p95_latency_ms=3.9,
             p99_latency_ms=3.98,
+            latency_range_ms=2,
+            standard_deviation_ms=1,
+            tail_spread_ms=0.98,
             spike_count=0,
             stability_score=73,
         ),

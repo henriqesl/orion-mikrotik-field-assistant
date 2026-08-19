@@ -6,9 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.mikrotik import router as mikrotik_router
+from app.api.support import router as support_router
+from app.version import APP_VERSION
 
 
-APP_VERSION = "0.6.1"
 IS_DESKTOP_RUNTIME = os.environ.get("ORION_DESKTOP_RUNTIME") == "1"
 
 
@@ -38,9 +39,11 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(mikrotik_router)
+app.include_router(support_router)
 
 
 @app.get("/api/health", tags=["system"])

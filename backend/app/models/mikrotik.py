@@ -82,6 +82,14 @@ class StructuralDiagnostic(BaseModel):
     checks: list[DiagnosticCheck]
 
 
+class DeviceCompatibility(BaseModel):
+    profile_id: str
+    profile_name: str
+    category: Literal["radio", "router", "lora_gateway", "generic"]
+    support_level: Literal["recognized", "generic"]
+    guidance: list[str]
+
+
 class MetricAssessment(BaseModel):
     status: Literal[
         "excellent",
@@ -125,6 +133,7 @@ class DeviceSummary(BaseModel):
     wifi_interfaces: list[WiFiInterface]
     radio_device: bool = False
     lora_available: bool = False
+    compatibility: DeviceCompatibility | None = None
     registration_table_available: bool
     wifi_peers: list[WiFiPeer]
     ethernet_interfaces: list[EthernetInterface]
@@ -140,7 +149,7 @@ class PingRequest(BaseModel):
 
     connection: MikroTikConnection
     target: IPv4Address
-    count: int = Field(default=5, ge=1, le=10)
+    count: int = Field(default=5, ge=1, le=60)
 
 
 class ConnectivityRequest(BaseModel):
@@ -219,6 +228,9 @@ class NetworkEngineMetrics(BaseModel):
     jitter_ms: float | None
     p95_latency_ms: float | None
     p99_latency_ms: float | None
+    latency_range_ms: float | None = None
+    standard_deviation_ms: float | None = None
+    tail_spread_ms: float | None = None
     spike_count: int
     stability_score: int = Field(ge=0, le=100)
 

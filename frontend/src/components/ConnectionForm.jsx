@@ -33,6 +33,19 @@ function isValidInterfaceName(value) {
   return value.trim().length > 0 && !/["\\;\r\n]/.test(value);
 }
 
+function networkCidr(value) {
+  const [ipAddress, prefixText] = value.trim().split("/");
+  const prefix = Number(prefixText);
+  const address = ipAddress
+    .split(".")
+    .map(Number)
+    .reduce((result, octet) => ((result << 8) | octet) >>> 0, 0);
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const network = (address & mask) >>> 0;
+  const octets = [24, 16, 8, 0].map((shift) => (network >>> shift) & 255);
+  return `${octets.join(".")}/${prefix}`;
+}
+
 async function copyText(value) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(value);
@@ -50,7 +63,7 @@ async function copyText(value) {
   if (!copied) throw new Error("A cópia automática não está disponível.");
 }
 
-function ConnectionForm({ isLoading, onConnect }) {
+function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
   const [discoveryError, setDiscoveryError] = useState("");
@@ -187,7 +200,7 @@ function ConnectionForm({ isLoading, onConnect }) {
 
     const commands = [
       `/ip address add address=${address} interface="${interfaceName}" comment="ORION Field - acesso inicial"`,
-      "/ip service set api disabled=no port=8728",
+      `/ip service set api disabled=no port=8728 address=${networkCidr(address)}`,
     ].join("\n");
 
     try {
@@ -209,7 +222,7 @@ function ConnectionForm({ isLoading, onConnect }) {
   const bootstrapCommands = bootstrapCommandsReady
     ? [
         `/ip address add address=${bootstrapAddress.trim()} interface="${bootstrapInterface.trim()}" comment="ORION Field - acesso inicial"`,
-        "/ip service set api disabled=no port=8728",
+        `/ip service set api disabled=no port=8728 address=${networkCidr(bootstrapAddress)}`,
       ].join("\n")
     : "Preencha o IP com prefixo e confirme a interface para gerar os comandos.";
 
@@ -221,6 +234,21 @@ function ConnectionForm({ isLoading, onConnect }) {
           <h2>Dados de acesso</h2>
         </div>
       </div>
+
+      {fieldSession && (
+        <aside className="field-session-banner" role="status">
+          <div>
+            <span>Sessão temporária de enlace</span>
+            <strong>
+              {fieldSession.next_role === "station"
+                ? "Conecte agora o equipamento que será a Station"
+                : "Conecte o equipamento que será o AP"}
+            </strong>
+            <small>{fieldSession.ssid} · os dados serão descartados ao encerrar a sessão</small>
+          </div>
+          <button onClick={onClearFieldSession} type="button">Encerrar sessão</button>
+        </aside>
+      )}
 
       <section className="lan-discovery" aria-labelledby="lan-discovery-title">
         <header>
@@ -330,7 +358,7 @@ function ConnectionForm({ isLoading, onConnect }) {
                     <button disabled={!bootstrapCommandsReady} onClick={copyBootstrapCommands} type="button">
                       Copiar comandos
                     </button>
-                    <span>Abra <strong>New Terminal</strong> no WinBox, cole e execute uma vez.</span>
+                    <span>A API será liberada somente para a rede informada. Cole uma vez no <strong>New Terminal</strong>.</span>
                   </div>
                   {commandCopyStatus && <small>{commandCopyStatus}</small>}
                 </div>

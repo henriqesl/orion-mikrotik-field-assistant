@@ -70,12 +70,12 @@ export function discoverDevice(connection) {
   return postJson("/api/mikrotik/discover", connection);
 }
 
-export function runPing(connection, target) {
-  if (isDemoConnection(connection)) return Promise.resolve(demoPing(target));
+export function runPing(connection, target, count = 10) {
+  if (isDemoConnection(connection)) return Promise.resolve(demoPing(target, count));
   return postJson("/api/mikrotik/ping", {
     connection,
     target,
-    count: 10,
+    count,
   });
 }
 
@@ -146,4 +146,45 @@ export function previewLoraProtection(connection, configuration) {
 export function applyLoraProtection(connection, configuration) {
   if (isDemoConnection(connection)) return Promise.reject(new Error("O modo demonstração não aplica configurações."));
   return postJson("/api/mikrotik/lora/apply", { connection, configuration, confirmation: "APLICAR" });
+}
+
+export async function downloadSupportBundle(device, recentError) {
+  const response = await fetch(apiUrl("/api/support/bundle"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      device: device ? {
+        identity: device.identity,
+        model: device.model,
+        routeros_version: device.routeros_version,
+        architecture: device.architecture,
+        wifi_stack: device.wifi_stack,
+        compatibility_profile: device.compatibility?.profile_name || null,
+        compatibility_level: device.compatibility?.support_level || null,
+        radio_device: Boolean(device.radio_device),
+        lora_available: Boolean(device.lora_available),
+        wifi_interface_count: device.wifi_interfaces.length,
+        ethernet_interface_count: device.ethernet_interfaces.length,
+      } : null,
+      recent_error: recentError || null,
+    }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail || "Não foi possível gerar o pacote de suporte.");
+  }
+
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const filename = decodeURIComponent(
+    disposition.match(/filename\*=UTF-8''([^;]+)/)?.[1] || "orion-support.zip",
+  );
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  return filename;
 }

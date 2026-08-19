@@ -21,6 +21,13 @@ export function demoDevice() {
     wifi_stack: "wifi",
     radio_device: true,
     lora_available: true,
+    compatibility: {
+      profile_id: "mikrotik-lhg",
+      profile_name: "Família LHG",
+      category: "radio",
+      support_level: "recognized",
+      guidance: ["Equipamento de demonstração reconhecido pelo catálogo local."],
+    },
     wifi_interfaces: [{
       name: "wifi1",
       default_name: "wifi1",
@@ -92,11 +99,11 @@ export function demoDevice() {
   };
 }
 
-export function demoPing(target) {
+export function demoPing(target, count = 10) {
   return {
     target,
-    sent: 5,
-    received: 5,
+    sent: count,
+    received: count,
     packet_loss_percent: 0,
     minimum_latency_ms: 1.7,
     average_latency_ms: 2.4,
@@ -105,8 +112,8 @@ export function demoPing(target) {
     measurement_source: "orion_calculation",
     advanced_metrics: {
       source: "orion_network_engine",
-      sent_packets: 5,
-      received_packets: 5,
+      sent_packets: count,
+      received_packets: count,
       packet_loss_percent: 0,
       availability_percent: 100,
       minimum_latency_ms: 1.7,
@@ -115,6 +122,9 @@ export function demoPing(target) {
       jitter_ms: 0.75,
       p95_latency_ms: 3,
       p99_latency_ms: 3.08,
+      latency_range_ms: 1.4,
+      standard_deviation_ms: 0.46,
+      tail_spread_ms: 0.68,
       spike_count: 0,
       stability_score: 98,
     },
