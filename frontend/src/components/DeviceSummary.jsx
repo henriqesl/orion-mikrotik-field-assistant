@@ -21,7 +21,7 @@ const DIAGNOSTIC_LABELS = {
   unavailable: "Não avaliado",
 };
 
-function interfaceStatus(wifiInterface) {
+function interfaceStatus(wifiInterface, radioDevice) {
   if (wifiInterface.disabled === true) {
     return "Desativada";
   }
@@ -31,7 +31,7 @@ function interfaceStatus(wifiInterface) {
   }
 
   if (wifiInterface.running === false) {
-    return "Sem enlace";
+    return radioDevice ? "Sem enlace" : "Inativa";
   }
 
   return "Estado não informado";
@@ -89,7 +89,8 @@ function DeviceSummary({
   onRefresh,
   onToggleMonitoring,
 }) {
-  const radioAvailable = device.wifi_interfaces.length > 0;
+  const wifiAvailable = device.wifi_interfaces.length > 0;
+  const radioDevice = Boolean(device.radio_device);
 
   return (
     <section className="device-card" aria-labelledby="device-title">
@@ -149,13 +150,13 @@ function DeviceSummary({
         ))}
       </dl>
 
-      <div className={`wifi-heading${radioAvailable ? "" : " capability-heading--unavailable"}`}>
+      <div className={`wifi-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
-          <p className="card-kicker">Rádio</p>
+          <p className="card-kicker">{radioDevice ? "Rádio" : "Wi-Fi"}</p>
           <h3>Interfaces Wi-Fi</h3>
         </div>
         <div className="wifi-meta">
-          {radioAvailable ? (
+          {wifiAvailable ? (
             <>
               <span>{STACK_LABELS[device.wifi_stack]}</span>
               <span>{device.wifi_package || "Pacote não informado"}</span>
@@ -184,7 +185,7 @@ function DeviceSummary({
                     : "interface-state"
                 }
               >
-                {interfaceStatus(wifiInterface)}
+                {interfaceStatus(wifiInterface, radioDevice)}
               </span>
               <dl className="radio-configuration">
                 <div>
@@ -219,7 +220,7 @@ function DeviceSummary({
         </p>
       )}
 
-      <div className={`wifi-heading peer-heading${radioAvailable ? "" : " capability-heading--unavailable"}`}>
+      <div className={`wifi-heading peer-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
           <p className="card-kicker">Registration table</p>
           <h3>Equipamentos associados</h3>
@@ -293,19 +294,19 @@ function DeviceSummary({
         </div>
       )}
 
-      <div className={`wifi-heading diagnostic-heading${radioAvailable ? "" : " capability-heading--unavailable"}`}>
+      <div className={`wifi-heading diagnostic-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
           <p className="card-kicker">Diagnóstico estrutural</p>
-          <h3>Caminho do enlace</h3>
+          <h3>{radioDevice ? "Caminho do enlace" : "Estrutura Wi-Fi"}</h3>
         </div>
-        {radioAvailable && (
+        {wifiAvailable && (
           <span className="diagnostic-count">
             {device.structural_diagnostic.checks.length} verificações
           </span>
         )}
       </div>
 
-      {radioAvailable ? (
+      {wifiAvailable ? (
         <div className="diagnostic-list">
           {device.structural_diagnostic.checks.map((check) => (
             <article

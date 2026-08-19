@@ -281,6 +281,39 @@ def _read_lora_available(client: Any) -> bool:
         return False
 
 
+RADIO_MODEL_MARKERS = (
+    "basebox",
+    "cube",
+    "disc",
+    "dynadish",
+    "groove",
+    "lhg",
+    "mantbox",
+    "metal",
+    "netbox",
+    "netmetal",
+    "omnitik",
+    "qrt",
+    "sextant",
+    "sxt",
+    "wireless wire",
+)
+
+
+def _is_radio_device(model: str | None, wifi_interfaces: list[WiFiInterface]) -> bool:
+    if not wifi_interfaces:
+        return False
+
+    normalized_model = (model or "").casefold().replace("®", "")
+    if any(marker in normalized_model for marker in RADIO_MODEL_MARKERS):
+        return True
+
+    return any(
+        (interface.mode or "").casefold().startswith("station")
+        for interface in wifi_interfaces
+    )
+
+
 def _safe_rows(client: Any, command: str) -> tuple[bool, list[Mapping[str, str]]]:
     try:
         return True, _rows(client.run(command))
@@ -593,14 +626,17 @@ def _read_device_summary(client: Any) -> DeviceSummary:
     if not identity_name or not routeros_version:
         raise MikroTikResponseError
 
+    model = resource.get("board-name")
+
     return DeviceSummary(
         identity=identity_name,
-        model=resource.get("board-name"),
+        model=model,
         routeros_version=routeros_version,
         architecture=resource.get("architecture-name"),
         wifi_package=wifi_package,
         wifi_stack=wifi_stack,
         wifi_interfaces=wifi_interfaces,
+        radio_device=_is_radio_device(model, wifi_interfaces),
         lora_available=lora_available,
         registration_table_available=registration_table_available,
         wifi_peers=wifi_peers,

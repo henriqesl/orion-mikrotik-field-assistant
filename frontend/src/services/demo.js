@@ -19,6 +19,7 @@ export function demoDevice() {
     architecture: "arm64",
     wifi_package: "wifi-qcom",
     wifi_stack: "wifi",
+    radio_device: true,
     lora_available: true,
     wifi_interfaces: [{
       name: "wifi1",

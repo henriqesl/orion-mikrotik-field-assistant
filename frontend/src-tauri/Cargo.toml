@@ -1,6 +1,6 @@
 [package]
 name = "orion-field"
-version = "0.6.0"
+version = "0.6.1"
 description = "ORION MikroTik Field Assistant"
 authors = ["BIONIC"]
 edition = "2021"

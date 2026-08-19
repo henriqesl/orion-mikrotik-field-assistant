@@ -16,10 +16,25 @@ export default function DesktopTitleBar() {
 
   const appWindow = getCurrentWindow();
 
+  async function handleTitleBarMouseDown(event) {
+    if (event.button !== 0 || event.target.closest?.("button")) return;
+
+    if (event.detail === 2) {
+      await appWindow.toggleMaximize();
+      return;
+    }
+
+    await appWindow.startDragging();
+  }
+
   return (
-    <header className="desktop-titlebar" data-tauri-drag-region>
+    <header
+      className="desktop-titlebar"
+      data-tauri-drag-region
+      onMouseDown={handleTitleBarMouseDown}
+    >
       <div className="desktop-titlebar__brand" data-tauri-drag-region>
-        <img alt="" aria-hidden="true" src={orionMark} />
+        <img alt="" aria-hidden="true" data-tauri-drag-region src={orionMark} />
         <span data-tauri-drag-region>ORION Field</span>
       </div>
 
