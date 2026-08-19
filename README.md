@@ -168,6 +168,14 @@ npm run desktop:build
 
 O instalador é criado em `frontend/src-tauri/target/release/bundle/nsis`. Depois de instalado, o usuário final não precisa instalar Node.js, Python, Rust ou Visual Studio. O backend inicia e encerra junto com o aplicativo e atende somente em `127.0.0.1:8765`.
 
+Para o pacote interno assinado, instale o certificado BIONIC com chave privada no repositório pessoal da conta de build e execute:
+
+```powershell
+npm run desktop:build:signed
+```
+
+O comando localiza o certificado por assunto, assina os binários próprios e gera o NSIS com SHA-256 e timestamp. A chave privada nunca deve ser exportada para a pasta de entrega. Nos computadores da empresa, distribua apenas o certificado público `.cer` e instale-o em **Autoridades de Certificação Raiz Confiáveis** e **Editores Confiáveis** antes do ORION.
+
 ### Demonstração sem MikroTik
 
 Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar pelo ORION com um equipamento simulado. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.
@@ -204,7 +212,7 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 
 ## Limites conhecidos
 
-- o instalador ainda não possui assinatura digital e o Windows SmartScreen pode exibir um aviso;
+- o instalador interno possui assinatura privada BIONIC; computadores que ainda não confiam no certificado podem exibir um aviso do Windows;
 - a instalação foi validada no Windows 11 x64; ainda falta uma execução física em um Windows 10 x64 limpo;
 - o acesso por MAC prepara o equipamento, mas a operação direta do ORION ainda acontece pela API IPv4;
 - não há reset nem restauração automática do backup;

@@ -10,6 +10,7 @@ node_modules/
 frontend/dist/
 backend/build/
 frontend/src-tauri/binaries/*.exe
+frontend/src-tauri/binaries/orion-backend-runtime/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/schemas/
 native/network-engine/build/
@@ -19,3 +20,6 @@ native/network-engine/build/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Certificado público exportado localmente para distribuição interna
+/BIONIC-ORION-Trust.cer

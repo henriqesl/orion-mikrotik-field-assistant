@@ -10,7 +10,8 @@
     "desktop:backend": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-desktop-backend.ps1",
     "desktop:engine": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-network-engine.ps1",
     "desktop:dev": "npm run desktop:engine && npm run desktop:backend && tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build",
+    "desktop:build:signed": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/build-signed-installer.ps1"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

@@ -39,4 +39,7 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $BuiltExecutable = Join-Path $BuildDirectory "$Configuration\orion-network-engine.exe"
 Copy-Item -LiteralPath $BuiltExecutable -Destination (Join-Path $OutputDirectory $OutputName) -Force
 
+& (Join-Path $PSScriptRoot "sign-windows-binary.ps1") `
+    -Path (Join-Path $OutputDirectory $OutputName)
+
 Write-Host "ORION Network Engine criado em $OutputDirectory\$OutputName" -ForegroundColor Green

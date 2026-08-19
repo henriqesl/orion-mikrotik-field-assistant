@@ -33,6 +33,9 @@
     "active": true,
     "targets": ["nsis"],
     "externalBin": ["binaries/orion-backend", "binaries/orion-network-engine"],
+    "resources": {
+      "binaries/orion-backend-runtime": "orion-backend-runtime"
+    },
     "icon": ["icons/icon.ico"],
     "windows": {
       "webviewInstallMode": {
