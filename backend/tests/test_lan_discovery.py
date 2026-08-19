@@ -1,9 +1,7 @@
 import struct
-from ipaddress import IPv4Address
 from pathlib import Path
 
 from app.services import lan_discovery as service
-from app.models.discovery import BootstrapRequest
 
 
 def tlv(field_type: int, value: bytes) -> bytes:
@@ -45,7 +43,7 @@ def test_open_winbox_uses_argument_list_without_password(monkeypatch, tmp_path: 
     executable = tmp_path / "winbox.exe"
     executable.touch()
     calls = []
-    monkeypatch.setattr(service, "find_winbox", lambda: executable)
+    monkeypatch.setattr(service, "find_winbox", lambda _path=None: executable)
     monkeypatch.setattr(
         service.subprocess,
         "Popen",
@@ -63,29 +61,60 @@ def test_open_winbox_uses_argument_list_without_password(monkeypatch, tmp_path: 
 
 
 def test_open_winbox_explains_where_to_place_executable(monkeypatch) -> None:
-    monkeypatch.setattr(service, "find_winbox", lambda: None)
+    monkeypatch.setattr(service, "find_winbox", lambda _path=None: None)
 
     try:
         service.open_winbox("AA:BB:CC:DD:EE:FF", "admin")
     except service.WinBoxNotFoundError as error:
-        assert "pasta principal" in str(error)
+        assert "própria tela" in str(error)
     else:
         raise AssertionError("WinBoxNotFoundError was not raised")
 
 
-def test_bootstrap_restricts_api_and_does_not_reset_device() -> None:
-    result = service.build_bootstrap(
-        BootstrapRequest(
-            interface_name="ether1",
-            address="192.168.88.1/24",
-        )
+def test_open_winbox_can_try_factory_blank_password(monkeypatch, tmp_path: Path) -> None:
+    executable = tmp_path / "winbox.exe"
+    executable.touch()
+    calls = []
+    monkeypatch.setattr(service, "find_winbox", lambda _path=None: executable)
+    monkeypatch.setattr(
+        service.subprocess,
+        "Popen",
+        lambda arguments, **options: calls.append((arguments, options)),
     )
 
-    assert result.filename == "orion-bootstrap.rsc"
-    assert result.reconnect_ip == IPv4Address("192.168.88.1")
-    assert result.computer_ip_suggestion == IPv4Address("192.168.88.2")
-    assert 'address="192.168.88.0/24"' in result.script
-    assert 'name="api"' in result.script
-    assert "reset-configuration" not in result.script
-    assert "/user" not in result.script
-    assert "password" not in result.script.lower()
+    service.open_winbox(
+        "AA:BB:CC:DD:EE:FF",
+        "admin",
+        try_blank_password=True,
+    )
+
+    assert calls[0][0] == [
+        str(executable),
+        "AA:BB:CC:DD:EE:FF",
+        "admin",
+        "",
+    ]
+
+
+def test_selected_winbox_path_is_saved(monkeypatch, tmp_path: Path) -> None:
+    executable = tmp_path / "winbox64.exe"
+    executable.touch()
+    settings_file = tmp_path / "settings" / "winbox-path.txt"
+    monkeypatch.setattr(service, "_winbox_settings_file", lambda: settings_file)
+
+    result = service.find_winbox(str(executable))
+
+    assert result == executable.resolve()
+    assert settings_file.read_text(encoding="utf-8") == str(executable.resolve())
+
+
+def test_selected_non_winbox_executable_is_rejected(tmp_path: Path) -> None:
+    executable = tmp_path / "other.exe"
+    executable.touch()
+
+    try:
+        service.find_winbox(str(executable))
+    except service.InvalidWinBoxPathError as error:
+        assert "winbox.exe" in str(error)
+    else:
+        raise AssertionError("InvalidWinBoxPathError was not raised")

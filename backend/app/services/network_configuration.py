@@ -44,7 +44,7 @@ def _validate_interfaces(
         raise ConfigurationConflictError(
             f"Ative as interfaces antes de continuar: {', '.join(disabled)}."
         )
-    if configuration.lan_bridge in available:
+    if configuration.configure_lan and configuration.lan_bridge in available:
         raise ConfigurationConflictError(
             "O nome da bridge LAN não pode ser igual ao de uma interface física."
         )
@@ -80,7 +80,11 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     service_rows = _rows(client.run("/ip/service/print"))
     _validate_interfaces(ethernet_rows, configuration)
 
-    bridge = _find_row(bridge_rows, "name", configuration.lan_bridge)
+    bridge = (
+        _find_row(bridge_rows, "name", configuration.lan_bridge)
+        if configuration.configure_lan
+        else None
+    )
     current_lan_ip = next(
         (
             row.get("address")
@@ -120,14 +124,16 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     current_ports = sorted(
         row.get("interface")
         for row in bridge_ports
-        if row.get("bridge") == configuration.lan_bridge
+        if configuration.configure_lan
+        and row.get("bridge") == configuration.lan_bridge
         and row.get("interface")
         and not _optional_bool(row.get("disabled"))
     )
     ports_moved_from_other_bridges = sorted(
         row.get("interface")
         for row in bridge_ports
-        if row.get("interface") in configuration.lan_ports
+        if configuration.configure_lan
+        and row.get("interface") in configuration.lan_ports
         and row.get("bridge") != configuration.lan_bridge
         and not _optional_bool(row.get("disabled"))
     )
@@ -168,30 +174,10 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             str(configuration.gateway) if configuration.gateway else "Automático por DHCP",
         ),
         (
-            "LAN",
-            "Bridge",
-            bridge.get("name") if bridge else None,
-            configuration.lan_bridge,
-        ),
-        ("LAN", "Endereço", current_lan_ip, str(configuration.lan_address)),
-        ("LAN", "Portas", ", ".join(current_ports) or None, ", ".join(configuration.lan_ports)),
-        (
             "DNS",
             "Servidores",
             dns.get("servers"),
             ", ".join(str(server) for server in configuration.dns_servers),
-        ),
-        (
-            "Internet",
-            "NAT",
-            "Ativo" if managed_nat and not _optional_bool(managed_nat.get("disabled")) else "Não gerenciado",
-            "Ativar masquerade" if configuration.enable_nat else "Não configurar",
-        ),
-        (
-            "LAN",
-            "DHCP Server",
-            "Ativo" if lan_dhcp else "Inativo",
-            "Ativar automaticamente" if configuration.enable_lan_dhcp else "Não configurar",
         ),
         *(
             (
@@ -210,6 +196,24 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             )
         ),
     ]
+    if configuration.configure_lan:
+        comparisons[3:3] = [
+            ("LAN", "Bridge", bridge.get("name") if bridge else None, configuration.lan_bridge),
+            ("LAN", "Endereço", current_lan_ip, str(configuration.lan_address)),
+            ("LAN", "Portas", ", ".join(current_ports) or None, ", ".join(configuration.lan_ports)),
+            (
+                "Internet",
+                "NAT",
+                "Ativo" if managed_nat and not _optional_bool(managed_nat.get("disabled")) else "Não gerenciado",
+                "Ativar masquerade" if configuration.enable_nat else "Não configurar",
+            ),
+            (
+                "LAN",
+                "DHCP Server",
+                "Ativo" if lan_dhcp else "Inativo",
+                "Ativar automaticamente" if configuration.enable_lan_dhcp else "Não configurar",
+            ),
+        ]
     if configuration.enable_lan_dhcp:
         comparisons.append(
             (
@@ -226,9 +230,15 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     ]
     warnings = [
         "Um backup será criado antes da primeira alteração.",
-        "A sessão pode cair ao mover as portas LAN; reconecte pelo novo IP da LAN.",
         "Regras existentes não serão apagadas automaticamente.",
     ]
+    if configuration.configure_lan:
+        warnings.insert(
+            1,
+            "A sessão pode cair ao mover as portas LAN; reconecte pelo novo IP da LAN.",
+        )
+    else:
+        warnings.insert(1, "A bridge, os endereços e as portas LAN serão preservados.")
     if ports_moved_from_other_bridges:
         warnings.append(
             "Estas portas sairão da bridge atual: "
@@ -246,7 +256,11 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         device_identity=identity.get("name") or "MikroTik",
         changes=changes,
         warnings=warnings,
-        reconnect_ip=configuration.lan_address.ip,
+        reconnect_ip=(
+            configuration.lan_address.ip
+            if configuration.lan_address
+            else request.connection.host
+        ),
     )
 
 
@@ -590,14 +604,15 @@ def apply_basic_network(
 
         client.run("/system/backup/save", f"=name={backup_name}")
         client.run("/system/identity/set", f"=name={configuration.identity}")
-        _ensure_bridge(client, context, configuration.lan_bridge)
-        _ensure_ip(
-            client,
-            context["ip_addresses"],
-            address=str(configuration.lan_address),
-            interface=configuration.lan_bridge,
-            comment="ORION Field - LAN",
-        )
+        if configuration.configure_lan:
+            _ensure_bridge(client, context, configuration.lan_bridge)
+            _ensure_ip(
+                client,
+                context["ip_addresses"],
+                address=str(configuration.lan_address),
+                interface=configuration.lan_bridge,
+                comment="ORION Field - LAN",
+            )
         client.run(
             "/ip/dns/set",
             f"=servers={','.join(str(server) for server in configuration.dns_servers)}",
@@ -607,28 +622,36 @@ def apply_basic_network(
             _configure_dhcp_wan(client, context, configuration)
         else:
             _configure_static_wan(client, context, configuration)
-        _configure_nat(client, context["nat"], configuration)
-        _configure_lan_dhcp(client, context, configuration)
+        if configuration.configure_lan:
+            _configure_nat(client, context["nat"], configuration)
+            _configure_lan_dhcp(client, context, configuration)
         _configure_access_services(client, context["services"], configuration)
 
         # Ports are moved last because changing the ingress interface can end
         # the current API session. The LAN address already exists at this point.
-        for interface in configuration.lan_ports:
-            _ensure_bridge_port(
-                client,
-                context,
-                interface,
-                configuration.lan_bridge,
-            )
+        if configuration.configure_lan:
+            for interface in configuration.lan_ports:
+                _ensure_bridge_port(
+                    client,
+                    context,
+                    interface,
+                    configuration.lan_bridge,
+                )
 
         return BasicNetworkApplyResult(
             status="applied",
             backup_file=f"{backup_name}.backup",
-            reconnect_ip=configuration.lan_address.ip,
+            reconnect_ip=(
+                configuration.lan_address.ip
+                if configuration.lan_address
+                else request.connection.host
+            ),
             changes_applied=len(preview.changes),
             summary=(
                 "A rede básica foi enviada. Conecte o computador a uma porta LAN "
                 "e acesse o MikroTik pelo novo IP."
+                if configuration.configure_lan
+                else "A rede básica foi enviada sem alterar a configuração LAN."
             ),
         )
 

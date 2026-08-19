@@ -84,7 +84,7 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
   return (
     <section className="configuration-card">
       <div className="section-heading">
-        <div><p className="card-kicker">ORION Field V5</p><h2>Configuração LoRa</h2></div>
+        <div><p className="card-kicker">Proteção operacional</p><h2>Configuração LoRa</h2></div>
         <span className={device.demo_mode ? "preview-badge" : "write-badge"}>{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
       <p className="section-description">Monitora a interface LoRa e a conexão WAN do gateway sem substituir a configuração do servidor LoRaWAN.</p>

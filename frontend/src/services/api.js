@@ -5,7 +5,7 @@ import {
   demoPing,
   isDemoConnection,
 } from "./demo.js";
-import { apiUrl } from "./runtime.js";
+import { apiUrl, isDesktopRuntime } from "./runtime.js";
 
 async function postJson(path, body) {
   let response;
@@ -20,7 +20,9 @@ async function postJson(path, body) {
     });
   } catch {
     throw new Error(
-      "O backend do ORION não está disponível. Inicie o FastAPI e tente novamente.",
+      isDesktopRuntime()
+        ? "Os serviços do ORION não responderam. Feche o aplicativo, abra novamente e tente outra vez."
+        : "O backend do ORION não está disponível. Inicie o FastAPI e tente novamente.",
     );
   }
 
@@ -54,17 +56,12 @@ export function discoverLanDevices() {
   return getJson("/api/mikrotik/lan-devices");
 }
 
-export function openWinBox(macAddress, username) {
+export function openWinBox(macAddress, username, options = {}) {
   return postJson("/api/mikrotik/winbox/open", {
     mac_address: macAddress,
     username,
-  });
-}
-
-export function generateBootstrap(interfaceName, address) {
-  return postJson("/api/mikrotik/bootstrap", {
-    interface_name: interfaceName,
-    address,
+    executable_path: options.executablePath || null,
+    try_blank_password: options.tryBlankPassword || false,
   });
 }
 

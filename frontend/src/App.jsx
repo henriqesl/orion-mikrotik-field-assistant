@@ -13,15 +13,15 @@ import orionMark from "./assets/orion-mark.svg";
 
 const API_STATES = {
   checking: {
-    label: "Verificando backend",
+    label: "Iniciando ORION",
     className: "status status--checking",
   },
   online: {
-    label: "Backend disponível",
+    label: "Sistema pronto",
     className: "status status--online",
   },
   offline: {
-    label: "Backend indisponível",
+    label: "Serviço indisponível",
     className: "status status--offline",
   },
 };

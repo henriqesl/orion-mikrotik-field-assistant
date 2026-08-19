@@ -4,7 +4,7 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
-## ORION Field V6 — em desenvolvimento
+## ORION Field V6
 
 A V6 transforma o ORION em um aplicativo Windows x64 independente e adiciona diagnóstico nativo:
 
@@ -25,7 +25,7 @@ A V5 fecha o fluxo local de campo em uma única aplicação:
 - inicialização pelo `start-orion.cmd`, em `http://127.0.0.1:8765`;
 - descoberta de MikroTiks na LAN por MNDP;
 - abertura assistida do WinBox pelo MAC;
-- geração do `.rsc` mínimo para equipamentos ainda sem IP;
+- seleção e memorização do executável oficial do WinBox pela própria interface;
 - configuração direta de enlace e rede básica;
 - configuração LoRa com watchdogs de interface, LNS e WAN;
 - prévia, confirmação explícita e backup antes das alterações;
@@ -37,10 +37,10 @@ O ORION não armazena credenciais, instalações ou dados de técnicos. A aplica
 
 1. Conecte o computador e o MikroTik à mesma rede local.
 2. Abra o ORION e aguarde o equipamento aparecer na descoberta LAN.
-3. Coloque o `winbox.exe` oficial na pasta principal do projeto.
-4. Clique em **Preparar via MAC** e entre no equipamento pelo WinBox.
-5. Importe o `.rsc` gerado pelo ORION para criar um IP temporário e habilitar a API apenas na sub-rede escolhida.
-6. Volte ao ORION e prossiga pela conexão IP normal.
+3. Clique em **Abrir via MAC**. Se necessário, localize o `winbox.exe` pela própria tela; o ORION memorizará o caminho.
+4. Entre no equipamento pela janela oficial do WinBox.
+5. Em **IP → Addresses**, defina um endereço válido na porta Ethernet e, em **IP → Services**, habilite `api`.
+6. O ORION detectará o novo IP, preencherá o endereço e permitirá continuar pela API.
 
 O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
 
@@ -123,7 +123,7 @@ Para escolher outra porta:
 
 O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
 
-Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, coloque o `winbox.exe` oficial na pasta principal do ORION e use **Preparar via MAC**. O ORION abre o WinBox e gera um `.rsc` mínimo que atribui um IP temporário e habilita a API somente para a sub-rede escolhida.
+Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, use **Abrir via MAC** e, se solicitado, selecione o executável oficial do WinBox. O caminho fica memorizado localmente; nenhum arquivo de configuração precisa ser copiado ou importado.
 
 ### Desenvolvimento
 
@@ -151,7 +151,7 @@ npm run dev
 
 O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
 
-### Aplicativo desktop (V6 em desenvolvimento)
+### Aplicativo desktop (V6)
 
 Para desenvolver ou gerar o aplicativo Windows, instale também o Rust e a carga de trabalho **Desenvolvimento para desktop com C++** do Visual Studio Build Tools 2022.
 
@@ -204,6 +204,8 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 
 ## Limites conhecidos
 
+- o instalador ainda não possui assinatura digital e o Windows SmartScreen pode exibir um aviso;
+- a instalação foi validada no Windows 11 x64; ainda falta uma execução física em um Windows 10 x64 limpo;
 - o acesso por MAC prepara o equipamento, mas a operação direta do ORION ainda acontece pela API IPv4;
 - não há reset nem restauração automática do backup;
 - o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
@@ -211,6 +213,7 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 - histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
 - a proteção LoRa exige RouterOS 7, pacote IoT e uma interface compatível em `/iot lora`;
 - a configuração LoRa ainda precisa de validação física no equipamento de destino;
+- o seletor do WinBox e a detecção do novo IP ainda precisam de validação física com um MikroTik sem IP;
 - os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
 
 ## Identidade visual

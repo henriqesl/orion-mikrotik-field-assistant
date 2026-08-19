@@ -178,7 +178,7 @@ function PingTest({ connection }) {
 
           <p className="measurement-source">
             {result.advanced_metrics
-              ? "Ping executado pelo RouterOS; jitter, percentis e estabilidade calculados pelo ORION Network Engine."
+              ? "Ping executado pelo MikroTik; métricas avançadas calculadas localmente."
               : result.measurement_source === "routeros_summary"
               ? "Métricas fornecidas pelo RouterOS."
               : "Métricas calculadas pelo ORION a partir das respostas."}

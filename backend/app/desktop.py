@@ -107,6 +107,7 @@ def main(arguments: Sequence[str] | None = None) -> None:
     options = create_parser().parse_args(arguments)
     _configure_file_logging(options.log_level)
     _start_parent_watchdog(options.parent_pid)
+    os.environ["ORION_DESKTOP_RUNTIME"] = "1"
     logger = logging.getLogger("orion.desktop")
 
     try:
