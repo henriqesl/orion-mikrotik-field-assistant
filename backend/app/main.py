@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.mikrotik import router as mikrotik_router
 
 
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.6.1"
 IS_DESKTOP_RUNTIME = os.environ.get("ORION_DESKTOP_RUNTIME") == "1"
 
 

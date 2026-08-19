@@ -31,7 +31,7 @@ const ALIGNMENT_INTERVAL_MS = 3_000;
 const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
   { id: "network", label: "Rede básica" },
-  { id: "configuration", label: "Configuração do rádio", capability: "radio" },
+  { id: "configuration", label: "Configuração do rádio", capability: "wifi" },
   { id: "lora", label: "LoRa", capability: "lora" },
   { id: "tests", label: "Testes" },
 ];
@@ -149,18 +149,19 @@ function App() {
   const currentState = device?.demo_mode
     ? { label: "Demonstração local", className: "status status--demo" }
     : API_STATES[apiState];
-  const radioAvailable = Boolean(device?.wifi_interfaces?.length);
+  const wifiAvailable = Boolean(device?.wifi_interfaces?.length);
+  const radioDevice = Boolean(device?.radio_device);
   const loraAvailable = Boolean(device?.lora_available);
 
   useEffect(() => {
     const activeCapabilityUnavailable =
-      (activeTab === "configuration" && !radioAvailable) ||
+      (activeTab === "configuration" && !wifiAvailable) ||
       (activeTab === "lora" && !loraAvailable);
 
     if (device && activeCapabilityUnavailable) {
       setActiveTab("routeros");
     }
-  }, [activeTab, device, loraAvailable, radioAvailable]);
+  }, [activeTab, device, loraAvailable, wifiAvailable]);
 
   async function handleConnect(connection) {
     setIsLoading(true);
@@ -233,7 +234,7 @@ function App() {
 
   function handleTabChange(tabId) {
     if (
-      (tabId === "configuration" && !radioAvailable) ||
+      (tabId === "configuration" && !wifiAvailable) ||
       (tabId === "lora" && !loraAvailable)
     ) {
       return;
@@ -331,7 +332,7 @@ function App() {
           <nav className="workspace-tabs" aria-label="Áreas do equipamento" role="tablist">
             {WORKSPACE_TABS.map((tab) => {
               const unavailable =
-                (tab.capability === "radio" && !radioAvailable) ||
+                (tab.capability === "wifi" && !wifiAvailable) ||
                 (tab.capability === "lora" && !loraAvailable);
 
               return (
@@ -352,7 +353,7 @@ function App() {
                   type="button"
                 >
                   <span>
-                    {tab.id === "configuration" && !radioAvailable
+                    {tab.id === "configuration" && !radioDevice
                       ? "Configuração Wi-Fi"
                       : tab.label}
                   </span>
@@ -421,7 +422,7 @@ function App() {
               lastUpdatedAt={lastUpdatedAt}
               onToggleAlignment={handleToggleAlignment}
               peers={device.wifi_peers}
-              radioAvailable={radioAvailable}
+              radioAvailable={radioDevice}
               registrationTableAvailable={device.registration_table_available}
             />
             <PingTest connection={activeConnection} />

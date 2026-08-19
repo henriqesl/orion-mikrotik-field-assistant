@@ -37,6 +37,7 @@ function initialConfiguration(device) {
 }
 
 function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
+  const isRadioDevice = Boolean(device.radio_device);
   const defaults = useMemo(() => initialConfiguration(device), [device]);
   const [form, setForm] = useState(defaults);
   const [preview, setPreview] = useState(null);
@@ -103,14 +104,16 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
       <div className="section-heading">
         <div>
           <p className="card-kicker">Configuração assistida</p>
-          <h2 id="configuration-title">Configurar enlace</h2>
+          <h2 id="configuration-title">
+            {isRadioDevice ? "Configurar enlace" : "Configurar Wi-Fi"}
+          </h2>
         </div>
         <span className="write-badge">{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
 
       <form className="configuration-form" onSubmit={handlePreview}>
         <fieldset disabled={isPreviewing || isApplying}>
-          <legend>Função do rádio</legend>
+          <legend>{isRadioDevice ? "Função do rádio" : "Modo de operação"}</legend>
           <div className="role-selector">
             <label className={form.role === "ap" ? "role-option role-option--selected" : "role-option"}>
               <input
@@ -123,7 +126,11 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
               <span className="role-option__mark" aria-hidden="true">AP</span>
               <span className="role-option__content">
                 <strong>AP</strong>
-                <small>Cria e transmite a rede do enlace</small>
+                <small>
+                  {isRadioDevice
+                    ? "Cria e transmite a rede do enlace"
+                    : "Cria e transmite a rede Wi-Fi"}
+                </small>
               </span>
               <span className="role-option__check" aria-hidden="true">✓</span>
             </label>
@@ -138,7 +145,11 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
               <span className="role-option__mark" aria-hidden="true">ST</span>
               <span className="role-option__content">
                 <strong>Station</strong>
-                <small>Conecta-se ao AP do outro lado</small>
+                <small>
+                  {isRadioDevice
+                    ? "Conecta-se ao AP do outro lado"
+                    : "Conecta-se a uma rede Wi-Fi existente"}
+                </small>
               </span>
               <span className="role-option__check" aria-hidden="true">✓</span>
             </label>

@@ -149,6 +149,7 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
     assert result.wifi_stack == "wifi"
     assert result.wifi_interfaces[0].name == "wifi1"
     assert result.wifi_interfaces[0].running is True
+    assert result.radio_device is True
     assert result.lora_available is False
     assert result.wifi_interfaces[0].mode == "station"
     assert result.wifi_interfaces[0].ssid == "ORION-Link"
@@ -188,6 +189,27 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
         "/ip/address/print",
         "/ip/route/print",
     ]
+
+
+def test_device_classification_separates_wifi_router_from_field_radio() -> None:
+    wifi_ap = service.WiFiInterface(
+        name="wifi1",
+        default_name="wifi1",
+        mac_address=None,
+        disabled=False,
+        running=True,
+        mode="ap",
+        ssid="Escritorio",
+        frequency="2412",
+        channel_width="20mhz",
+        band="2ghz-ax",
+    )
+    wifi_station = wifi_ap.model_copy(update={"mode": "station"})
+
+    assert service._is_radio_device("hAP ax3", [wifi_ap]) is False
+    assert service._is_radio_device("CCR2004", []) is False
+    assert service._is_radio_device("LHG 5 ax", [wifi_ap]) is True
+    assert service._is_radio_device("Modelo desconhecido", [wifi_station]) is True
 
 
 def test_discover_device_uses_tls_connector(monkeypatch) -> None:
