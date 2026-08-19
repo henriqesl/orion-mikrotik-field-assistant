@@ -132,6 +132,13 @@ def test_discover_mikrotik_returns_normalized_device(monkeypatch) -> None:
             wifi_stack="wifi",
             radio_device=True,
             lora_available=True,
+            compatibility={
+                "profile_id": "mikrotik-lhg",
+                "profile_name": "Família LHG",
+                "category": "radio",
+                "support_level": "recognized",
+                "guidance": ["Perfil reconhecido."],
+            },
             wifi_interfaces=[
                 {
                     "name": "wifi1",
@@ -197,6 +204,13 @@ def test_discover_mikrotik_returns_normalized_device(monkeypatch) -> None:
         "wifi_stack": "wifi",
         "radio_device": True,
         "lora_available": True,
+        "compatibility": {
+            "profile_id": "mikrotik-lhg",
+            "profile_name": "Família LHG",
+            "category": "radio",
+            "support_level": "recognized",
+            "guidance": ["Perfil reconhecido."],
+        },
         "wifi_interfaces": [
             {
                 "name": "wifi1",
@@ -317,6 +331,9 @@ def test_ping_from_mikrotik_returns_normalized_metrics(monkeypatch) -> None:
                 "jitter_ms": 2.5,
                 "p95_latency_ms": 7.89,
                 "p99_latency_ms": 8.54,
+                "latency_range_ms": 7.5,
+                "standard_deviation_ms": 2.8,
+                "tail_spread_ms": 4.64,
                 "spike_count": 1,
                 "stability_score": 78,
             },
@@ -371,6 +388,9 @@ def test_ping_from_mikrotik_returns_normalized_metrics(monkeypatch) -> None:
             "jitter_ms": 2.5,
             "p95_latency_ms": 7.89,
             "p99_latency_ms": 8.54,
+            "latency_range_ms": 7.5,
+            "standard_deviation_ms": 2.8,
+            "tail_spread_ms": 4.64,
             "spike_count": 1,
             "stability_score": 78,
         },
@@ -399,6 +419,19 @@ def test_ping_from_mikrotik_rejects_invalid_target() -> None:
         json={
             "connection": VALID_CONNECTION,
             "target": "internet.example",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_ping_from_mikrotik_rejects_more_than_sixty_samples() -> None:
+    response = client.post(
+        "/api/mikrotik/ping",
+        json={
+            "connection": VALID_CONNECTION,
+            "target": "10.0.0.2",
+            "count": 61,
         },
     )
 

@@ -1,3 +1,6 @@
+import { useState } from "react";
+
+import { downloadSupportBundle } from "../services/api.js";
 import AssessmentBadge from "./AssessmentBadge.jsx";
 
 const DEVICE_FIELDS = [
@@ -91,6 +94,17 @@ function DeviceSummary({
 }) {
   const wifiAvailable = device.wifi_interfaces.length > 0;
   const radioDevice = Boolean(device.radio_device);
+  const [supportStatus, setSupportStatus] = useState("");
+
+  async function handleSupportBundle() {
+    setSupportStatus("Gerando pacote…");
+    try {
+      const filename = await downloadSupportBundle(device, monitoringError);
+      setSupportStatus(`${filename} gerado com sucesso.`);
+    } catch (error) {
+      setSupportStatus(error.message);
+    }
+  }
 
   return (
     <section className="device-card" aria-labelledby="device-title">
@@ -131,8 +145,13 @@ function DeviceSummary({
           <button className="disconnect-button" onClick={onDisconnect} type="button">
             Desconectar
           </button>
+          <button onClick={handleSupportBundle} type="button">
+            Gerar suporte
+          </button>
         </div>
       </div>
+
+      {supportStatus && <p className="support-status" role="status">{supportStatus}</p>}
 
       {monitoringError && (
         <div className="monitoring-warning" role="alert">
@@ -149,6 +168,23 @@ function DeviceSummary({
           </div>
         ))}
       </dl>
+
+      {device.compatibility && (
+        <section className="compatibility-card" aria-labelledby="compatibility-title">
+          <div>
+            <span>Catálogo local</span>
+            <strong id="compatibility-title">{device.compatibility.profile_name}</strong>
+            <small>
+              {device.compatibility.support_level === "recognized"
+                ? "Família reconhecida pelo ORION"
+                : "Modo genérico baseado nas capacidades do RouterOS"}
+            </small>
+          </div>
+          <ul>
+            {device.compatibility.guidance.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </section>
+      )}
 
       <div className={`wifi-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>

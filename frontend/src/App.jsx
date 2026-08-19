@@ -7,6 +7,7 @@ import BasicNetworkConfiguration from "./components/BasicNetworkConfiguration.js
 import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import LoraProtection from "./components/LoraProtection.jsx";
 import PingTest from "./components/PingTest.jsx";
+import UpdateNotice from "./components/UpdateNotice.jsx";
 import { discoverDevice } from "./services/api.js";
 import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
@@ -48,6 +49,7 @@ function App() {
   const [monitoringError, setMonitoringError] = useState("");
   const [isAlignmentMode, setIsAlignmentMode] = useState(false);
   const [activeTab, setActiveTab] = useState("routeros");
+  const [linkSession, setLinkSession] = useState(null);
   const refreshInFlight = useRef(false);
   const connectionGeneration = useRef(0);
 
@@ -201,6 +203,19 @@ function App() {
     refreshInFlight.current = false;
   }
 
+  function handlePrepareNextLinkDevice() {
+    handleDisconnect();
+  }
+
+  function handleClearLinkSession() {
+    setLinkSession(null);
+  }
+
+  function handleFinishLinkSession() {
+    setLinkSession(null);
+    setActiveTab("tests");
+  }
+
   function handleToggleMonitoring() {
     setIsMonitoring((current) => {
       if (current) {
@@ -310,8 +325,14 @@ function App() {
       </header>
 
       <section className="workspace">
+        <UpdateNotice />
         {!device && (
-          <ConnectionForm isLoading={isLoading} onConnect={handleConnect} />
+          <ConnectionForm
+            fieldSession={linkSession}
+            isLoading={isLoading}
+            onClearFieldSession={handleClearLinkSession}
+            onConnect={handleConnect}
+          />
         )}
 
         {errorMessage && (
@@ -402,8 +423,12 @@ function App() {
             <LinkConfiguration
               connection={activeConnection}
               device={device}
+              fieldSession={linkSession}
+              onFieldSessionChange={setLinkSession}
+              onFinishFieldSession={handleFinishLinkSession}
               onApplyStart={handleConfigurationApplyStart}
               onApplied={handleConfigurationApplied}
+              onPrepareNextDevice={handlePrepareNextLinkDevice}
             />
           </section>
         )}

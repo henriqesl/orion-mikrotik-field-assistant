@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ORION Field",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "identifier": "br.com.bionic.orion-field",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -31,6 +31,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "externalBin": ["binaries/orion-backend", "binaries/orion-network-engine"],
     "resources": {
@@ -43,6 +44,17 @@
       },
       "nsis": {
         "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY2ODlGOTc5RUZFOUNBNjcKUldSbnl1bnZlZm1KOXJHZTdaQVZEQVhBeGdNN2VBb0E2cWJvRDgrWkNPVjltUHJZS3NNd3Q4UHkK",
+      "endpoints": [
+        "https://github.com/henriqesl/orion-mikrotik-field-assistant/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

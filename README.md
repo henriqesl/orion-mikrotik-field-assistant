@@ -4,6 +4,20 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
+## ORION Field V7
+
+A V7 consolida o fluxo profissional de campo sem adicionar cadastro, nuvem ou integração prematura com o ARGOS:
+
+- perfis locais e editáveis para enlace estável, enlace de maior capacidade e Wi-Fi local;
+- sessão guiada AP + Station, mantendo SSID, senha e canal apenas na memória até concluir o par;
+- catálogo de compatibilidade por família, com modo genérico seguro para modelos desconhecidos;
+- preparação da API limitada à rede informada pelo técnico;
+- pacote de suporte sanitizado, sem senha, token, MAC ou endereço IP;
+- testes de 10, 30 ou 60 amostras, comparação antes/depois na sessão e novas medidas nativas de variação, amplitude e cauda p99;
+- atualização pelo GitHub Releases com validação criptográfica independente da assinatura do Windows.
+
+Os dados da sessão continuam locais e temporários. A integração com o ARGOS fica deliberadamente fora da V7 até que o ARGOS esteja concluído.
+
 ## ORION Field V6
 
 A V6 transforma o ORION em um aplicativo Windows x64 independente e adiciona diagnóstico nativo:
@@ -152,7 +166,7 @@ npm run dev
 
 O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
 
-### Aplicativo desktop (V6)
+### Aplicativo desktop (V7)
 
 Para desenvolver ou gerar o aplicativo Windows, instale também o Rust e a carga de trabalho **Desenvolvimento para desktop com C++** do Visual Studio Build Tools 2022.
 
@@ -176,6 +190,8 @@ npm run desktop:build:signed
 ```
 
 O comando localiza o certificado por assunto, assina os binários próprios e gera o NSIS com SHA-256 e timestamp. A chave privada nunca deve ser exportada para a pasta de entrega. Nos computadores da empresa, distribua apenas o certificado público `.cer` e instale-o em **Autoridades de Certificação Raiz Confiáveis** e **Editores Confiáveis** antes do ORION.
+
+O mesmo comando gera o arquivo `latest.json` e a assinatura `.sig` do atualizador. Publique no GitHub Release `vX.Y.Z` o instalador, o arquivo `.sig` e o `latest.json`. A chave privada do updater fica em `%LOCALAPPDATA%\BIONIC\ORION Field\signing`; ela e sua senha protegida pelo Windows não entram no Git. A proteção da senha é vinculada à conta atual do Windows: antes de trocar de computador ou conta, execute `scripts/show-updater-recovery-info.ps1 -ConfirmExposure` e guarde a chave e a senha separadamente em local seguro. Perder qualquer uma delas impede publicar atualizações aceitas pelas instalações existentes.
 
 ### Demonstração sem MikroTik
 

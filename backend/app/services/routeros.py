@@ -20,6 +20,7 @@ from app.services.network_engine import (
     NetworkEngineUnavailableError,
     analyze_network_samples,
 )
+from app.services.device_catalog import identify_device
 from app.models.mikrotik import (
     ARPValidation,
     BridgeInfo,
@@ -281,37 +282,12 @@ def _read_lora_available(client: Any) -> bool:
         return False
 
 
-RADIO_MODEL_MARKERS = (
-    "basebox",
-    "cube",
-    "disc",
-    "dynadish",
-    "groove",
-    "lhg",
-    "mantbox",
-    "metal",
-    "netbox",
-    "netmetal",
-    "omnitik",
-    "qrt",
-    "sextant",
-    "sxt",
-    "wireless wire",
-)
-
-
 def _is_radio_device(model: str | None, wifi_interfaces: list[WiFiInterface]) -> bool:
-    if not wifi_interfaces:
-        return False
-
-    normalized_model = (model or "").casefold().replace("®", "")
-    if any(marker in normalized_model for marker in RADIO_MODEL_MARKERS):
-        return True
-
-    return any(
-        (interface.mode or "").casefold().startswith("station")
-        for interface in wifi_interfaces
-    )
+    return identify_device(
+        model,
+        wifi_interfaces,
+        lora_available=False,
+    ).category == "radio"
 
 
 def _safe_rows(client: Any, command: str) -> tuple[bool, list[Mapping[str, str]]]:
@@ -627,6 +603,11 @@ def _read_device_summary(client: Any) -> DeviceSummary:
         raise MikroTikResponseError
 
     model = resource.get("board-name")
+    compatibility = identify_device(
+        model,
+        wifi_interfaces,
+        lora_available=lora_available,
+    )
 
     return DeviceSummary(
         identity=identity_name,
@@ -636,8 +617,9 @@ def _read_device_summary(client: Any) -> DeviceSummary:
         wifi_package=wifi_package,
         wifi_stack=wifi_stack,
         wifi_interfaces=wifi_interfaces,
-        radio_device=_is_radio_device(model, wifi_interfaces),
+        radio_device=compatibility.category == "radio",
         lora_available=lora_available,
+        compatibility=compatibility,
         registration_table_available=registration_table_available,
         wifi_peers=wifi_peers,
         ethernet_interfaces=ethernet_interfaces,

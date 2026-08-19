@@ -4,8 +4,23 @@ import {
   applyLinkConfiguration,
   previewLinkConfiguration,
 } from "../services/api.js";
+import fieldProfiles from "../data/field-profiles.json";
 
-function initialConfiguration(device) {
+function nextManagementAddress(value) {
+  const match = value?.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d|[12]\d|3[0-2])$/);
+  if (!match) return value;
+
+  const octets = match.slice(1, 5).map(Number);
+  const prefix = Number(match[5]);
+  const address = octets.reduce((result, octet) => ((result << 8) | octet) >>> 0, 0);
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const broadcast = ((address & mask) | (~mask >>> 0)) >>> 0;
+  const candidate = address + 1 < broadcast ? address + 1 : address - 1;
+  const parts = [24, 16, 8, 0].map((shift) => (candidate >>> shift) & 255);
+  return `${parts.join(".")}/${prefix}`;
+}
+
+function initialConfiguration(device, fieldSession) {
   const wifi = device.wifi_interfaces.find((item) => !item.disabled) || device.wifi_interfaces[0];
   const ethernet =
     device.ethernet_interfaces.find((item) => !item.disabled) ||
@@ -19,27 +34,44 @@ function initialConfiguration(device) {
   const defaultRoute = device.default_routes.find((route) => !route.disabled);
   const frequency = Number.parseInt(wifi?.frequency?.match(/\d+/)?.[0] || "5500", 10);
 
+  const detectedRole = wifi?.mode?.startsWith("station") ? "station" : "ap";
+
   return {
-    role: wifi?.mode?.startsWith("station") ? "station" : "ap",
+    role: fieldSession?.next_role || detectedRole,
     identity: device.identity,
     wifi_interface: wifi?.name || "wifi1",
     ethernet_interface: ethernet?.name || "ether1",
-    bridge_name: wifiPort?.bridge || device.bridges[0]?.name || "bridge-field",
-    ssid: wifi?.ssid || "ORION-Link",
-    passphrase: "",
-    frequency_mhz: frequency,
-    channel_width: wifi?.channel_width?.startsWith("20/40")
+    ssid: fieldSession?.ssid || wifi?.ssid || "ORION-Link",
+    passphrase: fieldSession?.passphrase || "",
+    frequency_mhz: fieldSession?.frequency_mhz || frequency,
+    channel_width: fieldSession?.channel_width || (wifi?.channel_width?.startsWith("20/40")
       ? "20/40mhz"
-      : "20mhz",
-    management_ip: managementAddress?.address || "192.168.88.2/24",
+      : "20mhz"),
+    management_ip: fieldSession?.next_role === "station"
+      ? fieldSession.station_management_ip
+      : managementAddress?.address || "192.168.88.2/24",
     gateway: defaultRoute?.gateway || "",
+    bridge_name: fieldSession?.bridge_name || wifiPort?.bridge || device.bridges[0]?.name || "bridge-field",
   };
 }
 
-function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
+function LinkConfiguration({
+  connection,
+  device,
+  fieldSession,
+  onApplied,
+  onApplyStart,
+  onFieldSessionChange,
+  onFinishFieldSession,
+  onPrepareNextDevice,
+}) {
   const isRadioDevice = Boolean(device.radio_device);
-  const defaults = useMemo(() => initialConfiguration(device), [device]);
+  const defaults = useMemo(
+    () => initialConfiguration(device, fieldSession),
+    [device, fieldSession],
+  );
   const [form, setForm] = useState(defaults);
+  const [selectedProfile, setSelectedProfile] = useState(fieldSession?.profile_id || "");
   const [preview, setPreview] = useState(null);
   const [confirmation, setConfirmation] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -53,6 +85,46 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
     setPreview(null);
     setResult(null);
     setConfirmation("");
+  }
+
+  function applyProfile(profile) {
+    setSelectedProfile(profile.id);
+    setForm((current) => ({
+      ...current,
+      bridge_name: profile.bridge_name,
+      channel_width: profile.channel_width,
+      ssid: profile.ap_ssid,
+    }));
+    setPreview(null);
+    setResult(null);
+    setConfirmation("");
+    setErrorMessage("");
+  }
+
+  function startPairConfiguration() {
+    if (form.passphrase.length < 8) {
+      setErrorMessage("Defina uma senha WPA2 com pelo menos oito caracteres antes de iniciar o par.");
+      return;
+    }
+
+    const session = {
+      profile_id: selectedProfile || "custom",
+      ssid: form.ssid,
+      passphrase: form.passphrase,
+      frequency_mhz: Number(form.frequency_mhz),
+      channel_width: form.channel_width,
+      bridge_name: form.bridge_name,
+      station_management_ip: nextManagementAddress(form.management_ip),
+      completed_roles: [],
+      next_role: "ap",
+    };
+    onFieldSessionChange(session);
+    setForm((current) => ({ ...current, role: "ap" }));
+    setErrorMessage("");
+  }
+
+  function clearPairConfiguration() {
+    onFieldSessionChange(null);
   }
 
   function payload() {
@@ -89,6 +161,17 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
       setPreview(null);
       setConfirmation("");
       setForm((current) => ({ ...current, passphrase: "" }));
+      if (fieldSession) {
+        const completedRoles = Array.from(new Set([
+          ...fieldSession.completed_roles,
+          form.role,
+        ]));
+        onFieldSessionChange({
+          ...fieldSession,
+          completed_roles: completedRoles,
+          next_role: form.role === "ap" ? "station" : "complete",
+        });
+      }
       await onApplied(applyResult);
     } catch (error) {
       setErrorMessage(
@@ -110,6 +193,54 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
         </div>
         <span className="write-badge">{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
+
+      <section className="field-profiles" aria-labelledby="field-profiles-title">
+        <header>
+          <div>
+            <span>Perfis locais</span>
+            <strong id="field-profiles-title">Comece por um padrão editável</strong>
+          </div>
+          <small>Nenhum perfil é aplicado sem revisão e confirmação.</small>
+        </header>
+        <div className="field-profile-grid">
+          {fieldProfiles
+            .filter((profile) => isRadioDevice || profile.id === "local-wifi")
+            .map((profile) => (
+              <button
+                className={selectedProfile === profile.id ? "field-profile field-profile--selected" : "field-profile"}
+                key={profile.id}
+                onClick={() => applyProfile(profile)}
+                type="button"
+              >
+                <strong>{profile.name}</strong>
+                <span>{profile.description}</span>
+              </button>
+            ))}
+        </div>
+      </section>
+
+      {isRadioDevice && (
+        <section className={fieldSession ? "pair-session pair-session--active" : "pair-session"}>
+          <div>
+            <span>AP + Station</span>
+            <strong>
+              {fieldSession
+                ? `Etapa atual: ${fieldSession.next_role === "station" ? "Station" : fieldSession.next_role === "complete" ? "validação" : "AP"}`
+                : "Configure os dois lados sem redigitar os parâmetros"}
+            </strong>
+            <small>
+              {fieldSession
+                ? `${fieldSession.ssid} · sessão mantida somente enquanto o ORION estiver aberto`
+                : "A senha e os dados do enlace ficam apenas na memória durante esta sessão."}
+            </small>
+          </div>
+          {fieldSession ? (
+            <button onClick={clearPairConfiguration} type="button">Encerrar sessão</button>
+          ) : (
+            <button onClick={startPairConfiguration} type="button">Iniciar configuração do par</button>
+          )}
+        </section>
+      )}
 
       <form className="configuration-form" onSubmit={handlePreview}>
         <fieldset disabled={isPreviewing || isApplying}>
@@ -290,6 +421,16 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
           <strong>Configuração enviada</strong>
           <span>{result.summary}</span>
           <small>Backup: {result.backup_file} · novo IP: {result.reconnect_ip}</small>
+          {fieldSession && form.role === "ap" && (
+            <button onClick={onPrepareNextDevice} type="button">
+              Desconectar AP e configurar Station
+            </button>
+          )}
+          {fieldSession && form.role === "station" && (
+            <button onClick={onFinishFieldSession} type="button">
+              Concluir sessão e abrir os testes
+            </button>
+          )}
         </div>
       )}
     </section>

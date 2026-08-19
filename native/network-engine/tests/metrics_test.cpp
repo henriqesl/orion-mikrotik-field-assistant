@@ -30,6 +30,12 @@ int main() {
         require(close_to(stable.jitter_ms.value(), 2.0 / 3.0), "stable jitter");
         require(close_to(stable.p95_latency_ms.value(), 2.85), "stable p95");
         require(close_to(stable.p99_latency_ms.value(), 2.97), "stable p99");
+        require(close_to(stable.latency_range_ms.value(), 2.0), "stable range");
+        require(
+            close_to(stable.standard_deviation_ms.value(), std::sqrt(0.5)),
+            "stable standard deviation"
+        );
+        require(close_to(stable.tail_spread_ms.value(), 0.97), "stable tail spread");
         require(stable.spike_count == 0, "stable spike count");
         require(stable.stability_score == 98, "stable score");
 
@@ -41,6 +47,8 @@ int main() {
         require(close_to(spike.jitter_ms.value(), 12.75), "spike jitter");
         require(close_to(spike.p95_latency_ms.value(), 42.4), "spike p95");
         require(close_to(spike.p99_latency_ms.value(), 50.08), "spike p99");
+        require(close_to(spike.latency_range_ms.value(), 51.0), "spike range");
+        require(close_to(spike.tail_spread_ms.value(), 37.68), "spike tail spread");
         require(spike.spike_count == 1, "spike count");
         require(spike.stability_score == 65, "spike score");
 
@@ -51,6 +59,7 @@ int main() {
         );
         require(!unavailable.average_latency_ms.has_value(), "unavailable average");
         require(!unavailable.jitter_ms.has_value(), "unavailable jitter");
+        require(!unavailable.standard_deviation_ms.has_value(), "unavailable deviation");
         require(unavailable.stability_score == 0, "unavailable score");
 
         bool rejected = false;

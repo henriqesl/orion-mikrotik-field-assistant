@@ -82,6 +82,9 @@ NetworkMetrics calculate_network_metrics(
             std::nullopt,
             std::nullopt,
             std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
             0,
             0,
         };
@@ -112,6 +115,20 @@ NetworkMetrics calculate_network_metrics(
     std::sort(sorted_samples.begin(), sorted_samples.end());
     const double p95 = percentile(sorted_samples, 0.95);
     const double p99 = percentile(sorted_samples, 0.99);
+    const double latency_range = *maximum - *minimum;
+    const double squared_difference_sum = std::accumulate(
+        latency_samples_ms.begin(),
+        latency_samples_ms.end(),
+        0.0,
+        [average](double total, double sample) {
+            const double difference = sample - average;
+            return total + difference * difference;
+        }
+    );
+    const double standard_deviation = std::sqrt(
+        squared_difference_sum / static_cast<double>(received_packets)
+    );
+    const double tail_spread = p99 - average;
     const double spike_threshold = average + std::max(5.0, 3.0 * jitter.value_or(0.0));
     const auto spike_count = static_cast<std::size_t>(std::count_if(
         latency_samples_ms.begin(),
@@ -130,6 +147,9 @@ NetworkMetrics calculate_network_metrics(
         jitter,
         p95,
         p99,
+        latency_range,
+        standard_deviation,
+        tail_spread,
         spike_count,
         calculate_stability_score(
             packet_loss,

@@ -17,6 +17,9 @@ struct NetworkMetrics {
     std::optional<double> jitter_ms;
     std::optional<double> p95_latency_ms;
     std::optional<double> p99_latency_ms;
+    std::optional<double> latency_range_ms;
+    std::optional<double> standard_deviation_ms;
+    std::optional<double> tail_spread_ms;
     std::size_t spike_count;
     int stability_score;
 };
