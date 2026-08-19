@@ -17,10 +17,10 @@ from app.services.routeros import _first_row, _optional_bool, _rows, _with_conne
 
 LORA_SCRIPT = "orion-lora-watchdog"
 LORA_SCHEDULER = "orion-lora-watchdog-schedule"
-WAN_RESET_SCRIPT = "orion-wan-reset"
 WAN_SCRIPT = "orion-wan-watchdog"
 WAN_SCHEDULER = "orion-wan-watchdog-schedule"
 SCRIPT_POLICY = "read,write,test"
+REBOOT_SCRIPT_POLICY = "reboot,read,write,test"
 
 
 def _context(client: Any, configuration: LoraProtectionConfiguration) -> dict[str, Any]:
@@ -36,25 +36,9 @@ def _context(client: Any, configuration: LoraProtectionConfiguration) -> dict[st
             "Nenhuma interface LoRa foi encontrada neste equipamento."
         )
 
-    ethernet = _rows(client.run("/interface/ethernet/print"))
-    wan = next(
-        (
-            row
-            for row in ethernet
-            if configuration.wan_interface
-            in {row.get("name"), row.get("default-name")}
-        ),
-        None,
-    )
-    if wan is None:
-        raise ConfigurationConflictError(
-            "A interface Ethernet selecionada para o watchdog não existe mais."
-        )
-
     return {
         "identity": _first_row(client.run("/system/identity/print")),
         "lora": lora_interfaces[0],
-        "wan": wan,
         "scripts": _rows(client.run("/system/script/print")),
         "schedulers": _rows(client.run("/system/scheduler/print")),
     }
@@ -127,34 +111,33 @@ def _build_preview(
             lora_scheduler.get("interval") if lora_scheduler else None,
             configuration.lora_interval,
         ))
-    if configuration.enable_wan_watchdog or wan_scheduler:
+    if configuration.enable_device_reboot or wan_scheduler:
         candidates.append(_change(
-            "WAN",
-            "Watchdog de conectividade",
+            "Dispositivo",
+            "Reinício por falha de conectividade",
             _state(wan_scheduler),
-            _desired_state(configuration.enable_wan_watchdog),
+            _desired_state(configuration.enable_device_reboot),
         ))
-    if configuration.enable_wan_watchdog:
+    if configuration.enable_device_reboot:
         candidates.extend(
             [
                 _change(
-                    "WAN",
-                    "Interface monitorada",
+                    "Dispositivo",
+                    "Destino de teste",
                     None,
-                    configuration.wan_interface,
+                    str(configuration.ping_target),
                 ),
-                _change("WAN", "Destino de teste", None, str(configuration.ping_target)),
                 _change(
-                    "WAN",
+                    "Dispositivo",
                     "Falhas antes do reinício",
                     None,
                     str(configuration.failure_threshold),
                 ),
                 _change(
-                    "WAN",
+                    "Dispositivo",
                     "Intervalo de verificação",
                     wan_scheduler.get("interval") if wan_scheduler else None,
-                    configuration.wan_interval,
+                    configuration.connectivity_interval,
                 ),
             ]
         )
@@ -164,10 +147,11 @@ def _build_preview(
         "Um backup será criado antes da primeira alteração.",
         "Somente scripts e agendamentos identificados como ORION serão alterados.",
     ]
-    if configuration.enable_wan_watchdog:
+    if configuration.enable_device_reboot:
         warnings.append(
             f"Após {configuration.failure_threshold} verificações sem resposta, "
-            f"a porta {configuration.wan_interface} será reiniciada."
+            "o MikroTik inteiro será reiniciado e todos os serviços ficarão "
+            "temporariamente indisponíveis."
         )
 
     preview = LoraProtectionPreview(
@@ -189,16 +173,6 @@ def preview_lora_protection(
     )
 
 
-def _wan_reset_source(interface: str) -> str:
-    return (
-        f':local uplinkId [/interface ethernet find where name="{interface}"]; '
-        f':if ([:len $uplinkId] = 0) do={{ :log error "ORION WAN: interface {interface} não encontrada"; :return }}; '
-        "/interface ethernet disable $uplinkId; :delay 10s; "
-        "/interface ethernet enable $uplinkId; "
-        ':log warning "ORION WAN: interface reiniciada"'
-    )
-
-
 def _wan_watchdog_source(configuration: LoraProtectionConfiguration) -> str:
     return (
         ":global orionWanFailures; "
@@ -207,7 +181,8 @@ def _wan_watchdog_source(configuration: LoraProtectionConfiguration) -> str:
         ":if ($replies = 0) do={ :set orionWanFailures ($orionWanFailures + 1) } "
         "else={ :set orionWanFailures 0 }; "
         f":if ($orionWanFailures >= {configuration.failure_threshold}) do={{ "
-        f":set orionWanFailures 0; /system script run {WAN_RESET_SCRIPT} }}"
+        ':set orionWanFailures 0; :log warning "ORION: reiniciando dispositivo por falha de conectividade"; '
+        "/system reboot }"
     )
 
 
@@ -243,10 +218,15 @@ def _lora_watchdog_source(configuration: LoraProtectionConfiguration) -> str:
 
 
 def _upsert_script(
-    client: Any, rows: list[dict[str, str]], name: str, source: str
+    client: Any,
+    rows: list[dict[str, str]],
+    name: str,
+    source: str,
+    *,
+    policy: str = SCRIPT_POLICY,
 ) -> None:
     row = _find_row(rows, "name", name)
-    words = (f"=source={source}", f"=policy={SCRIPT_POLICY}", "=disabled=no")
+    words = (f"=source={source}", f"=policy={policy}", "=disabled=no")
     if row:
         client.run("/system/script/set", f"=.id={_record_id(row, f'script {name}')}", *words)
     else:
@@ -261,6 +241,7 @@ def _set_scheduler(
     script: str,
     interval: str,
     enabled: bool,
+    policy: str = SCRIPT_POLICY,
 ) -> None:
     row = _find_row(rows, "name", name)
     if not enabled and row is None:
@@ -269,7 +250,7 @@ def _set_scheduler(
         f"=on-event={script}",
         f"=interval={interval}",
         "=start-time=startup",
-        f"=policy={SCRIPT_POLICY}",
+        f"=policy={policy}",
         f"=disabled={'no' if enabled else 'yes'}",
     )
     if row:
@@ -313,26 +294,22 @@ def apply_lora_protection(
             enabled=lora_enabled,
         )
 
-        if configuration.enable_wan_watchdog:
-            _upsert_script(
-                client,
-                context["scripts"],
-                WAN_RESET_SCRIPT,
-                _wan_reset_source(configuration.wan_interface),
-            )
+        if configuration.enable_device_reboot:
             _upsert_script(
                 client,
                 context["scripts"],
                 WAN_SCRIPT,
                 _wan_watchdog_source(configuration),
+                policy=REBOOT_SCRIPT_POLICY,
             )
         _set_scheduler(
             client,
             context["schedulers"],
             name=WAN_SCHEDULER,
             script=WAN_SCRIPT,
-            interval=configuration.wan_interval,
-            enabled=configuration.enable_wan_watchdog,
+            interval=configuration.connectivity_interval,
+            enabled=configuration.enable_device_reboot,
+            policy=REBOOT_SCRIPT_POLICY,
         )
 
         return LoraProtectionApplyResult(

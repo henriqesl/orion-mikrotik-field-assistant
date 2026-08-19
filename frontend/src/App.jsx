@@ -30,9 +30,9 @@ const MONITOR_INTERVAL_MS = 15_000;
 const ALIGNMENT_INTERVAL_MS = 3_000;
 const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
-  { id: "configuration", label: "Configuração do rádio" },
   { id: "network", label: "Rede básica" },
-  { id: "lora", label: "LoRa" },
+  { id: "configuration", label: "Configuração do rádio", capability: "radio" },
+  { id: "lora", label: "LoRa", capability: "lora" },
   { id: "tests", label: "Testes" },
 ];
 
@@ -149,6 +149,18 @@ function App() {
   const currentState = device?.demo_mode
     ? { label: "Demonstração local", className: "status status--demo" }
     : API_STATES[apiState];
+  const radioAvailable = Boolean(device?.wifi_interfaces?.length);
+  const loraAvailable = Boolean(device?.lora_available);
+
+  useEffect(() => {
+    const activeCapabilityUnavailable =
+      (activeTab === "configuration" && !radioAvailable) ||
+      (activeTab === "lora" && !loraAvailable);
+
+    if (device && activeCapabilityUnavailable) {
+      setActiveTab("routeros");
+    }
+  }, [activeTab, device, loraAvailable, radioAvailable]);
 
   async function handleConnect(connection) {
     setIsLoading(true);
@@ -220,6 +232,13 @@ function App() {
   }
 
   function handleTabChange(tabId) {
+    if (
+      (tabId === "configuration" && !radioAvailable) ||
+      (tabId === "lora" && !loraAvailable)
+    ) {
+      return;
+    }
+
     setActiveTab(tabId);
 
     if (tabId !== "routeros") {
@@ -310,20 +329,37 @@ function App() {
 
         {device && (
           <nav className="workspace-tabs" aria-label="Áreas do equipamento" role="tablist">
-            {WORKSPACE_TABS.map((tab) => (
-              <button
-                aria-controls={`panel-${tab.id}`}
-                aria-selected={activeTab === tab.id}
-                className={activeTab === tab.id ? "workspace-tab workspace-tab--active" : "workspace-tab"}
-                id={`tab-${tab.id}`}
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                role="tab"
-                type="button"
-              >
-                {tab.label}
-              </button>
-            ))}
+            {WORKSPACE_TABS.map((tab) => {
+              const unavailable =
+                (tab.capability === "radio" && !radioAvailable) ||
+                (tab.capability === "lora" && !loraAvailable);
+
+              return (
+                <button
+                  aria-controls={`panel-${tab.id}`}
+                  aria-selected={activeTab === tab.id}
+                  className={[
+                    "workspace-tab",
+                    activeTab === tab.id ? "workspace-tab--active" : "",
+                    unavailable ? "workspace-tab--unavailable" : "",
+                  ].filter(Boolean).join(" ")}
+                  disabled={unavailable}
+                  id={`tab-${tab.id}`}
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  role="tab"
+                  title={unavailable ? "Recurso não detectado neste equipamento" : undefined}
+                  type="button"
+                >
+                  <span>
+                    {tab.id === "configuration" && !radioAvailable
+                      ? "Configuração Wi-Fi"
+                      : tab.label}
+                  </span>
+                  {unavailable && <small>Indisponível</small>}
+                </button>
+              );
+            })}
           </nav>
         )}
 
@@ -385,6 +421,7 @@ function App() {
               lastUpdatedAt={lastUpdatedAt}
               onToggleAlignment={handleToggleAlignment}
               peers={device.wifi_peers}
+              radioAvailable={radioAvailable}
               registrationTableAvailable={device.registration_table_available}
             />
             <PingTest connection={activeConnection} />

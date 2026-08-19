@@ -274,6 +274,13 @@ def _read_registration_table(
     return True, peers
 
 
+def _read_lora_available(client: Any) -> bool:
+    try:
+        return bool(_rows(client.run("/iot/lora/print")))
+    except DeviceError:
+        return False
+
+
 def _safe_rows(client: Any, command: str) -> tuple[bool, list[Mapping[str, str]]]:
     try:
         return True, _rows(client.run(command))
@@ -561,6 +568,7 @@ def _read_device_summary(client: Any) -> DeviceSummary:
     identity = _first_row(client.run("/system/identity/print"))
     resource = _first_row(client.run("/system/resource/print"))
     wifi_package, wifi_stack, wifi_interfaces = _read_wifi(client)
+    lora_available = _read_lora_available(client)
     registration_table_available, wifi_peers = _read_registration_table(
         client,
         wifi_stack,
@@ -593,6 +601,7 @@ def _read_device_summary(client: Any) -> DeviceSummary:
         wifi_package=wifi_package,
         wifi_stack=wifi_stack,
         wifi_interfaces=wifi_interfaces,
+        lora_available=lora_available,
         registration_table_available=registration_table_available,
         wifi_peers=wifi_peers,
         ethernet_interfaces=ethernet_interfaces,

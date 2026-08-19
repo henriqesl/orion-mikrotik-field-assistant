@@ -171,6 +171,9 @@ h2 {
 }
 
 .workspace-tab {
+  display: grid;
+  place-content: center;
+  gap: 0.18rem;
   min-height: 3.1rem;
   padding: 0.7rem 1rem;
   border: 0;
@@ -180,6 +183,14 @@ h2 {
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 750;
+}
+
+.workspace-tab small {
+  color: #64748b;
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .workspace-tab:hover {
@@ -201,6 +212,14 @@ h2 {
 .workspace-tab--active:hover {
   color: #fff;
   background: var(--color-primary-hover);
+}
+
+.workspace-tab--unavailable,
+.workspace-tab--unavailable:hover {
+  color: #536176;
+  background: rgb(7 17 31 / 45%);
+  box-shadow: inset 0 0 0 1px rgb(100 116 139 / 10%);
+  cursor: not-allowed;
 }
 
 .tab-panel {
@@ -228,6 +247,21 @@ h2 {
 
 .alignment-heading {
   align-items: center;
+}
+
+.capability-card--unavailable {
+  border-color: rgb(100 116 139 / 28%);
+  background: rgb(13 25 41 / 72%);
+}
+
+.capability-badge {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgb(100 116 139 / 28%);
+  border-radius: 999px;
+  color: #7c8ba0;
+  background: rgb(100 116 139 / 7%);
+  font-size: 0.66rem;
+  font-weight: 700;
 }
 
 .alignment-controls {
@@ -1477,6 +1511,77 @@ h2 {
   font-size: 0.68rem;
 }
 
+.mac-access-panel__terminal {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mac-access-panel__terminal > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.mac-access-panel__terminal > div:first-child strong {
+  color: var(--color-text);
+  font-size: 0.76rem;
+}
+
+.mac-access-panel__terminal > div:first-child span,
+.mac-access-panel__terminal > small {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.mac-access-panel__network-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.mac-access-panel__network-fields .field > span {
+  font-size: 0.68rem;
+}
+
+.mac-access-panel__network-fields input {
+  min-height: 2.55rem;
+  font-family: var(--font-data);
+  font-size: 0.74rem;
+}
+
+.routeros-command {
+  overflow-x: auto;
+  margin: 0;
+  padding: 0.8rem;
+  border: 1px solid rgb(53 208 226 / 24%);
+  border-radius: 0.65rem;
+  color: #b9f4f8;
+  background: #050d17;
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.routeros-command--pending {
+  border-color: var(--color-line);
+  color: #64748b;
+}
+
+.mac-access-panel__command-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.mac-access-panel__command-actions span {
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+}
+
+.mac-access-panel__command-actions strong {
+  color: var(--color-text-secondary);
+}
+
 .mac-access-panel__locator {
   display: flex;
   align-items: center;
@@ -1723,6 +1828,16 @@ h2 {
   font-size: 1.05rem;
 }
 
+.capability-heading--unavailable h3,
+.capability-heading--unavailable .card-kicker {
+  color: #64748b;
+}
+
+.capability-heading--unavailable .wifi-meta span {
+  color: #7c8ba0;
+  background: rgb(100 116 139 / 8%);
+}
+
 .wifi-meta {
   display: flex;
   gap: 0.5rem;
@@ -1828,6 +1943,12 @@ h2 {
   color: #64748b;
   font-size: 0.85rem;
   text-align: center;
+}
+
+.capability-empty-state {
+  border-color: rgb(100 116 139 / 22%);
+  color: #718096;
+  background: rgb(7 17 31 / 35%);
 }
 
 .peer-heading {
@@ -2470,6 +2591,15 @@ h2 {
   }
 
   .mac-access-panel__locator {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mac-access-panel__network-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .mac-access-panel__command-actions {
     align-items: flex-start;
     flex-direction: column;
   }

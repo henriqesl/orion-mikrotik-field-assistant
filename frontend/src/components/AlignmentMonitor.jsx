@@ -95,6 +95,7 @@ function AlignmentMonitor({
   lastUpdatedAt,
   onToggleAlignment,
   peers,
+  radioAvailable,
   registrationTableAvailable,
 }) {
   const [histories, setHistories] = useState({});
@@ -213,6 +214,23 @@ function AlignmentMonitor({
     }
 
     setAudioEnabled((current) => !current);
+  }
+
+  if (!radioAvailable) {
+    return (
+      <section className="alignment-card capability-card--unavailable" aria-labelledby="alignment-title">
+        <div className="section-heading alignment-heading">
+          <div>
+            <p className="card-kicker">Acompanhamento de campo</p>
+            <h2 id="alignment-title">Alinhamento do rádio</h2>
+          </div>
+          <span className="capability-badge">Indisponível</span>
+        </div>
+        <p className="empty-state capability-empty-state">
+          Nenhuma interface de rádio foi detectada neste equipamento.
+        </p>
+      </section>
+    );
   }
 
   return (

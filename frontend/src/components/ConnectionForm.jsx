@@ -13,6 +13,43 @@ const INITIAL_FORM = {
   verify_tls: true,
 };
 
+function isValidIpv4Cidr(value) {
+  const match = value.trim().match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d|[12]\d|3[0-2])$/);
+  if (!match) return false;
+  const octets = match[1].split(".").map(Number);
+  if (octets.some((part) => part > 255) || octets[0] === 0 || octets[0] === 127 || octets[0] >= 224) {
+    return false;
+  }
+
+  const prefix = Number(match[2]);
+  const address = octets.reduce((result, octet) => ((result << 8) | octet) >>> 0, 0);
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const network = (address & mask) >>> 0;
+  const broadcast = (network | (~mask >>> 0)) >>> 0;
+  return address !== network && address !== broadcast;
+}
+
+function isValidInterfaceName(value) {
+  return value.trim().length > 0 && !/["\\;\r\n]/.test(value);
+}
+
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("A cópia automática não está disponível.");
+}
+
 function ConnectionForm({ isLoading, onConnect }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
@@ -22,6 +59,9 @@ function ConnectionForm({ isLoading, onConnect }) {
   const [winboxMessageKind, setWinboxMessageKind] = useState("success");
   const [macPreparation, setMacPreparation] = useState("");
   const [needsWinboxPath, setNeedsWinboxPath] = useState(false);
+  const [bootstrapAddress, setBootstrapAddress] = useState("");
+  const [bootstrapInterface, setBootstrapInterface] = useState("ether1");
+  const [commandCopyStatus, setCommandCopyStatus] = useState("");
 
   const refreshLanDevices = useCallback(async () => {
     try {
@@ -92,6 +132,8 @@ function ConnectionForm({ isLoading, onConnect }) {
   async function handleOpenWinBox(device, executablePath = null) {
     if (!device.ip_address || device.ip_address === "0.0.0.0") {
       setMacPreparation(device.mac_address);
+      setBootstrapInterface(device.interface || "ether1");
+      setCommandCopyStatus("");
     }
     setOpeningMac(device.mac_address);
     setWinboxMessage("");
@@ -134,11 +176,42 @@ function ConnectionForm({ isLoading, onConnect }) {
     }
   }
 
+  async function copyBootstrapCommands() {
+    const address = bootstrapAddress.trim();
+    const interfaceName = bootstrapInterface.trim();
+
+    if (!isValidIpv4Cidr(address) || !isValidInterfaceName(interfaceName)) {
+      setCommandCopyStatus("Informe um IP com prefixo e uma interface válida.");
+      return;
+    }
+
+    const commands = [
+      `/ip address add address=${address} interface="${interfaceName}" comment="ORION Field - acesso inicial"`,
+      "/ip service set api disabled=no port=8728",
+    ].join("\n");
+
+    try {
+      await copyText(commands);
+      setForm((current) => ({ ...current, host: address.split("/")[0] }));
+      setCommandCopyStatus("Comandos copiados. Cole no terminal do WinBox e pressione Enter.");
+    } catch (error) {
+      setCommandCopyStatus(error.message);
+    }
+  }
+
   const preparedDevice = macPreparation
     ? lanDiscovery.devices.find(
       (device) => device.mac_address === macPreparation,
     ) || { mac_address: macPreparation }
     : null;
+  const bootstrapCommandsReady =
+    isValidIpv4Cidr(bootstrapAddress) && isValidInterfaceName(bootstrapInterface);
+  const bootstrapCommands = bootstrapCommandsReady
+    ? [
+        `/ip address add address=${bootstrapAddress.trim()} interface="${bootstrapInterface.trim()}" comment="ORION Field - acesso inicial"`,
+        "/ip service set api disabled=no port=8728",
+      ].join("\n")
+    : "Preencha o IP com prefixo e confirme a interface para gerar os comandos.";
 
   return (
     <form className="connection-form" onSubmit={handleSubmit}>
@@ -220,11 +293,46 @@ function ConnectionForm({ isLoading, onConnect }) {
                   </button>
                 </div>
               ) : (
-                <div className="mac-access-panel__guide">
-                  <span><b>1</b> Entre no equipamento pela janela oficial do WinBox.</span>
-                  <span><b>2</b> Em <strong>IP → Addresses</strong>, defina um IP válido na porta Ethernet.</span>
-                  <span><b>3</b> Em <strong>IP → Services</strong>, habilite o serviço <strong>api</strong>.</span>
-                  <small>O ORION preencherá o endereço automaticamente quando o MikroTik anunciá-lo.</small>
+                <div className="mac-access-panel__terminal">
+                  <div>
+                    <strong>Preparar pelo terminal</strong>
+                    <span>Escolha o endereço deste equipamento e confirme a porta conectada.</span>
+                  </div>
+                  <div className="mac-access-panel__network-fields">
+                    <label className="field">
+                      <span>IP com prefixo</span>
+                      <input
+                        inputMode="decimal"
+                        onChange={(event) => {
+                          setBootstrapAddress(event.target.value);
+                          setCommandCopyStatus("");
+                        }}
+                        placeholder="Ex.: 192.168.10.1/24"
+                        value={bootstrapAddress}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Interface Ethernet</span>
+                      <input
+                        onChange={(event) => {
+                          setBootstrapInterface(event.target.value);
+                          setCommandCopyStatus("");
+                        }}
+                        placeholder="Ex.: ether1"
+                        value={bootstrapInterface}
+                      />
+                    </label>
+                  </div>
+                  <pre className={bootstrapCommandsReady ? "routeros-command" : "routeros-command routeros-command--pending"}>
+                    <code>{bootstrapCommands}</code>
+                  </pre>
+                  <div className="mac-access-panel__command-actions">
+                    <button disabled={!bootstrapCommandsReady} onClick={copyBootstrapCommands} type="button">
+                      Copiar comandos
+                    </button>
+                    <span>Abra <strong>New Terminal</strong> no WinBox, cole e execute uma vez.</span>
+                  </div>
+                  {commandCopyStatus && <small>{commandCopyStatus}</small>}
                 </div>
               )}
 

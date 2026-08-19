@@ -401,7 +401,7 @@
                         </label>
 
                         <label class="flex cursor-pointer items-center justify-between rounded-xl border border-slate-700 bg-slate-900 p-4">
-                            <span><span class="block text-sm font-medium text-slate-200">Recuperar a porta de rede</span><span class="block text-xs text-slate-500">Após falhas consecutivas de ping, desliga e liga a porta física.</span></span>
+                            <span><span class="block text-sm font-medium text-slate-200">Reiniciar dispositivo</span><span class="block text-xs text-slate-500">Após falhas consecutivas de ping, reinicia o MikroTik inteiro.</span></span>
                             <input id="enableWanWatchdog" type="checkbox" checked class="lora-input h-5 w-5 accent-violet-600">
                         </label>
 
@@ -411,7 +411,7 @@
                                 <input id="pingTarget" type="text" value="8.8.8.8" class="lora-input w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500">
                             </div>
                             <div>
-                                <label class="mb-1 block text-sm font-medium text-slate-300" for="pingFailures">Falhas antes de recuperar</label>
+                                <label class="mb-1 block text-sm font-medium text-slate-300" for="pingFailures">Falhas antes de reiniciar</label>
                                 <select id="pingFailures" class="lora-input w-full rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500">
                                     <option value="2">2 verificações</option>
                                     <option value="3" selected>3 verificações</option>
@@ -704,7 +704,6 @@ ${script}
         }
 
         function generateLoraScript() {
-            const defaultInterface = 'ether1';
             const pingTarget = safeValue('pingTarget', '8.8.8.8');
             const failures = safeValue('pingFailures', '3');
             const loraInterval = safeValue('loraInterval', '30m');
@@ -715,8 +714,6 @@ ${script}
 
             let script = `# ============================================================\n# PROTECAO LORA - ROUTEROS 7.19.4\n# ============================================================\n\n`;
             script += `# PRE-CHECK: valida hardware e pacote antes de alterar scripts\n`;
-            script += `:local uplinkId [/interface ethernet find where default-name="ether1"]\n`;
-            script += `:if ([:len $uplinkId] = 0) do={ :error "PRE-CHECK: ether1 do wAP LR9 kit nao encontrada" }\n`;
             script += `:local loraIds ""\n`;
             script += `:do { :set loraIds [/iot lora find] } on-error={ :error "PRE-CHECK: menu /iot lora indisponivel. Verifique o pacote IoT/LoRa." }\n`;
             script += `:if ([:len $loraIds] = 0) do={ :error "PRE-CHECK: nenhuma interface LoRa encontrada" }\n`;
@@ -729,19 +726,13 @@ ${script}
             script += `:do { /system script remove [find name="resetWAN"] } on-error={}\n\n`;
 
             if (useWan) {
-                script += `# O wAP LR9 kit possui uma unica porta Ethernet; ela e localizada pelo default-name ether1\n`;
-                script += `/system script add name=resetWAN policy=read,write,test source={\n`;
-                script += `    :local uplinkId [/interface ethernet find where default-name="${defaultInterface}"]\n`;
-                script += `    :if ([:len $uplinkId] = 0) do={ :log error "WAN-WATCHDOG: porta fisica ${defaultInterface} nao encontrada"; :return }\n`;
-                script += `    /interface ethernet disable $uplinkId\n    :delay 10s\n    /interface ethernet enable $uplinkId\n`;
-                script += `    :log warning "WAN-WATCHDOG: porta fisica reiniciada"\n}\n\n`;
-                script += `/system script add name=keepAlive policy=read,write,test source={\n`;
+                script += `/system script add name=keepAlive policy=reboot,read,write,test source={\n`;
                 script += `    :global wanFailureCount\n    :if ([:typeof $wanFailureCount] = "nothing") do={ :set wanFailureCount 0 }\n`;
                 script += `    :local replies [/ping ${pingTarget} count=5 interval=500ms]\n`;
                 script += `    :if ($replies = 0) do={ :set wanFailureCount ($wanFailureCount + 1); :log warning ("WAN-WATCHDOG: falha " . $wanFailureCount . "/${failures}") } else={ :set wanFailureCount 0 }\n`;
-                script += `    :if ($wanFailureCount >= ${failures}) do={ :set wanFailureCount 0; /system script run resetWAN }\n`;
+                script += `    :if ($wanFailureCount >= ${failures}) do={ :set wanFailureCount 0; :log warning "WAN-WATCHDOG: reiniciando dispositivo"; /system reboot }\n`;
                 script += `}\n`;
-                script += `/system scheduler add name=keepAlive10min interval=${wanInterval} start-time=startup on-event=keepAlive policy=read,write,test disabled=no\n\n`;
+                script += `/system scheduler add name=keepAlive10min interval=${wanInterval} start-time=startup on-event=keepAlive policy=reboot,read,write,test disabled=no\n\n`;
             }
 
             if (useLns || useGuard) {

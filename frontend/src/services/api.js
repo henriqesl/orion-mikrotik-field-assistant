@@ -135,7 +135,7 @@ export function previewLoraProtection(connection, configuration) {
       lora_status: "connected",
       changes: [
         { area: "LoRa", field: "Proteção da interface", current_value: "Não configurado", new_value: loraEnabled ? "Ativo" : "Inativo" },
-        { area: "WAN", field: "Watchdog de conectividade", current_value: "Não configurado", new_value: configuration.enable_wan_watchdog ? "Ativo" : "Inativo" },
+        { area: "Dispositivo", field: "Reinício por falha de conectividade", current_value: "Não configurado", new_value: configuration.enable_device_reboot ? "Ativo" : "Inativo" },
       ],
       warnings: ["Demonstração: nenhuma alteração será aplicada."],
     });

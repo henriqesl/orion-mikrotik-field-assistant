@@ -3,16 +3,14 @@ import { useMemo, useState } from "react";
 import { applyLoraProtection, previewLoraProtection } from "../services/api.js";
 
 function initialForm(device) {
-  const wan = device.ethernet_interfaces.find((item) => !item.disabled)?.name || "";
   return {
-    wan_interface: wan,
     enable_lns_watchdog: true,
     enable_lora_guard: true,
-    enable_wan_watchdog: true,
+    enable_device_reboot: true,
     ping_target: "1.1.1.1",
     failure_threshold: 3,
     lora_interval: "30m",
-    wan_interval: "10m",
+    connectivity_interval: "10m",
   };
 }
 
@@ -95,17 +93,16 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
           <div className="lora-toggle-grid">
             <Toggle checked={form.enable_lns_watchdog} description="Reinicia o LoRa após uma nova queda do LNS" label="Desconexão LNS" name="enable_lns_watchdog" onChange={update} />
             <Toggle checked={form.enable_lora_guard} description="Reativa a interface se ela estiver desabilitada" label="Interface LoRa" name="enable_lora_guard" onChange={update} />
-            <Toggle checked={form.enable_wan_watchdog} description="Reinicia a porta após falhas consecutivas" label="Conectividade WAN" name="enable_wan_watchdog" onChange={update} />
+            <Toggle checked={form.enable_device_reboot} description="Reinicia o MikroTik após falhas consecutivas de conectividade" label="Reiniciar dispositivo" name="enable_device_reboot" onChange={update} />
           </div>
         </fieldset>
 
         <div className="configuration-grid">
           <label className="field"><span>Verificar LoRa a cada</span><select name="lora_interval" onChange={update} value={form.lora_interval}><option value="5m">5 minutos</option><option value="10m">10 minutos</option><option value="30m">30 minutos</option><option value="1h">1 hora</option></select></label>
-          <label className="field"><span>Porta de internet</span><select disabled={!form.enable_wan_watchdog} name="wan_interface" onChange={update} required value={form.wan_interface}>{device.ethernet_interfaces.filter((item) => !item.disabled).map((item) => <option key={item.name}>{item.name}</option>)}</select></label>
-          {form.enable_wan_watchdog && <>
+          {form.enable_device_reboot && <>
             <label className="field"><span>IP para testar conexão</span><input name="ping_target" onChange={update} required value={form.ping_target} /></label>
             <label className="field"><span>Falhas antes de reiniciar</span><input max="10" min="1" name="failure_threshold" onChange={update} required type="number" value={form.failure_threshold} /></label>
-            <label className="field"><span>Verificar WAN a cada</span><select name="wan_interval" onChange={update} value={form.wan_interval}><option value="1m">1 minuto</option><option value="5m">5 minutos</option><option value="10m">10 minutos</option><option value="30m">30 minutos</option></select></label>
+            <label className="field"><span>Verificar conexão a cada</span><select name="connectivity_interval" onChange={update} value={form.connectivity_interval}><option value="1m">1 minuto</option><option value="5m">5 minutos</option><option value="10m">10 minutos</option><option value="30m">30 minutos</option></select></label>
           </>}
         </div>
 

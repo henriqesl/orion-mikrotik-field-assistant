@@ -123,6 +123,7 @@ class DeviceSummary(BaseModel):
     wifi_package: str | None
     wifi_stack: Literal["wifi", "wifiwave2", "wireless", "not_detected"]
     wifi_interfaces: list[WiFiInterface]
+    lora_available: bool = False
     registration_table_available: bool
     wifi_peers: list[WiFiPeer]
     ethernet_interfaces: list[EthernetInterface]

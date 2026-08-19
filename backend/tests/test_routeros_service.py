@@ -66,6 +66,7 @@ class FakeClient:
                     "band": "5ghz-ax",
                 }
             ],
+            "/iot/lora/print": [],
             "/interface/ethernet/print": [
                 {
                     "name": "ether1",
@@ -148,6 +149,7 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
     assert result.wifi_stack == "wifi"
     assert result.wifi_interfaces[0].name == "wifi1"
     assert result.wifi_interfaces[0].running is True
+    assert result.lora_available is False
     assert result.wifi_interfaces[0].mode == "station"
     assert result.wifi_interfaces[0].ssid == "ORION-Link"
     assert result.wifi_interfaces[0].frequency == "5805"
@@ -178,6 +180,7 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
         "/system/resource/print",
         "/system/package/print",
         "/interface/wifi/print",
+        "/iot/lora/print",
         "/interface/wifi/registration-table/print",
         "/interface/ethernet/print",
         "/interface/bridge/print",

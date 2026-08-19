@@ -27,7 +27,7 @@ A V5 fecha o fluxo local de campo em uma única aplicação:
 - abertura assistida do WinBox pelo MAC;
 - seleção e memorização do executável oficial do WinBox pela própria interface;
 - configuração direta de enlace e rede básica;
-- configuração LoRa com watchdogs de interface, LNS e WAN;
+- configuração LoRa com proteção da interface, LNS e reinício do dispositivo por falha de conectividade;
 - prévia, confirmação explícita e backup antes das alterações;
 - modo demonstração para navegar sem um MikroTik disponível.
 
@@ -39,8 +39,9 @@ O ORION não armazena credenciais, instalações ou dados de técnicos. A aplica
 2. Abra o ORION e aguarde o equipamento aparecer na descoberta LAN.
 3. Clique em **Abrir via MAC**. Se necessário, localize o `winbox.exe` pela própria tela; o ORION memorizará o caminho.
 4. Entre no equipamento pela janela oficial do WinBox.
-5. Em **IP → Addresses**, defina um endereço válido na porta Ethernet e, em **IP → Services**, habilite `api`.
-6. O ORION detectará o novo IP, preencherá o endereço e permitirá continuar pela API.
+5. No ORION, informe o IP com prefixo e confirme a interface Ethernet. O endereço é escolhido para aquela instalação; os valores exibidos nos campos são apenas exemplos.
+6. Clique em **Copiar comandos**, abra **New Terminal** no WinBox e cole os comandos uma vez.
+7. O ORION detectará o novo IP, preencherá o endereço e permitirá continuar pela API.
 
 O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
 

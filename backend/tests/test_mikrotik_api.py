@@ -130,6 +130,7 @@ def test_discover_mikrotik_returns_normalized_device(monkeypatch) -> None:
             architecture="arm64",
             wifi_package="wifi-qcom",
             wifi_stack="wifi",
+            lora_available=True,
             wifi_interfaces=[
                 {
                     "name": "wifi1",
@@ -193,6 +194,7 @@ def test_discover_mikrotik_returns_normalized_device(monkeypatch) -> None:
         "architecture": "arm64",
         "wifi_package": "wifi-qcom",
         "wifi_stack": "wifi",
+        "lora_available": True,
         "wifi_interfaces": [
             {
                 "name": "wifi1",

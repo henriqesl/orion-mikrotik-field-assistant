@@ -89,6 +89,8 @@ function DeviceSummary({
   onRefresh,
   onToggleMonitoring,
 }) {
+  const radioAvailable = device.wifi_interfaces.length > 0;
+
   return (
     <section className="device-card" aria-labelledby="device-title">
       <div className="section-heading">
@@ -147,14 +149,20 @@ function DeviceSummary({
         ))}
       </dl>
 
-      <div className="wifi-heading">
+      <div className={`wifi-heading${radioAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
           <p className="card-kicker">Rádio</p>
           <h3>Interfaces Wi-Fi</h3>
         </div>
         <div className="wifi-meta">
-          <span>{STACK_LABELS[device.wifi_stack]}</span>
-          <span>{device.wifi_package || "Pacote não informado"}</span>
+          {radioAvailable ? (
+            <>
+              <span>{STACK_LABELS[device.wifi_stack]}</span>
+              <span>{device.wifi_package || "Pacote não informado"}</span>
+            </>
+          ) : (
+            <span>Indisponível neste equipamento</span>
+          )}
         </div>
       </div>
 
@@ -211,7 +219,7 @@ function DeviceSummary({
         </p>
       )}
 
-      <div className="wifi-heading peer-heading">
+      <div className={`wifi-heading peer-heading${radioAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
           <p className="card-kicker">Registration table</p>
           <h3>Equipamentos associados</h3>
@@ -285,33 +293,41 @@ function DeviceSummary({
         </div>
       )}
 
-      <div className="wifi-heading diagnostic-heading">
+      <div className={`wifi-heading diagnostic-heading${radioAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
           <p className="card-kicker">Diagnóstico estrutural</p>
           <h3>Caminho do enlace</h3>
         </div>
-        <span className="diagnostic-count">
-          {device.structural_diagnostic.checks.length} verificações
-        </span>
+        {radioAvailable && (
+          <span className="diagnostic-count">
+            {device.structural_diagnostic.checks.length} verificações
+          </span>
+        )}
       </div>
 
-      <div className="diagnostic-list">
-        {device.structural_diagnostic.checks.map((check) => (
-          <article
-            className={`diagnostic-item diagnostic-item--${check.status}`}
-            key={check.key}
-          >
-            <div className="diagnostic-item__header">
-              <strong>{check.label}</strong>
-              <span>{DIAGNOSTIC_LABELS[check.status]}</span>
-            </div>
-            <p>{check.summary}</p>
-            {check.possible_causes.length > 0 && (
-              <small>{check.possible_causes.join(" ")}</small>
-            )}
-          </article>
-        ))}
-      </div>
+      {radioAvailable ? (
+        <div className="diagnostic-list">
+          {device.structural_diagnostic.checks.map((check) => (
+            <article
+              className={`diagnostic-item diagnostic-item--${check.status}`}
+              key={check.key}
+            >
+              <div className="diagnostic-item__header">
+                <strong>{check.label}</strong>
+                <span>{DIAGNOSTIC_LABELS[check.status]}</span>
+              </div>
+              <p>{check.summary}</p>
+              {check.possible_causes.length > 0 && (
+                <small>{check.possible_causes.join(" ")}</small>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state capability-empty-state">
+          Diagnóstico de enlace desativado porque nenhuma interface de rádio foi detectada.
+        </p>
+      )}
     </section>
   );
 }
