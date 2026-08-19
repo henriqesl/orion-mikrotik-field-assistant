@@ -55,6 +55,12 @@ void print_json(const orion::NetworkMetrics& metrics) {
     print_optional(metrics.p95_latency_ms);
     std::cout << ",\"p99_latency_ms\":";
     print_optional(metrics.p99_latency_ms);
+    std::cout << ",\"latency_range_ms\":";
+    print_optional(metrics.latency_range_ms);
+    std::cout << ",\"standard_deviation_ms\":";
+    print_optional(metrics.standard_deviation_ms);
+    std::cout << ",\"tail_spread_ms\":";
+    print_optional(metrics.tail_spread_ms);
     std::cout << ",\"spike_count\":" << metrics.spike_count
               << ",\"stability_score\":" << metrics.stability_score << "}\n";
 }

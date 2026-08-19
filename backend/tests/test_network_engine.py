@@ -22,6 +22,8 @@ def test_network_engine_parses_valid_json(monkeypatch, tmp_path: Path) -> None:
                 '"minimum_latency_ms":2,"average_latency_ms":3,'
                 '"maximum_latency_ms":4,"jitter_ms":2,'
                 '"p95_latency_ms":3.9,"p99_latency_ms":3.98,'
+                '"latency_range_ms":2,"standard_deviation_ms":1,'
+                '"tail_spread_ms":0.98,'
                 '"spike_count":0,"stability_score":73}'
             ),
             stderr="",
@@ -43,6 +45,7 @@ def test_network_engine_parses_valid_json(monkeypatch, tmp_path: Path) -> None:
     assert result.source == "orion_network_engine"
     assert result.jitter_ms == 2
     assert result.p95_latency_ms == 3.9
+    assert result.standard_deviation_ms == 1
     assert result.stability_score == 73
 
 

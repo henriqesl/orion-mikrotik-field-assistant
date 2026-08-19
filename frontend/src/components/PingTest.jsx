@@ -7,8 +7,16 @@ function formatLatency(value) {
   return value === null ? "Sem resposta" : `${value} ms`;
 }
 
+function formatDelta(value, suffix = "") {
+  if (value === null) return "Sem dado";
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded > 0 ? "+" : ""}${rounded}${suffix}`;
+}
+
 function PingTest({ connection }) {
   const [target, setTarget] = useState("");
+  const [sampleCount, setSampleCount] = useState(10);
+  const [baseline, setBaseline] = useState(null);
   const [result, setResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -20,13 +28,47 @@ function PingTest({ connection }) {
     setResult(null);
 
     try {
-      setResult(await runPing(connection, target));
+      setResult(await runPing(connection, target, sampleCount));
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
       setIsLoading(false);
     }
   }
+
+  const comparableBaseline = baseline?.target === result?.target ? baseline : null;
+  const comparison = comparableBaseline && result ? [
+    {
+      label: "Latência média",
+      value: result.average_latency_ms === null || comparableBaseline.average_latency_ms === null
+        ? null
+        : result.average_latency_ms - comparableBaseline.average_latency_ms,
+      suffix: " ms",
+      lowerIsBetter: true,
+    },
+    {
+      label: "Perda",
+      value: result.packet_loss_percent - comparableBaseline.packet_loss_percent,
+      suffix: " p.p.",
+      lowerIsBetter: true,
+    },
+    {
+      label: "Jitter",
+      value: result.advanced_metrics?.jitter_ms == null || comparableBaseline.advanced_metrics?.jitter_ms == null
+        ? null
+        : result.advanced_metrics.jitter_ms - comparableBaseline.advanced_metrics.jitter_ms,
+      suffix: " ms",
+      lowerIsBetter: true,
+    },
+    {
+      label: "Estabilidade",
+      value: result.advanced_metrics?.stability_score == null || comparableBaseline.advanced_metrics?.stability_score == null
+        ? null
+        : result.advanced_metrics.stability_score - comparableBaseline.advanced_metrics.stability_score,
+      suffix: " pts",
+      lowerIsBetter: false,
+    },
+  ] : null;
 
   return (
     <section className="diagnostic-card" aria-labelledby="ping-title">
@@ -48,6 +90,24 @@ function PingTest({ connection }) {
             value={target}
           />
         </label>
+        <fieldset className="test-duration" disabled={isLoading}>
+          <legend>Duração</legend>
+          {[
+            [10, "Rápido"],
+            [30, "Estável"],
+            [60, "Prolongado"],
+          ].map(([count, label]) => (
+            <label key={count}>
+              <input
+                checked={sampleCount === count}
+                name="sample-count"
+                onChange={() => setSampleCount(count)}
+                type="radio"
+              />
+              <span>{label}<small>{count} amostras</small></span>
+            </label>
+          ))}
+        </fieldset>
         <button className="primary-button" disabled={isLoading} type="submit">
           {isLoading ? "Testando…" : "Testar conexão"}
         </button>
@@ -169,6 +229,18 @@ function PingTest({ connection }) {
                   <dd>{formatLatency(result.advanced_metrics.p99_latency_ms)}</dd>
                 </div>
                 <div>
+                  <dt>Variação</dt>
+                  <dd>{formatLatency(result.advanced_metrics.standard_deviation_ms)}</dd>
+                </div>
+                <div>
+                  <dt>Amplitude</dt>
+                  <dd>{formatLatency(result.advanced_metrics.latency_range_ms)}</dd>
+                </div>
+                <div>
+                  <dt>Cauda p99</dt>
+                  <dd>{formatLatency(result.advanced_metrics.tail_spread_ms)}</dd>
+                </div>
+                <div>
                   <dt>Estabilidade</dt>
                   <dd>{result.advanced_metrics.stability_score}/100</dd>
                 </div>
@@ -183,6 +255,37 @@ function PingTest({ connection }) {
               ? "Métricas fornecidas pelo RouterOS."
               : "Métricas calculadas pelo ORION a partir das respostas."}
           </p>
+
+          {comparison ? (
+            <section className="test-comparison" aria-labelledby="comparison-title">
+              <header>
+                <div>
+                  <span>Comparação da sessão</span>
+                  <strong id="comparison-title">Resultado versus referência</strong>
+                </div>
+                <button className="text-button" onClick={() => setBaseline(result)} type="button">
+                  Atualizar referência
+                </button>
+              </header>
+              <div>
+                {comparison.map((metric) => {
+                  const improved = metric.value !== null && metric.value !== 0 &&
+                    (metric.lowerIsBetter ? metric.value < 0 : metric.value > 0);
+                  const worsened = metric.value !== null && metric.value !== 0 && !improved;
+                  return (
+                    <article className={improved ? "comparison-good" : worsened ? "comparison-bad" : ""} key={metric.label}>
+                      <span>{metric.label}</span>
+                      <strong>{formatDelta(metric.value, metric.suffix)}</strong>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : (
+            <button className="baseline-button" onClick={() => setBaseline(result)} type="button">
+              Salvar como referência para comparar
+            </button>
+          )}
         </div>
       )}
     </section>
