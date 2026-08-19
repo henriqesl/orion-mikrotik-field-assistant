@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Permissões mínimas da janela principal do ORION Field.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "dialog:allow-open"
+  ]
+}

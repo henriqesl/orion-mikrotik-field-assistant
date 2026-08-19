@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api import mikrotik
@@ -62,50 +63,50 @@ def test_lan_discovery_returns_mndp_devices(monkeypatch) -> None:
     assert response.json()["devices"][0]["mac_address"] == "AA:BB:CC:DD:EE:FF"
 
 
-def test_winbox_launch_does_not_receive_password(monkeypatch) -> None:
+def test_winbox_launch_passes_only_safe_launch_options(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(
         mikrotik,
         "open_winbox",
-        lambda mac_address, username: calls.append((mac_address, username)),
+        lambda mac_address, username, **options: calls.append(
+            (mac_address, username, options)
+        ),
     )
 
     response = client.post(
         "/api/mikrotik/winbox/open",
-        json={"mac_address": "AA:BB:CC:DD:EE:FF", "username": "orion"},
-    )
-
-    assert response.status_code == 200
-    assert calls == [("AA:BB:CC:DD:EE:FF", "orion")]
-
-
-def test_bootstrap_endpoint_returns_downloadable_script() -> None:
-    response = client.post(
-        "/api/mikrotik/bootstrap",
         json={
-            "interface_name": "ether1",
-            "address": "192.168.88.1/24",
+            "mac_address": "AA:BB:CC:DD:EE:FF",
+            "username": "orion",
+            "try_blank_password": True,
         },
     )
 
     assert response.status_code == 200
-    assert response.json()["filename"] == "orion-bootstrap.rsc"
-    assert response.json()["reconnect_ip"] == "192.168.88.1"
+    assert calls == [
+        (
+            "AA:BB:CC:DD:EE:FF",
+            "orion",
+            {"executable_path": None, "try_blank_password": True},
+        )
+    ]
 
 
-def test_cors_allows_orion_frontend_port() -> None:
+@pytest.mark.parametrize(
+    "origin",
+    ["http://localhost:5174", "http://tauri.localhost", "tauri://localhost"],
+)
+def test_cors_allows_orion_frontends(origin) -> None:
     response = client.options(
         "/api/mikrotik/discover",
         headers={
-            "Origin": "http://localhost:5174",
+            "Origin": origin,
             "Access-Control-Request-Method": "POST",
         },
     )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == (
-        "http://localhost:5174"
-    )
+    assert response.headers["access-control-allow-origin"] == origin
 
 
 def test_cors_does_not_allow_previous_frontend_port() -> None:
@@ -129,6 +130,7 @@ def test_discover_mikrotik_returns_normalized_device(monkeypatch) -> None:
             architecture="arm64",
             wifi_package="wifi-qcom",
             wifi_stack="wifi",
+            lora_available=True,
             wifi_interfaces=[
                 {
                     "name": "wifi1",
@@ -192,6 +194,7 @@ def test_discover_mikrotik_returns_normalized_device(monkeypatch) -> None:
         "architecture": "arm64",
         "wifi_package": "wifi-qcom",
         "wifi_stack": "wifi",
+        "lora_available": True,
         "wifi_interfaces": [
             {
                 "name": "wifi1",
@@ -301,6 +304,20 @@ def test_ping_from_mikrotik_returns_normalized_metrics(monkeypatch) -> None:
             maximum_latency_ms=8.7,
             samples_ms=[1.2, 2.4, 3.3, 8.7],
             measurement_source="routeros_summary",
+            advanced_metrics={
+                "sent_packets": 5,
+                "received_packets": 4,
+                "packet_loss_percent": 20,
+                "availability_percent": 80,
+                "minimum_latency_ms": 1.2,
+                "average_latency_ms": 3.9,
+                "maximum_latency_ms": 8.7,
+                "jitter_ms": 2.5,
+                "p95_latency_ms": 7.89,
+                "p99_latency_ms": 8.54,
+                "spike_count": 1,
+                "stability_score": 78,
+            },
             packet_loss_assessment={
                 "status": "weak",
                 "label": "Instável",
@@ -340,6 +357,21 @@ def test_ping_from_mikrotik_returns_normalized_metrics(monkeypatch) -> None:
         "maximum_latency_ms": 8.7,
         "samples_ms": [1.2, 2.4, 3.3, 8.7],
         "measurement_source": "routeros_summary",
+        "advanced_metrics": {
+            "source": "orion_network_engine",
+            "sent_packets": 5,
+            "received_packets": 4,
+            "packet_loss_percent": 20.0,
+            "availability_percent": 80.0,
+            "minimum_latency_ms": 1.2,
+            "average_latency_ms": 3.9,
+            "maximum_latency_ms": 8.7,
+            "jitter_ms": 2.5,
+            "p95_latency_ms": 7.89,
+            "p99_latency_ms": 8.54,
+            "spike_count": 1,
+            "stability_score": 78,
+        },
         "packet_loss_assessment": {
             "status": "weak",
             "label": "Instável",

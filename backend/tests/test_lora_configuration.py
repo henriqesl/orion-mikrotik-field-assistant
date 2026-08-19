@@ -39,7 +39,6 @@ class Client:
             scripts = [
                 {".id": "*l", "name": service.LORA_SCRIPT, "disabled": "no"},
                 {".id": "*w", "name": service.WAN_SCRIPT, "disabled": "no"},
-                {".id": "*r", "name": service.WAN_RESET_SCRIPT, "disabled": "no"},
             ]
         rows = {
             "/iot/lora/print": (
@@ -64,7 +63,7 @@ def connection():
 
 
 def settings(**updates):
-    values = {"wan_interface": "ether1"}
+    values = {}
     values.update(updates)
     return LoraProtectionConfiguration(**values)
 
@@ -121,6 +120,31 @@ def test_apply_backs_up_first_and_never_removes(monkeypatch):
     assert any(command[0] == "/system/script/add" for command in mutations)
     assert any(command[0] == "/system/scheduler/add" for command in mutations)
     assert not any(command[0].endswith("/remove") for command in mutations)
+    watchdog = next(
+        command
+        for command in mutations
+        if command[0] == "/system/script/add"
+        and f"=name={service.WAN_SCRIPT}" in command
+    )
+    source = next(word for word in watchdog if word.startswith("=source="))
+    assert "/system reboot" in source
+    assert "/interface ethernet disable" not in source
+    assert "=policy=reboot,read,write,test" in watchdog
+    lora_script = next(
+        command
+        for command in mutations
+        if command[0] == "/system/script/add"
+        and f"=name={service.LORA_SCRIPT}" in command
+    )
+    assert "=policy=read,write,test" in lora_script
+    assert "=policy=reboot,read,write,test" not in lora_script
+    scheduler = next(
+        command
+        for command in mutations
+        if command[0] == "/system/scheduler/add"
+        and f"=name={service.WAN_SCHEDULER}" in command
+    )
+    assert "=policy=reboot,read,write,test" in scheduler
     assert result.backup_file.endswith(".backup")
 
 
@@ -136,7 +160,7 @@ def test_disabling_protections_disables_managed_schedulers(monkeypatch):
             configuration=settings(
                 enable_lns_watchdog=False,
                 enable_lora_guard=False,
-                enable_wan_watchdog=False,
+                enable_device_reboot=False,
             ),
             confirmation="APLICAR",
         )

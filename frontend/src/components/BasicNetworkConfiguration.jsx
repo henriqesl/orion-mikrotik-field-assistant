@@ -17,6 +17,7 @@ function initialForm(device) {
     wan_mode: "dhcp",
     wan_address: "",
     gateway: "",
+    configure_lan: true,
     lan_bridge: "bridge-lan",
     lan_address: "192.168.50.1/24",
     lan_ports: lanPorts,
@@ -62,6 +63,15 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       ...(name === "enable_lan_dhcp" && !checked
         ? { dhcp_pool_start: "", dhcp_pool_end: "" }
         : {}),
+      ...(name === "configure_lan" && !checked
+        ? {
+            lan_ports: [],
+            enable_nat: false,
+            enable_lan_dhcp: false,
+            dhcp_pool_start: "",
+            dhcp_pool_end: "",
+          }
+        : {}),
     }));
     setPreview(null);
     setResult(null);
@@ -88,12 +98,17 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       ...form,
       wan_address: form.wan_mode === "static" ? form.wan_address : null,
       gateway: form.wan_mode === "static" ? form.gateway : null,
+      lan_bridge: form.configure_lan ? form.lan_bridge : null,
+      lan_address: form.configure_lan ? form.lan_address : null,
+      lan_ports: form.configure_lan ? form.lan_ports : [],
+      enable_nat: form.configure_lan && form.enable_nat,
+      enable_lan_dhcp: form.configure_lan && form.enable_lan_dhcp,
       dns_servers: form.dns_servers
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
-      dhcp_pool_start: form.dhcp_pool_start || null,
-      dhcp_pool_end: form.dhcp_pool_end || null,
+      dhcp_pool_start: form.configure_lan ? form.dhcp_pool_start || null : null,
+      dhcp_pool_end: form.configure_lan ? form.dhcp_pool_end || null : null,
     };
   }
 
@@ -142,7 +157,9 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       }
     } catch (error) {
       setErrorMessage(
-        `${error.message} Se a conexão caiu, conecte o computador a uma porta LAN e tente o novo IP.`,
+        form.configure_lan
+          ? `${error.message} Se a conexão caiu, conecte o computador a uma porta LAN e tente o novo IP.`
+          : error.message,
       );
     } finally {
       setIsApplying(false);
@@ -153,7 +170,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
     <section className="configuration-card" aria-labelledby="network-configuration-title">
       <div className="section-heading">
         <div>
-          <p className="card-kicker">ORION Field V4</p>
+          <p className="card-kicker">Rede e serviços</p>
           <h2 id="network-configuration-title">Rede básica</h2>
         </div>
         <span className={device.demo_mode ? "preview-badge" : "write-badge"}>
@@ -178,6 +195,18 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
               <span className="role-option__check">✓</span>
             </label>
           </div>
+        </fieldset>
+
+        <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
+          <legend>Rede LAN</legend>
+          <label className="setting-toggle setting-toggle--wide">
+            <span>
+              <strong>Configurar rede LAN</strong>
+              <small>Cria bridge, endereço IP e associa as portas selecionadas</small>
+            </span>
+            <input checked={form.configure_lan} name="configure_lan" onChange={updateField} type="checkbox" />
+            <span aria-hidden="true" className="toggle-control"><i /></span>
+          </label>
         </fieldset>
 
         <div className="configuration-grid">
@@ -205,59 +234,67 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
               </label>
             </>
           )}
-          <label className="field">
-            <span>Nome da bridge LAN</span>
-            <input name="lan_bridge" onChange={updateField} required value={form.lan_bridge} />
-          </label>
-          <label className="field">
-            <span>IP da rede LAN</span>
-            <input name="lan_address" onChange={updateField} required value={form.lan_address} />
-          </label>
+          {form.configure_lan && (
+            <>
+              <label className="field">
+                <span>Nome da bridge LAN</span>
+                <input name="lan_bridge" onChange={updateField} required value={form.lan_bridge} />
+              </label>
+              <label className="field">
+                <span>IP da rede LAN</span>
+                <input name="lan_address" onChange={updateField} required value={form.lan_address} />
+              </label>
+            </>
+          )}
           <label className="field field--wide">
             <span>Servidores DNS</span>
             <input name="dns_servers" onChange={updateField} required value={form.dns_servers} />
           </label>
         </div>
 
-        <fieldset className="network-options" disabled={isPreviewing || isApplying}>
-          <legend>Portas da rede LAN</legend>
-          <div className="port-selector">
-            {availableLanPorts.map((item) => (
-              <label className="check-field" key={item.name}>
-                <input checked={form.lan_ports.includes(item.name)} onChange={toggleLanPort} type="checkbox" value={item.name} />
-                <span>{item.name}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        {form.configure_lan && (
+          <>
+            <fieldset className="network-options" disabled={isPreviewing || isApplying}>
+              <legend>Portas da rede LAN</legend>
+              <div className="port-selector">
+                {availableLanPorts.map((item) => (
+                  <label className="check-field" key={item.name}>
+                    <input checked={form.lan_ports.includes(item.name)} onChange={toggleLanPort} type="checkbox" value={item.name} />
+                    <span>{item.name}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
-        <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
-          <legend>Recursos da LAN</legend>
-          <div className="setting-toggle-grid">
-            <label className="setting-toggle">
-              <span><strong>Liberar internet na LAN</strong><small>Ativa o compartilhamento por NAT</small></span>
-              <input checked={form.enable_nat} name="enable_nat" onChange={updateField} type="checkbox" />
-              <span aria-hidden="true" className="toggle-control"><i /></span>
-            </label>
-            <label className="setting-toggle">
-              <span><strong>DHCP nas portas LAN</strong><small>Entrega endereços IP automaticamente</small></span>
-              <input checked={form.enable_lan_dhcp} name="enable_lan_dhcp" onChange={updateField} type="checkbox" />
-              <span aria-hidden="true" className="toggle-control"><i /></span>
-            </label>
-          </div>
-          {form.enable_lan_dhcp && (
-            <div className="dhcp-pool-grid">
-              <label className="field">
-                <span>Início do pool DHCP</span>
-                <input name="dhcp_pool_start" onChange={updateField} placeholder="Automático" required={Boolean(form.dhcp_pool_end)} value={form.dhcp_pool_start} />
-              </label>
-              <label className="field">
-                <span>Fim do pool DHCP</span>
-                <input name="dhcp_pool_end" onChange={updateField} placeholder="Automático" required={Boolean(form.dhcp_pool_start)} value={form.dhcp_pool_end} />
-              </label>
-            </div>
-          )}
-        </fieldset>
+            <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
+              <legend>Recursos da LAN</legend>
+              <div className="setting-toggle-grid">
+                <label className="setting-toggle">
+                  <span><strong>Liberar internet na LAN</strong><small>Ativa o compartilhamento por NAT</small></span>
+                  <input checked={form.enable_nat} name="enable_nat" onChange={updateField} type="checkbox" />
+                  <span aria-hidden="true" className="toggle-control"><i /></span>
+                </label>
+                <label className="setting-toggle">
+                  <span><strong>DHCP nas portas LAN</strong><small>Entrega endereços IP automaticamente</small></span>
+                  <input checked={form.enable_lan_dhcp} name="enable_lan_dhcp" onChange={updateField} type="checkbox" />
+                  <span aria-hidden="true" className="toggle-control"><i /></span>
+                </label>
+              </div>
+              {form.enable_lan_dhcp && (
+                <div className="dhcp-pool-grid">
+                  <label className="field">
+                    <span>Início do pool DHCP</span>
+                    <input name="dhcp_pool_start" onChange={updateField} placeholder="Automático" required={Boolean(form.dhcp_pool_end)} value={form.dhcp_pool_start} />
+                  </label>
+                  <label className="field">
+                    <span>Fim do pool DHCP</span>
+                    <input name="dhcp_pool_end" onChange={updateField} placeholder="Automático" required={Boolean(form.dhcp_pool_start)} value={form.dhcp_pool_end} />
+                  </label>
+                </div>
+              )}
+            </fieldset>
+          </>
+        )}
 
         <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
           <legend>Serviços de acesso</legend>
@@ -296,10 +333,10 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
           <p className="configuration-note">API e API-SSL são preservadas para não interromper o acesso do ORION.</p>
         </fieldset>
 
-        {form.lan_ports.length === 0 && (
+        {form.configure_lan && form.lan_ports.length === 0 && (
           <div className="inline-error" role="alert">Selecione pelo menos uma porta LAN.</div>
         )}
-        <button className="primary-button" disabled={isPreviewing || isApplying || form.lan_ports.length === 0} type="submit">
+        <button className="primary-button" disabled={isPreviewing || isApplying || (form.configure_lan && form.lan_ports.length === 0)} type="submit">
           {isPreviewing ? "Analisando…" : "Revisar configuração"}
         </button>
       </form>
@@ -345,18 +382,18 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         <div className="configuration-success" role="status">
           <strong>Rede básica enviada</strong>
           <span>{result.summary}</span>
-          <small>Backup: {result.backup_file} · novo IP: {result.reconnect_ip}</small>
+          <small>Backup: {result.backup_file} · {form.configure_lan ? "novo IP" : "acesso"}: {result.reconnect_ip}</small>
         </div>
       )}
       {postApply?.status === "reconnecting" && (
         <div className="network-post-check network-post-check--running" role="status">
-          <strong>Reconectando no novo IP…</strong>
+          <strong>{form.configure_lan ? "Reconectando no novo IP…" : "Confirmando o acesso…"}</strong>
           <span>O ORION está aguardando o MikroTik responder novamente.</span>
         </div>
       )}
       {postApply?.status === "validated" && (
         <div className="network-post-check network-post-check--success" role="status">
-          <strong>Novo acesso confirmado</strong>
+          <strong>Acesso confirmado</strong>
           <div className="network-check-grid">
             <span>
               Gateway
@@ -375,23 +412,27 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       )}
       {postApply?.status === "validation-error" && (
         <div className="network-post-check network-post-check--attention" role="alert">
-          <strong>Novo IP acessível, testes incompletos</strong>
+          <strong>Acesso confirmado, testes incompletos</strong>
           <span>{postApply.message}</span>
         </div>
       )}
       {postApply?.status === "recovery" && (
         <div className="network-recovery" role="alert">
-          <strong>O novo IP ainda não respondeu</strong>
-          <ol>
-            <li>Conecte o computador a uma das portas LAN selecionadas.</li>
-            <li>
-              {form.enable_lan_dhcp
-                ? "Deixe o adaptador de rede configurado para obter IP automaticamente."
-                : "Configure manualmente no computador um IP compatível com a nova rede LAN."}
-            </li>
-            <li>Tente acessar novamente o endereço {result.reconnect_ip}.</li>
-            <li>Se necessário, tente o IP anterior {postApply.previousIp}.</li>
-          </ol>
+          <strong>{form.configure_lan ? "O novo IP ainda não respondeu" : "O acesso ainda não respondeu"}</strong>
+          {form.configure_lan ? (
+            <ol>
+              <li>Conecte o computador a uma das portas LAN selecionadas.</li>
+              <li>
+                {form.enable_lan_dhcp
+                  ? "Deixe o adaptador de rede configurado para obter IP automaticamente."
+                  : "Configure manualmente no computador um IP compatível com a nova rede LAN."}
+              </li>
+              <li>Tente acessar novamente o endereço {result.reconnect_ip}.</li>
+              <li>Se necessário, tente o IP anterior {postApply.previousIp}.</li>
+            </ol>
+          ) : (
+            <p>A configuração LAN foi preservada. Tente novamente o endereço {postApply.previousIp}.</p>
+          )}
           <small>Backup criado: {result.backup_file}</small>
         </div>
       )}

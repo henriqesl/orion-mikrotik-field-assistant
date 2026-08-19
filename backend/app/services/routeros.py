@@ -16,6 +16,10 @@ from app.services.evaluation import (
     assess_signal,
     calculate_link_health,
 )
+from app.services.network_engine import (
+    NetworkEngineUnavailableError,
+    analyze_network_samples,
+)
 from app.models.mikrotik import (
     ARPValidation,
     BridgeInfo,
@@ -268,6 +272,13 @@ def _read_registration_table(
         )
 
     return True, peers
+
+
+def _read_lora_available(client: Any) -> bool:
+    try:
+        return bool(_rows(client.run("/iot/lora/print")))
+    except DeviceError:
+        return False
 
 
 def _safe_rows(client: Any, command: str) -> tuple[bool, list[Mapping[str, str]]]:
@@ -557,6 +568,7 @@ def _read_device_summary(client: Any) -> DeviceSummary:
     identity = _first_row(client.run("/system/identity/print"))
     resource = _first_row(client.run("/system/resource/print"))
     wifi_package, wifi_stack, wifi_interfaces = _read_wifi(client)
+    lora_available = _read_lora_available(client)
     registration_table_available, wifi_peers = _read_registration_table(
         client,
         wifi_stack,
@@ -589,6 +601,7 @@ def _read_device_summary(client: Any) -> DeviceSummary:
         wifi_package=wifi_package,
         wifi_stack=wifi_stack,
         wifi_interfaces=wifi_interfaces,
+        lora_available=lora_available,
         registration_table_available=registration_table_available,
         wifi_peers=wifi_peers,
         ethernet_interfaces=ethernet_interfaces,
@@ -648,7 +661,34 @@ def discover_device(connection: MikroTikConnection) -> DeviceSummary:
     return _with_connection(connection, _read_device_summary)
 
 
-def _read_ping_result(client: Any, request: PingRequest) -> PingResult:
+def _add_advanced_ping_metrics(result: PingResult) -> PingResult:
+    if len(result.samples_ms) != result.received:
+        return result.model_copy(
+            update={
+                "advanced_metrics_unavailable_reason": (
+                    "O RouterOS não retornou todas as amostras individuais."
+                )
+            }
+        )
+    try:
+        metrics = analyze_network_samples(result.sent, result.samples_ms)
+    except NetworkEngineUnavailableError:
+        return result.model_copy(
+            update={
+                "advanced_metrics_unavailable_reason": (
+                    "O motor nativo não está disponível neste modo de execução."
+                )
+            }
+        )
+    return result.model_copy(update={"advanced_metrics": metrics})
+
+
+def _read_ping_result(
+    client: Any,
+    request: PingRequest,
+    *,
+    include_advanced_metrics: bool = False,
+) -> PingResult:
     rows = _rows(
         client.run(
             "/ping",
@@ -680,7 +720,7 @@ def _read_ping_result(client: Any, request: PingRequest) -> PingResult:
             minimum_latency = _duration_ms(summary.get("min-rtt"))
             average_latency = _duration_ms(summary.get("avg-rtt"))
             maximum_latency = _duration_ms(summary.get("max-rtt"))
-            return PingResult(
+            result = PingResult(
                 target=request.target,
                 sent=sent,
                 received=received,
@@ -698,6 +738,11 @@ def _read_ping_result(client: Any, request: PingRequest) -> PingResult:
                     maximum_latency
                 ),
             )
+            return (
+                _add_advanced_ping_metrics(result)
+                if include_advanced_metrics
+                else result
+            )
 
     sent = request.count
     received = len(samples)
@@ -707,7 +752,7 @@ def _read_ping_result(client: Any, request: PingRequest) -> PingResult:
     maximum_latency = max(samples) if samples else None
     packet_loss = round(packet_loss, 2)
 
-    return PingResult(
+    result = PingResult(
         target=request.target,
         sent=sent,
         received=received,
@@ -721,12 +766,13 @@ def _read_ping_result(client: Any, request: PingRequest) -> PingResult:
         average_latency_assessment=assess_average_latency(average_latency),
         maximum_latency_assessment=assess_maximum_latency(maximum_latency),
     )
+    return _add_advanced_ping_metrics(result) if include_advanced_metrics else result
 
 
 def ping_device(request: PingRequest) -> PingResult:
     """Run a bounded ICMP test from the MikroTik itself."""
     def run_diagnostics(client: Any) -> PingResult:
-        result = _read_ping_result(client, request)
+        result = _read_ping_result(client, request, include_advanced_metrics=True)
         _package, stack, _interfaces = _read_wifi(client)
         table_available, peers = _read_registration_table(client, stack)
 

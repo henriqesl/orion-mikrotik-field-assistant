@@ -123,6 +123,7 @@ class DeviceSummary(BaseModel):
     wifi_package: str | None
     wifi_stack: Literal["wifi", "wifiwave2", "wireless", "not_detected"]
     wifi_interfaces: list[WiFiInterface]
+    lora_available: bool = False
     registration_table_available: bool
     wifi_peers: list[WiFiPeer]
     ethernet_interfaces: list[EthernetInterface]
@@ -205,6 +206,22 @@ class LinkHealthAssessment(BaseModel):
     components: list[HealthComponent]
 
 
+class NetworkEngineMetrics(BaseModel):
+    source: Literal["orion_network_engine"] = "orion_network_engine"
+    sent_packets: int
+    received_packets: int
+    packet_loss_percent: float
+    availability_percent: float
+    minimum_latency_ms: float | None
+    average_latency_ms: float | None
+    maximum_latency_ms: float | None
+    jitter_ms: float | None
+    p95_latency_ms: float | None
+    p99_latency_ms: float | None
+    spike_count: int
+    stability_score: int = Field(ge=0, le=100)
+
+
 class PingResult(BaseModel):
     target: IPv4Address
     sent: int
@@ -218,5 +235,7 @@ class PingResult(BaseModel):
     packet_loss_assessment: MetricAssessment
     average_latency_assessment: MetricAssessment
     maximum_latency_assessment: MetricAssessment
+    advanced_metrics: NetworkEngineMetrics | None = None
+    advanced_metrics_unavailable_reason: str | None = None
     link_health: LinkHealthAssessment | None = None
     link_health_unavailable_reason: str | None = None

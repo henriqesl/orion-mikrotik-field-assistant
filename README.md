@@ -4,6 +4,20 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
+## ORION Field V6
+
+A V6 transforma o ORION em um aplicativo Windows x64 independente e adiciona diagnóstico nativo:
+
+- aplicativo desktop Tauri para Windows 10 e Windows 11;
+- FastAPI empacotado e iniciado automaticamente;
+- instalador NSIS com WebView2 offline;
+- ORION Network Engine em C++ para jitter, p95, p99, picos e estabilidade;
+- ping executado pelo próprio MikroTik, preservando o ponto real da medição;
+- instância única: abrir o ORION novamente apenas restaura a janela existente;
+- encerramento conjunto do aplicativo e do backend, sem deixar a porta local ocupada.
+
+RSSI, ruído e SNR continuam sendo lidos do RouterOS quando o equipamento os fornece. O motor C++ não inventa nem estima métricas de rádio.
+
 ## ORION Field V5
 
 A V5 fecha o fluxo local de campo em uma única aplicação:
@@ -11,9 +25,9 @@ A V5 fecha o fluxo local de campo em uma única aplicação:
 - inicialização pelo `start-orion.cmd`, em `http://127.0.0.1:8765`;
 - descoberta de MikroTiks na LAN por MNDP;
 - abertura assistida do WinBox pelo MAC;
-- geração do `.rsc` mínimo para equipamentos ainda sem IP;
+- seleção e memorização do executável oficial do WinBox pela própria interface;
 - configuração direta de enlace e rede básica;
-- configuração LoRa com watchdogs de interface, LNS e WAN;
+- configuração LoRa com proteção da interface, LNS e reinício do dispositivo por falha de conectividade;
 - prévia, confirmação explícita e backup antes das alterações;
 - modo demonstração para navegar sem um MikroTik disponível.
 
@@ -23,10 +37,11 @@ O ORION não armazena credenciais, instalações ou dados de técnicos. A aplica
 
 1. Conecte o computador e o MikroTik à mesma rede local.
 2. Abra o ORION e aguarde o equipamento aparecer na descoberta LAN.
-3. Coloque o `winbox.exe` oficial na pasta principal do projeto.
-4. Clique em **Preparar via MAC** e entre no equipamento pelo WinBox.
-5. Importe o `.rsc` gerado pelo ORION para criar um IP temporário e habilitar a API apenas na sub-rede escolhida.
-6. Volte ao ORION e prossiga pela conexão IP normal.
+3. Clique em **Abrir via MAC**. Se necessário, localize o `winbox.exe` pela própria tela; o ORION memorizará o caminho.
+4. Entre no equipamento pela janela oficial do WinBox.
+5. No ORION, informe o IP com prefixo e confirme a interface Ethernet. O endereço é escolhido para aquela instalação; os valores exibidos nos campos são apenas exemplos.
+6. Clique em **Copiar comandos**, abra **New Terminal** no WinBox e cole os comandos uma vez.
+7. O ORION detectará o novo IP, preencherá o endereço e permitirá continuar pela API.
 
 O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
 
@@ -87,9 +102,11 @@ Não existe banco de dados. As credenciais e a senha do enlace permanecem soment
 - React 19 e Vite no frontend;
 - FastAPI no backend;
 - `routeros-py` para a API binária do RouterOS;
+- Rust e Tauri no aplicativo desktop da V6;
+- C++ no motor de métricas avançadas da V6;
 - pytest para os testes do backend.
 
-C++ não faz parte da V5. Ele só deverá ser considerado futuramente se houver uma necessidade concreta de desempenho, sockets ou diagnóstico avançado.
+C++ não faz parte da lógica de formulários, configuração ou API. Ele permanece restrito ao processamento nativo de diagnóstico avançado.
 
 ## Executar localmente
 
@@ -107,7 +124,7 @@ Para escolher outra porta:
 
 O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
 
-Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, coloque o `winbox.exe` oficial na pasta principal do ORION e use **Preparar via MAC**. O ORION abre o WinBox e gera um `.rsc` mínimo que atribui um IP temporário e habilita a API somente para a sub-rede escolhida.
+Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, use **Abrir via MAC** e, se solicitado, selecione o executável oficial do WinBox. O caminho fica memorizado localmente; nenhum arquivo de configuração precisa ser copiado ou importado.
 
 ### Desenvolvimento
 
@@ -134,6 +151,31 @@ npm run dev
 ```
 
 O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
+
+### Aplicativo desktop (V6)
+
+Para desenvolver ou gerar o aplicativo Windows, instale também o Rust e a carga de trabalho **Desenvolvimento para desktop com C++** do Visual Studio Build Tools 2022.
+
+```powershell
+cd frontend
+npm run desktop:dev
+```
+
+O comando prepara o backend empacotado e abre o ORION como aplicativo Tauri. Para gerar o instalador x64:
+
+```powershell
+npm run desktop:build
+```
+
+O instalador é criado em `frontend/src-tauri/target/release/bundle/nsis`. Depois de instalado, o usuário final não precisa instalar Node.js, Python, Rust ou Visual Studio. O backend inicia e encerra junto com o aplicativo e atende somente em `127.0.0.1:8765`.
+
+Para o pacote interno assinado, instale o certificado BIONIC com chave privada no repositório pessoal da conta de build e execute:
+
+```powershell
+npm run desktop:build:signed
+```
+
+O comando localiza o certificado por assunto, assina os binários próprios e gera o NSIS com SHA-256 e timestamp. A chave privada nunca deve ser exportada para a pasta de entrega. Nos computadores da empresa, distribua apenas o certificado público `.cer` e instale-o em **Autoridades de Certificação Raiz Confiáveis** e **Editores Confiáveis** antes do ORION.
 
 ### Demonstração sem MikroTik
 
@@ -171,6 +213,8 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 
 ## Limites conhecidos
 
+- o instalador interno possui assinatura privada BIONIC; computadores que ainda não confiam no certificado podem exibir um aviso do Windows;
+- a instalação foi validada no Windows 11 x64; ainda falta uma execução física em um Windows 10 x64 limpo;
 - o acesso por MAC prepara o equipamento, mas a operação direta do ORION ainda acontece pela API IPv4;
 - não há reset nem restauração automática do backup;
 - o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
@@ -178,6 +222,7 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 - histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
 - a proteção LoRa exige RouterOS 7, pacote IoT e uma interface compatível em `/iot lora`;
 - a configuração LoRa ainda precisa de validação física no equipamento de destino;
+- o seletor do WinBox e a detecção do novo IP ainda precisam de validação física com um MikroTik sem IP;
 - os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
 
 ## Identidade visual

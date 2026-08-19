@@ -132,6 +132,31 @@ def test_wan_cannot_be_a_lan_port() -> None:
         configuration(lan_ports=["ether1", "ether2"])
 
 
+def test_lan_can_be_omitted() -> None:
+    settings = configuration(
+        configure_lan=False,
+        lan_bridge=None,
+        lan_address=None,
+        lan_ports=[],
+        enable_nat=False,
+        enable_lan_dhcp=False,
+    )
+
+    assert settings.configure_lan is False
+    assert settings.lan_address is None
+
+
+def test_lan_resources_cannot_be_enabled_without_lan() -> None:
+    with pytest.raises(ValidationError, match="NAT e DHCP"):
+        configuration(
+            configure_lan=False,
+            lan_bridge=None,
+            lan_address=None,
+            lan_ports=[],
+            enable_lan_dhcp=False,
+        )
+
+
 def test_preview_rejects_missing_interface(monkeypatch) -> None:
     monkeypatch.setattr(
         service,
@@ -245,6 +270,43 @@ def test_apply_creates_backup_and_moves_lan_ports_last(monkeypatch) -> None:
     assert not any(command[0].endswith("/remove") for command in commands)
     assert result.backup_file.endswith(".backup")
     assert str(result.reconnect_ip) == "192.168.50.1"
+
+
+def test_apply_without_lan_preserves_lan_configuration(monkeypatch) -> None:
+    client = NetworkClient()
+    commands = []
+    original_run = client.run
+
+    def tracked_run(*words):
+        commands.append(words)
+        return original_run(*words)
+
+    client.run = tracked_run
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(client),
+    )
+    settings = configuration(
+        configure_lan=False,
+        lan_bridge=None,
+        lan_address=None,
+        lan_ports=[],
+        enable_nat=False,
+        enable_lan_dhcp=False,
+    )
+
+    preview = service.preview_basic_network(request(settings))
+    result = service.apply_basic_network(apply_request(settings))
+
+    assert str(preview.reconnect_ip) == "192.168.88.1"
+    assert not any(change.area == "LAN" for change in preview.changes)
+    assert any("preservados" in warning for warning in preview.warnings)
+    assert str(result.reconnect_ip) == "192.168.88.1"
+    assert not any(command[0].startswith("/interface/bridge") and command[0].endswith(("/add", "/set")) for command in commands)
+    assert not any("=comment=ORION Field - LAN" in command for command in commands)
+    assert not any(command[0].startswith("/ip/dhcp-server") and command[0].endswith(("/add", "/set")) for command in commands)
+    assert not any(command[0].startswith("/ip/firewall/nat") and command[0].endswith(("/add", "/set")) for command in commands)
 
 
 def test_apply_static_wan_adds_address_and_gateway(monkeypatch) -> None:

@@ -24,6 +24,27 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: #2a405b #08111f;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+*::-webkit-scrollbar-track {
+  background: #08111f;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid #08111f;
+  border-radius: 999px;
+  background: #2a405b;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #385474;
 }
 
 body {
@@ -140,8 +161,9 @@ h2 {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 0.35rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.2rem;
+  padding: 0.4rem;
   border: 1px solid var(--color-line);
   border-radius: 0.9rem;
   background: rgb(13 25 41 / 92%);
@@ -149,6 +171,9 @@ h2 {
 }
 
 .workspace-tab {
+  display: grid;
+  place-content: center;
+  gap: 0.18rem;
   min-height: 3.1rem;
   padding: 0.7rem 1rem;
   border: 0;
@@ -158,6 +183,14 @@ h2 {
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 750;
+}
+
+.workspace-tab small {
+  color: #64748b;
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .workspace-tab:hover {
@@ -181,6 +214,14 @@ h2 {
   background: var(--color-primary-hover);
 }
 
+.workspace-tab--unavailable,
+.workspace-tab--unavailable:hover {
+  color: #536176;
+  background: rgb(7 17 31 / 45%);
+  box-shadow: inset 0 0 0 1px rgb(100 116 139 / 10%);
+  cursor: not-allowed;
+}
+
 .tab-panel {
   display: grid;
   gap: 1.25rem;
@@ -196,14 +237,31 @@ h2 {
 .alignment-card,
 .diagnostic-card {
   padding: 2rem;
-  border: 1px solid var(--color-line);
+  border: 1px solid #243852;
   border-radius: 1.25rem;
   background: rgb(13 25 41 / 94%);
-  box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 20%);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 2.5%),
+    0 1.25rem 3rem rgb(0 0 0 / 20%);
 }
 
 .alignment-heading {
   align-items: center;
+}
+
+.capability-card--unavailable {
+  border-color: rgb(100 116 139 / 28%);
+  background: rgb(13 25 41 / 72%);
+}
+
+.capability-badge {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgb(100 116 139 / 28%);
+  border-radius: 999px;
+  color: #7c8ba0;
+  background: rgb(100 116 139 / 7%);
+  font-size: 0.66rem;
+  font-weight: 700;
 }
 
 .alignment-controls {
@@ -570,12 +628,26 @@ h2 {
 .field select {
   width: 100%;
   min-height: 2.9rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.75rem 0.9rem;
   border: 1px solid #334155;
   border-radius: 0.65rem;
   outline: none;
   color: #f8fafc;
   background: #0b1220;
+}
+
+.field select {
+  padding-right: 3rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23a7b6ca' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.7'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+}
+
+.field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .field input:focus,
@@ -1130,6 +1202,102 @@ h2 {
   min-height: 2.9rem;
 }
 
+.app-viewport {
+  min-width: 0;
+}
+
+.desktop-runtime,
+.desktop-runtime body,
+.desktop-runtime #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.desktop-runtime body {
+  min-height: 0;
+  border: 1px solid #29405d;
+  background: var(--color-bg);
+}
+
+.desktop-runtime #root {
+  display: flex;
+  flex-direction: column;
+}
+
+.desktop-runtime .app-viewport {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 15% 5%, rgb(47 125 246 / 14%), transparent 30rem),
+    linear-gradient(180deg, #0a1525 0, var(--color-bg) 28rem);
+}
+
+.desktop-titlebar {
+  display: flex;
+  height: 2.75rem;
+  flex: 0 0 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 0.9rem;
+  border-bottom: 1px solid #223650;
+  background: #091321;
+  user-select: none;
+}
+
+.desktop-titlebar__brand {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  color: #aebed2;
+  font-size: 0.72rem;
+  font-weight: 720;
+  letter-spacing: 0.025em;
+}
+
+.desktop-titlebar__brand img {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.desktop-titlebar__controls {
+  display: flex;
+  height: 100%;
+}
+
+.desktop-titlebar__controls button {
+  display: grid;
+  width: 2.9rem;
+  height: 100%;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  color: #91a3ba;
+  background: transparent;
+  cursor: default;
+}
+
+.desktop-titlebar__controls button:hover {
+  color: #f4f7fb;
+  background: #16263a;
+}
+
+.desktop-titlebar__controls .desktop-titlebar__close:hover {
+  color: #fff;
+  background: #c42b3d;
+}
+
+.desktop-titlebar__controls svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.2;
+}
+
 .lora-toggle-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1209,6 +1377,7 @@ h2 {
   cursor: pointer;
   font-size: 0.68rem;
   font-weight: 750;
+  transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 
 .lan-discovery button:hover:not(:disabled),
@@ -1281,7 +1450,7 @@ h2 {
   color: var(--color-success);
 }
 
-.bootstrap-panel {
+.mac-access-panel {
   display: grid;
   gap: 0.85rem;
   padding: 1rem;
@@ -1290,33 +1459,33 @@ h2 {
   background: rgb(47 125 246 / 7%);
 }
 
-.bootstrap-panel > header {
+.mac-access-panel > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
 
-.bootstrap-panel > header > div {
+.mac-access-panel > header > div {
   display: grid;
   gap: 0.15rem;
 }
 
-.bootstrap-panel > header p {
+.mac-access-panel > header p {
   margin: 0;
 }
 
-.bootstrap-panel > header strong {
+.mac-access-panel > header strong {
   color: var(--color-text);
   font-size: 0.84rem;
 }
 
-.bootstrap-steps {
+.mac-access-panel__guide {
   display: grid;
   gap: 0.45rem;
 }
 
-.bootstrap-steps span {
+.mac-access-panel__guide span {
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -1324,7 +1493,7 @@ h2 {
   font-size: 0.72rem;
 }
 
-.bootstrap-steps b {
+.mac-access-panel__guide b {
   display: grid;
   width: 1.25rem;
   height: 1.25rem;
@@ -1336,47 +1505,113 @@ h2 {
   font-size: 0.65rem;
 }
 
-.bootstrap-fields {
+.mac-access-panel__guide small {
+  margin-top: 0.2rem;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.mac-access-panel__terminal {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mac-access-panel__terminal > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.mac-access-panel__terminal > div:first-child strong {
+  color: var(--color-text);
+  font-size: 0.76rem;
+}
+
+.mac-access-panel__terminal > div:first-child span,
+.mac-access-panel__terminal > small {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.mac-access-panel__network-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.mac-access-panel__network-fields .field > span {
+  font-size: 0.68rem;
+}
+
+.mac-access-panel__network-fields input {
+  min-height: 2.55rem;
+  font-family: var(--font-data);
+  font-size: 0.74rem;
+}
+
+.routeros-command {
+  overflow-x: auto;
+  margin: 0;
+  padding: 0.8rem;
+  border: 1px solid rgb(53 208 226 / 24%);
+  border-radius: 0.65rem;
+  color: #b9f4f8;
+  background: #050d17;
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.routeros-command--pending {
+  border-color: var(--color-line);
+  color: #64748b;
+}
+
+.mac-access-panel__command-actions {
+  display: flex;
+  align-items: center;
   gap: 0.7rem;
 }
 
-.bootstrap-panel > .primary-button {
-  width: fit-content;
-}
-
-.bootstrap-result {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.3rem 0.8rem;
-  padding: 0.75rem;
-  border: 1px solid rgb(44 203 127 / 35%);
-  border-radius: 0.65rem;
-  background: rgb(44 203 127 / 7%);
-}
-
-.bootstrap-result strong,
-.bootstrap-result span,
-.bootstrap-result small {
-  grid-column: 1;
-}
-
-.bootstrap-result strong {
-  color: var(--color-success);
-  font-size: 0.75rem;
-}
-
-.bootstrap-result span,
-.bootstrap-result small {
+.mac-access-panel__command-actions span {
   color: var(--color-text-muted);
   font-size: 0.67rem;
 }
 
-.bootstrap-result button {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+.mac-access-panel__command-actions strong {
+  color: var(--color-text-secondary);
+}
+
+.mac-access-panel__locator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(243 181 68 / 35%);
+  border-radius: 0.65rem;
+  background: rgb(243 181 68 / 7%);
+}
+
+.mac-access-panel__locator > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.mac-access-panel__locator strong {
+  color: var(--color-text);
+  font-size: 0.75rem;
+}
+
+.mac-access-panel__locator span {
+  color: var(--color-text-muted);
+  font-size: 0.67rem;
+}
+
+.mac-access-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .check-field {
@@ -1593,6 +1828,16 @@ h2 {
   font-size: 1.05rem;
 }
 
+.capability-heading--unavailable h3,
+.capability-heading--unavailable .card-kicker {
+  color: #64748b;
+}
+
+.capability-heading--unavailable .wifi-meta span {
+  color: #7c8ba0;
+  background: rgb(100 116 139 / 8%);
+}
+
 .wifi-meta {
   display: flex;
   gap: 0.5rem;
@@ -1698,6 +1943,12 @@ h2 {
   color: #64748b;
   font-size: 0.85rem;
   text-align: center;
+}
+
+.capability-empty-state {
+  border-color: rgb(100 116 139 / 22%);
+  color: #718096;
+  background: rgb(7 17 31 / 35%);
 }
 
 .peer-heading {
@@ -2134,8 +2385,13 @@ h2 {
   border-right: 1px solid #1e293b;
 }
 
+.ping-metrics > div:nth-child(4n),
 .ping-metrics > div:last-child {
   border-right: 0;
+}
+
+.ping-metrics > div:nth-child(n + 5) {
+  border-top: 1px solid #1e293b;
 }
 
 .ping-metrics dt {
@@ -2324,7 +2580,7 @@ h2 {
   }
 
   .lan-discovery > header,
-  .bootstrap-panel > header,
+  .mac-access-panel > header,
   .lan-device {
     align-items: flex-start;
     grid-template-columns: 1fr;
@@ -2334,15 +2590,18 @@ h2 {
     justify-content: flex-start;
   }
 
-  .bootstrap-fields,
-  .bootstrap-result {
+  .mac-access-panel__locator {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mac-access-panel__network-fields {
     grid-template-columns: 1fr;
   }
 
-  .bootstrap-result button {
-    grid-column: 1;
-    grid-row: auto;
-    width: fit-content;
+  .mac-access-panel__command-actions {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .wifi-heading {
@@ -2459,11 +2718,11 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .ping-metrics > div:nth-child(2) {
+  .ping-metrics > div:nth-child(2n) {
     border-right: 0;
   }
 
-  .ping-metrics > div:nth-child(-n + 2) {
-    border-bottom: 1px solid #1e293b;
+  .ping-metrics > div:nth-child(n + 3) {
+    border-top: 1px solid #1e293b;
   }
 }

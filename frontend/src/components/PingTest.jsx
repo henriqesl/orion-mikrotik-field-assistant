@@ -154,10 +154,32 @@ function PingTest({ connection }) {
                 {result.received}/{result.sent}
               </dd>
             </div>
+            {result.advanced_metrics && (
+              <>
+                <div>
+                  <dt>Jitter</dt>
+                  <dd>{formatLatency(result.advanced_metrics.jitter_ms)}</dd>
+                </div>
+                <div>
+                  <dt>p95</dt>
+                  <dd>{formatLatency(result.advanced_metrics.p95_latency_ms)}</dd>
+                </div>
+                <div>
+                  <dt>p99</dt>
+                  <dd>{formatLatency(result.advanced_metrics.p99_latency_ms)}</dd>
+                </div>
+                <div>
+                  <dt>Estabilidade</dt>
+                  <dd>{result.advanced_metrics.stability_score}/100</dd>
+                </div>
+              </>
+            )}
           </dl>
 
           <p className="measurement-source">
-            {result.measurement_source === "routeros_summary"
+            {result.advanced_metrics
+              ? "Ping executado pelo MikroTik; métricas avançadas calculadas localmente."
+              : result.measurement_source === "routeros_summary"
               ? "Métricas fornecidas pelo RouterOS."
               : "Métricas calculadas pelo ORION a partir das respostas."}
           </p>

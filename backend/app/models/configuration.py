@@ -75,9 +75,10 @@ class BasicNetworkConfiguration(BaseModel):
     wan_mode: Literal["dhcp", "static"] = "dhcp"
     wan_address: IPv4Interface | None = None
     gateway: IPv4Address | None = None
-    lan_bridge: str = Field(default="bridge-lan", min_length=1, max_length=64)
-    lan_address: IPv4Interface
-    lan_ports: list[str] = Field(min_length=1)
+    configure_lan: bool = True
+    lan_bridge: str | None = Field(default="bridge-lan", min_length=1, max_length=64)
+    lan_address: IPv4Interface | None = None
+    lan_ports: list[str] = Field(default_factory=list)
     dns_servers: list[IPv4Address] = Field(min_length=1, max_length=3)
     enable_nat: bool = True
     enable_lan_dhcp: bool = True
@@ -92,13 +93,24 @@ class BasicNetworkConfiguration(BaseModel):
 
     @model_validator(mode="after")
     def validate_basic_network(self):
+        if not self.configure_lan:
+            if self.lan_bridge is not None or self.lan_address is not None or self.lan_ports:
+                raise ValueError("A configuração LAN deve ficar vazia quando estiver desativada.")
+            if self.enable_nat or self.enable_lan_dhcp:
+                raise ValueError("NAT e DHCP não podem ser ativados sem uma rede LAN.")
+            if self.dhcp_pool_start is not None or self.dhcp_pool_end is not None:
+                raise ValueError("O pool DHCP não pode ser informado sem uma rede LAN.")
+        else:
+            if self.lan_bridge is None or self.lan_address is None or not self.lan_ports:
+                raise ValueError("A rede LAN exige bridge, endereço e pelo menos uma porta.")
+
         if len(set(self.lan_ports)) != len(self.lan_ports):
             raise ValueError("As portas LAN não podem ser repetidas.")
         if self.wan_interface in self.lan_ports:
             raise ValueError("A interface WAN não pode também ser uma porta LAN.")
 
-        lan_network = self.lan_address.network
-        if self.lan_address.ip in {
+        lan_network = self.lan_address.network if self.lan_address else None
+        if self.lan_address and self.lan_address.ip in {
             lan_network.network_address,
             lan_network.broadcast_address,
         }:
@@ -110,11 +122,11 @@ class BasicNetworkConfiguration(BaseModel):
         if all(pool_addresses):
             if not self.enable_lan_dhcp:
                 raise ValueError("O pool DHCP exige o DHCP Server ativo na LAN.")
-            if self.dhcp_pool_start not in lan_network or self.dhcp_pool_end not in lan_network:
+            if lan_network is None or self.dhcp_pool_start not in lan_network or self.dhcp_pool_end not in lan_network:
                 raise ValueError("O pool DHCP deve pertencer à rede LAN.")
             if self.dhcp_pool_start in {lan_network.network_address, lan_network.broadcast_address} or self.dhcp_pool_end in {lan_network.network_address, lan_network.broadcast_address}:
                 raise ValueError("O pool DHCP não pode usar rede ou broadcast.")
-            if self.dhcp_pool_start <= self.lan_address.ip <= self.dhcp_pool_end:
+            if self.lan_address and self.dhcp_pool_start <= self.lan_address.ip <= self.dhcp_pool_end:
                 raise ValueError("O pool DHCP não pode incluir o IP do MikroTik.")
             if self.dhcp_pool_start > self.dhcp_pool_end:
                 raise ValueError("O início do pool DHCP deve ser menor que o fim.")
@@ -134,7 +146,7 @@ class BasicNetworkConfiguration(BaseModel):
             raise ValueError("O IP da WAN não pode ser rede ou broadcast.")
         if self.gateway not in wan_network:
             raise ValueError("O gateway deve pertencer à rede da WAN.")
-        if wan_network.overlaps(lan_network):
+        if lan_network and wan_network.overlaps(lan_network):
             raise ValueError("As redes WAN e LAN não podem se sobrepor.")
         return self
 
@@ -168,14 +180,13 @@ class BasicNetworkApplyResult(BaseModel):
 class LoraProtectionConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    wan_interface: str = Field(min_length=1, max_length=64)
     enable_lns_watchdog: bool = True
     enable_lora_guard: bool = True
-    enable_wan_watchdog: bool = True
+    enable_device_reboot: bool = True
     ping_target: IPv4Address = IPv4Address("1.1.1.1")
     failure_threshold: int = Field(default=3, ge=1, le=10)
     lora_interval: Literal["5m", "10m", "30m", "1h"] = "30m"
-    wan_interval: Literal["1m", "5m", "10m", "30m"] = "10m"
+    connectivity_interval: Literal["1m", "5m", "10m", "30m"] = "10m"
 
 
 class LoraProtectionPreviewRequest(BaseModel):

@@ -8,19 +8,20 @@ import LinkConfiguration from "./components/LinkConfiguration.jsx";
 import LoraProtection from "./components/LoraProtection.jsx";
 import PingTest from "./components/PingTest.jsx";
 import { discoverDevice } from "./services/api.js";
+import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
 
 const API_STATES = {
   checking: {
-    label: "Verificando backend",
+    label: "Iniciando ORION",
     className: "status status--checking",
   },
   online: {
-    label: "Backend disponível",
+    label: "Sistema pronto",
     className: "status status--online",
   },
   offline: {
-    label: "Backend indisponível",
+    label: "Serviço indisponível",
     className: "status status--offline",
   },
 };
@@ -29,9 +30,9 @@ const MONITOR_INTERVAL_MS = 15_000;
 const ALIGNMENT_INTERVAL_MS = 3_000;
 const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
-  { id: "configuration", label: "Configuração do rádio" },
   { id: "network", label: "Rede básica" },
-  { id: "lora", label: "LoRa" },
+  { id: "configuration", label: "Configuração do rádio", capability: "radio" },
+  { id: "lora", label: "LoRa", capability: "lora" },
   { id: "tests", label: "Testes" },
 ];
 
@@ -54,18 +55,33 @@ function App() {
     const controller = new AbortController();
 
     async function checkApi() {
-      try {
-        const response = await fetch("/api/health", {
-          signal: controller.signal,
-        });
-        const data = await response.json();
+      const attempts = isDesktopRuntime() ? 12 : 1;
 
-        setApiState(response.ok && data.status === "ok" ? "online" : "offline");
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          setApiState("offline");
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          const response = await fetch(apiUrl("/api/health"), {
+            signal: controller.signal,
+          });
+          const data = await response.json();
+
+          if (
+            response.ok &&
+            data.status === "ok" &&
+            data.service === "orion-field-api"
+          ) {
+            setApiState("online");
+            return;
+          }
+        } catch (error) {
+          if (error.name === "AbortError") return;
+        }
+
+        if (attempt < attempts) {
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
         }
       }
+
+      setApiState("offline");
     }
 
     checkApi();
@@ -133,6 +149,18 @@ function App() {
   const currentState = device?.demo_mode
     ? { label: "Demonstração local", className: "status status--demo" }
     : API_STATES[apiState];
+  const radioAvailable = Boolean(device?.wifi_interfaces?.length);
+  const loraAvailable = Boolean(device?.lora_available);
+
+  useEffect(() => {
+    const activeCapabilityUnavailable =
+      (activeTab === "configuration" && !radioAvailable) ||
+      (activeTab === "lora" && !loraAvailable);
+
+    if (device && activeCapabilityUnavailable) {
+      setActiveTab("routeros");
+    }
+  }, [activeTab, device, loraAvailable, radioAvailable]);
 
   async function handleConnect(connection) {
     setIsLoading(true);
@@ -204,6 +232,13 @@ function App() {
   }
 
   function handleTabChange(tabId) {
+    if (
+      (tabId === "configuration" && !radioAvailable) ||
+      (tabId === "lora" && !loraAvailable)
+    ) {
+      return;
+    }
+
     setActiveTab(tabId);
 
     if (tabId !== "routeros") {
@@ -294,20 +329,37 @@ function App() {
 
         {device && (
           <nav className="workspace-tabs" aria-label="Áreas do equipamento" role="tablist">
-            {WORKSPACE_TABS.map((tab) => (
-              <button
-                aria-controls={`panel-${tab.id}`}
-                aria-selected={activeTab === tab.id}
-                className={activeTab === tab.id ? "workspace-tab workspace-tab--active" : "workspace-tab"}
-                id={`tab-${tab.id}`}
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                role="tab"
-                type="button"
-              >
-                {tab.label}
-              </button>
-            ))}
+            {WORKSPACE_TABS.map((tab) => {
+              const unavailable =
+                (tab.capability === "radio" && !radioAvailable) ||
+                (tab.capability === "lora" && !loraAvailable);
+
+              return (
+                <button
+                  aria-controls={`panel-${tab.id}`}
+                  aria-selected={activeTab === tab.id}
+                  className={[
+                    "workspace-tab",
+                    activeTab === tab.id ? "workspace-tab--active" : "",
+                    unavailable ? "workspace-tab--unavailable" : "",
+                  ].filter(Boolean).join(" ")}
+                  disabled={unavailable}
+                  id={`tab-${tab.id}`}
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  role="tab"
+                  title={unavailable ? "Recurso não detectado neste equipamento" : undefined}
+                  type="button"
+                >
+                  <span>
+                    {tab.id === "configuration" && !radioAvailable
+                      ? "Configuração Wi-Fi"
+                      : tab.label}
+                  </span>
+                  {unavailable && <small>Indisponível</small>}
+                </button>
+              );
+            })}
           </nav>
         )}
 
@@ -369,6 +421,7 @@ function App() {
               lastUpdatedAt={lastUpdatedAt}
               onToggleAlignment={handleToggleAlignment}
               peers={device.wifi_peers}
+              radioAvailable={radioAvailable}
               registrationTableAvailable={device.registration_table_available}
             />
             <PingTest connection={activeConnection} />

@@ -3,7 +3,12 @@ from types import SimpleNamespace
 import pytest
 from routeros.errors import DeviceError
 
-from app.models.mikrotik import ConnectivityRequest, MikroTikConnection, PingRequest
+from app.models.mikrotik import (
+    ConnectivityRequest,
+    MikroTikConnection,
+    NetworkEngineMetrics,
+    PingRequest,
+)
 from app.services import routeros as service
 
 
@@ -61,6 +66,7 @@ class FakeClient:
                     "band": "5ghz-ax",
                 }
             ],
+            "/iot/lora/print": [],
             "/interface/ethernet/print": [
                 {
                     "name": "ether1",
@@ -143,6 +149,7 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
     assert result.wifi_stack == "wifi"
     assert result.wifi_interfaces[0].name == "wifi1"
     assert result.wifi_interfaces[0].running is True
+    assert result.lora_available is False
     assert result.wifi_interfaces[0].mode == "station"
     assert result.wifi_interfaces[0].ssid == "ORION-Link"
     assert result.wifi_interfaces[0].frequency == "5805"
@@ -173,6 +180,7 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
         "/system/resource/print",
         "/system/package/print",
         "/interface/wifi/print",
+        "/iot/lora/print",
         "/interface/wifi/registration-table/print",
         "/interface/ethernet/print",
         "/interface/bridge/print",
@@ -467,6 +475,8 @@ def test_ping_device_uses_routeros_summary(monkeypatch) -> None:
     assert result.maximum_latency_ms == 4
     assert result.samples_ms == [1.2, 4.0]
     assert result.measurement_source == "routeros_summary"
+    assert result.advanced_metrics is None
+    assert result.advanced_metrics_unavailable_reason is not None
 
 
 def test_ping_device_calculates_fallback_when_summary_is_missing(
@@ -503,6 +513,24 @@ def test_ping_device_calculates_fallback_when_summary_is_missing(
         "_read_registration_table",
         lambda _client, _stack: (False, []),
     )
+    monkeypatch.setattr(
+        service,
+        "analyze_network_samples",
+        lambda sent, samples: NetworkEngineMetrics(
+            sent_packets=sent,
+            received_packets=len(samples),
+            packet_loss_percent=33.333,
+            availability_percent=66.667,
+            minimum_latency_ms=2,
+            average_latency_ms=3,
+            maximum_latency_ms=4,
+            jitter_ms=2,
+            p95_latency_ms=3.9,
+            p99_latency_ms=3.98,
+            spike_count=0,
+            stability_score=73,
+        ),
+    )
     request = PingRequest(
         connection=MikroTikConnection(
             host="192.168.88.1",
@@ -520,6 +548,9 @@ def test_ping_device_calculates_fallback_when_summary_is_missing(
     assert result.packet_loss_percent == 33.33
     assert result.average_latency_ms == 3
     assert result.measurement_source == "orion_calculation"
+    assert result.advanced_metrics is not None
+    assert result.advanced_metrics.jitter_ms == 2
+    assert result.advanced_metrics.stability_score == 73
 
 
 def test_validate_connectivity_checks_gateway_arp_and_internet(monkeypatch) -> None:

@@ -102,7 +102,7 @@ function LinkConfiguration({ connection, device, onApplied, onApplyStart }) {
     <section className="configuration-card" aria-labelledby="configuration-title">
       <div className="section-heading">
         <div>
-          <p className="card-kicker">ORION Field V3</p>
+          <p className="card-kicker">Configuração assistida</p>
           <h2 id="configuration-title">Configurar enlace</h2>
         </div>
         <span className="write-badge">{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>

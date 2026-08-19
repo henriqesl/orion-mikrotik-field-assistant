@@ -23,8 +23,6 @@ from app.models.mikrotik import (
     PingResult,
 )
 from app.models.discovery import (
-    BootstrapRequest,
-    BootstrapResult,
     LanDiscoveryResult,
     WinBoxLaunchRequest,
     WinBoxLaunchResult,
@@ -47,8 +45,8 @@ from app.services.configuration import (
 from app.services.network_configuration import apply_basic_network, preview_basic_network
 from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
 from app.services.lan_discovery import (
+    InvalidWinBoxPathError,
     WinBoxNotFoundError,
-    build_bootstrap,
     mndp_collector,
     open_winbox,
 )
@@ -81,12 +79,6 @@ def apply_lora_configuration(
         raise _friendly_http_error(error) from error
 
 
-@router.post("/bootstrap", response_model=BootstrapResult)
-def generate_bootstrap(request: BootstrapRequest) -> BootstrapResult:
-    """Generate the minimal script needed to continue through the IP API."""
-    return build_bootstrap(request)
-
-
 @router.get("/lan-devices", response_model=LanDiscoveryResult)
 def discover_lan_devices() -> LanDiscoveryResult:
     """Return MikroTik devices announced through MNDP on the local network."""
@@ -95,9 +87,16 @@ def discover_lan_devices() -> LanDiscoveryResult:
 
 @router.post("/winbox/open", response_model=WinBoxLaunchResult)
 def launch_winbox(request: WinBoxLaunchRequest) -> WinBoxLaunchResult:
-    """Open the official WinBox client at a discovered MAC without a password."""
+    """Open the official WinBox client at a discovered MAC."""
     try:
-        open_winbox(request.mac_address, request.username)
+        open_winbox(
+            request.mac_address,
+            request.username,
+            executable_path=request.executable_path,
+            try_blank_password=request.try_blank_password,
+        )
+    except InvalidWinBoxPathError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     except WinBoxNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except OSError as error:
@@ -107,7 +106,9 @@ def launch_winbox(request: WinBoxLaunchRequest) -> WinBoxLaunchResult:
         ) from error
     return WinBoxLaunchResult(
         status="opened",
-        summary="WinBox aberto. Informe a senha diretamente na janela oficial.",
+        summary=(
+            "WinBox aberto no MAC. O ORION preencherá o novo IP assim que ele aparecer."
+        ),
     )
 
 

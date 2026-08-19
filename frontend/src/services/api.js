@@ -5,12 +5,13 @@ import {
   demoPing,
   isDemoConnection,
 } from "./demo.js";
+import { apiUrl, isDesktopRuntime } from "./runtime.js";
 
 async function postJson(path, body) {
   let response;
 
   try {
-    response = await fetch(path, {
+    response = await fetch(apiUrl(path), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -19,7 +20,9 @@ async function postJson(path, body) {
     });
   } catch {
     throw new Error(
-      "O backend do ORION não está disponível. Inicie o FastAPI e tente novamente.",
+      isDesktopRuntime()
+        ? "Os serviços do ORION não responderam. Feche o aplicativo, abra novamente e tente outra vez."
+        : "O backend do ORION não está disponível. Inicie o FastAPI e tente novamente.",
     );
   }
 
@@ -38,7 +41,7 @@ async function postJson(path, body) {
 async function getJson(path) {
   let response;
   try {
-    response = await fetch(path);
+    response = await fetch(apiUrl(path));
   } catch {
     throw new Error("A descoberta local ainda não está disponível.");
   }
@@ -53,17 +56,12 @@ export function discoverLanDevices() {
   return getJson("/api/mikrotik/lan-devices");
 }
 
-export function openWinBox(macAddress, username) {
+export function openWinBox(macAddress, username, options = {}) {
   return postJson("/api/mikrotik/winbox/open", {
     mac_address: macAddress,
     username,
-  });
-}
-
-export function generateBootstrap(interfaceName, address) {
-  return postJson("/api/mikrotik/bootstrap", {
-    interface_name: interfaceName,
-    address,
+    executable_path: options.executablePath || null,
+    try_blank_password: options.tryBlankPassword || false,
   });
 }
 
@@ -77,7 +75,7 @@ export function runPing(connection, target) {
   return postJson("/api/mikrotik/ping", {
     connection,
     target,
-    count: 5,
+    count: 10,
   });
 }
 
@@ -137,7 +135,7 @@ export function previewLoraProtection(connection, configuration) {
       lora_status: "connected",
       changes: [
         { area: "LoRa", field: "Proteção da interface", current_value: "Não configurado", new_value: loraEnabled ? "Ativo" : "Inativo" },
-        { area: "WAN", field: "Watchdog de conectividade", current_value: "Não configurado", new_value: configuration.enable_wan_watchdog ? "Ativo" : "Inativo" },
+        { area: "Dispositivo", field: "Reinício por falha de conectividade", current_value: "Não configurado", new_value: configuration.enable_device_reboot ? "Ativo" : "Inativo" },
       ],
       warnings: ["Demonstração: nenhuma alteração será aplicada."],
     });

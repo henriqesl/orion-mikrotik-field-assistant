@@ -9,7 +9,7 @@ import time
 from ipaddress import IPv4Address
 from pathlib import Path
 
-from app.models.discovery import BootstrapRequest, BootstrapResult, LanDevice, LanDiscoveryResult
+from app.models.discovery import LanDevice, LanDiscoveryResult
 
 
 MNDP_PORT = 5678
@@ -26,6 +26,38 @@ TLV_IPV4 = 16
 
 class WinBoxNotFoundError(RuntimeError):
     pass
+
+
+class InvalidWinBoxPathError(RuntimeError):
+    pass
+
+
+def _winbox_settings_file() -> Path:
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    base_directory = Path(local_app_data) if local_app_data else Path.home()
+    return base_directory / "ORION Field" / "winbox-path.txt"
+
+
+def _is_winbox_executable(path: Path) -> bool:
+    return (
+        path.is_file()
+        and path.suffix.lower() == ".exe"
+        and path.stem.lower() in {"winbox", "winbox64"}
+    )
+
+
+def _saved_winbox() -> Path | None:
+    try:
+        path = Path(_winbox_settings_file().read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    return path if _is_winbox_executable(path) else None
+
+
+def _save_winbox(path: Path) -> None:
+    settings_file = _winbox_settings_file()
+    settings_file.parent.mkdir(parents=True, exist_ok=True)
+    settings_file.write_text(str(path), encoding="utf-8")
 
 
 def _text(value: bytes) -> str | None:
@@ -189,48 +221,41 @@ def _winbox_candidates() -> list[Path]:
     return candidates
 
 
-def find_winbox() -> Path | None:
-    return next((path for path in _winbox_candidates() if path.is_file()), None)
+def find_winbox(configured_path: str | None = None) -> Path | None:
+    if configured_path:
+        selected = Path(configured_path).expanduser()
+        if not _is_winbox_executable(selected):
+            raise InvalidWinBoxPathError(
+                "Selecione o executável oficial winbox.exe ou winbox64.exe."
+            )
+        selected = selected.resolve()
+        _save_winbox(selected)
+        return selected
+
+    saved = _saved_winbox()
+    if saved:
+        return saved
+    return next((path for path in _winbox_candidates() if _is_winbox_executable(path)), None)
 
 
-def open_winbox(mac_address: str, username: str) -> None:
-    executable = find_winbox()
+def open_winbox(
+    mac_address: str,
+    username: str,
+    *,
+    executable_path: str | None = None,
+    try_blank_password: bool = False,
+) -> None:
+    executable = find_winbox(executable_path)
     if executable is None:
         raise WinBoxNotFoundError(
-            "WinBox não encontrado. Coloque winbox.exe na pasta principal do ORION."
+            "WinBox não encontrado. Selecione o executável oficial na própria tela."
         )
+    arguments = [str(executable), mac_address, username]
+    if try_blank_password:
+        arguments.append("")
     subprocess.Popen(
-        [str(executable), mac_address, username],
+        arguments,
         cwd=executable.parent,
-    )
-
-
-def build_bootstrap(request: BootstrapRequest) -> BootstrapResult:
-    network = request.address.network
-    computer_ip = next(
-        host for host in network.hosts() if host != request.address.ip
-    )
-    script = "\n".join(
-        [
-            "# ORION Field V5 - bootstrap de acesso",
-            f':local orionInterface "{request.interface_name}"',
-            f':local orionAddress "{request.address}"',
-            ':if ([:len [/interface find where name=$orionInterface]] = 0) do={ :error "Interface nao encontrada" }',
-            "/ip address",
-            ':local orionAddressId [find where comment="ORION Field - bootstrap"]',
-            ':if ([:len $orionAddressId] = 0) do={ add address=$orionAddress interface=$orionInterface comment="ORION Field - bootstrap" } else={ set $orionAddressId address=$orionAddress interface=$orionInterface disabled=no }',
-            "/ip service",
-            f'set [find where name="api"] disabled=no port=8728 address="{network}"',
-            ':put "ORION bootstrap concluido"',
-            "",
-        ]
-    )
-    return BootstrapResult(
-        filename="orion-bootstrap.rsc",
-        script=script,
-        reconnect_ip=request.address.ip,
-        computer_ip_suggestion=computer_ip,
-        prefix_length=network.prefixlen,
     )
 
 
