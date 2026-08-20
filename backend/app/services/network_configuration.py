@@ -9,6 +9,7 @@ from app.models.configuration import (
     BasicNetworkPreview,
     BasicNetworkPreviewRequest,
     ConfigurationChange,
+    ExistingConfiguration,
 )
 from app.services.configuration import (
     ConfigurationConflictError,
@@ -252,8 +253,70 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         warnings.append(
             "O DHCP Client preexistente na WAN será preservado junto com o IP fixo."
         )
+    existing = [
+        ExistingConfiguration(area="Equipamento", field="Identidade", value=identity.get("name") or "MikroTik"),
+        ExistingConfiguration(area="DNS", field="Servidores", value=dns.get("servers") or "Não configurado"),
+    ]
+    existing.extend(
+        ExistingConfiguration(
+            area="Endereços IP",
+            field=str(row.get("interface") or "Interface"),
+            value=str(row.get("address") or "Sem endereço"),
+        )
+        for row in ip_rows
+        if not _optional_bool(row.get("disabled"))
+    )
+    for item in bridge_rows:
+        name = item.get("name")
+        if not name:
+            continue
+        ports = sorted(
+            str(row.get("interface"))
+            for row in bridge_ports
+            if row.get("bridge") == name and row.get("interface") and not _optional_bool(row.get("disabled"))
+        )
+        existing.append(ExistingConfiguration(
+            area="Bridges",
+            field=str(name),
+            value=", ".join(ports) if ports else "Sem portas ativas",
+        ))
+    existing.extend(
+        ExistingConfiguration(
+            area="DHCP Client",
+            field=str(row.get("interface") or "Interface"),
+            value="Inativo" if _optional_bool(row.get("disabled")) else "Ativo",
+        )
+        for row in dhcp_rows
+    )
+    existing.extend(
+        ExistingConfiguration(
+            area="DHCP Server",
+            field=str(row.get("name") or row.get("interface") or "Servidor"),
+            value=("Inativo" if _optional_bool(row.get("disabled")) else "Ativo")
+            + (f" · pool {row.get('address-pool')}" if row.get("address-pool") else ""),
+        )
+        for row in dhcp_server_rows
+    )
+    existing.extend(
+        ExistingConfiguration(
+            area="Pools IP",
+            field=str(row.get("name") or "Pool"),
+            value=str(row.get("ranges") or "Sem faixa"),
+        )
+        for row in pool_rows
+    )
+    existing.extend(
+        ExistingConfiguration(
+            area="Serviços",
+            field=str(row.get("name") or "Serviço"),
+            value=("Inativo" if _optional_bool(row.get("disabled")) else "Ativo")
+            + (f" · porta {row.get('port')}" if row.get("port") else ""),
+        )
+        for row in service_rows
+    )
     return BasicNetworkPreview(
         device_identity=identity.get("name") or "MikroTik",
+        existing=existing,
         changes=changes,
         warnings=warnings,
         reconnect_ip=(

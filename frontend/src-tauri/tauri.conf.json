@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ORION Field",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "identifier": "br.com.bionic.orion-field",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -32,10 +32,18 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "publisher": "BIONIC",
+    "homepage": "https://github.com/henriqesl/orion-mikrotik-field-assistant",
+    "copyright": "Copyright © 2026 BIONIC. Todos os direitos reservados.",
+    "category": "Utility",
+    "shortDescription": "Assistente de campo para equipamentos MikroTik.",
+    "longDescription": "Aplicativo profissional para configuração, monitoramento e diagnóstico de equipamentos MikroTik em campo.",
     "targets": ["nsis"],
     "externalBin": ["binaries/orion-backend", "binaries/orion-network-engine"],
     "resources": {
-      "binaries/orion-backend-runtime": "orion-backend-runtime"
+      "binaries/orion-backend-runtime": "orion-backend-runtime",
+      "../../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../../LICENSES": "LICENSES"
     },
     "icon": ["icons/icon.ico"],
     "windows": {
@@ -43,7 +51,13 @@
         "type": "offlineInstaller"
       },
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "languages": ["PortugueseBR"],
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "startMenuFolder": "BIONIC"
       }
     }
   },

@@ -51,9 +51,16 @@ class ConfigurationChange(BaseModel):
     sensitive: bool = False
 
 
+class ExistingConfiguration(BaseModel):
+    area: str
+    field: str
+    value: str
+
+
 class ConfigurationPreview(BaseModel):
     device_identity: str
     wifi_stack: Literal["wifi", "wifiwave2", "wireless"]
+    existing: list[ExistingConfiguration] = Field(default_factory=list)
     changes: list[ConfigurationChange]
     warnings: list[str]
     reconnect_ip: IPv4Address
@@ -164,6 +171,7 @@ class BasicNetworkApplyRequest(BasicNetworkPreviewRequest):
 
 class BasicNetworkPreview(BaseModel):
     device_identity: str
+    existing: list[ExistingConfiguration] = Field(default_factory=list)
     changes: list[ConfigurationChange]
     warnings: list[str]
     reconnect_ip: IPv4Address
@@ -203,6 +211,7 @@ class LoraProtectionPreview(BaseModel):
     device_identity: str
     lora_interface: str
     lora_status: str
+    existing: list[ExistingConfiguration] = Field(default_factory=list)
     changes: list[ConfigurationChange]
     warnings: list[str]
 

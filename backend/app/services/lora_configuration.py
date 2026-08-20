@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
+import re
 from typing import Any
 
 from routeros.errors import DeviceError
 
 from app.models.configuration import (
     ConfigurationChange,
+    ExistingConfiguration,
     LoraProtectionApplyRequest,
     LoraProtectionApplyResult,
     LoraProtectionConfiguration,
@@ -143,6 +145,53 @@ def _build_preview(
         )
 
     lora = context["lora"]
+    existing = [
+        ExistingConfiguration(
+            area="LoRa",
+            field="Interface",
+            value=lora.get("name") or lora.get("default-name") or "LoRa",
+        ),
+        ExistingConfiguration(
+            area="LoRa",
+            field="Estado",
+            value=lora.get("status")
+            or ("Desativada" if _optional_bool(lora.get("disabled")) else "Ativa"),
+        ),
+    ]
+    for key, label in (("servers", "Servidores"), ("network", "Rede"), ("antenna-gain", "Ganho da antena")):
+        if lora.get(key):
+            existing.append(ExistingConfiguration(area="LoRa", field=label, value=str(lora[key])))
+    for script in context["scripts"]:
+        name = script.get("name") or "Script sem nome"
+        state = "Inativo" if _optional_bool(script.get("disabled")) else "Ativo"
+        policy = script.get("policy")
+        existing.append(ExistingConfiguration(
+            area="Scripts",
+            field=name,
+            value=f"{state}{f' · política {policy}' if policy else ''}",
+        ))
+        source = str(script.get("source") or "")
+        if name == WAN_SCRIPT:
+            ping_match = re.search(r"/ping\s+([^\s\]]+)", source)
+            failures_match = re.search(r"orionWanFailures\s*>=\s*(\d+)", source)
+            if ping_match:
+                existing.append(ExistingConfiguration(
+                    area="Script de conectividade", field="Destino de teste", value=ping_match.group(1)
+                ))
+            if failures_match:
+                existing.append(ExistingConfiguration(
+                    area="Script de conectividade", field="Falhas antes do reinício", value=failures_match.group(1)
+                ))
+    for scheduler in context["schedulers"]:
+        name = scheduler.get("name") or "Agendamento sem nome"
+        state = "Inativo" if _optional_bool(scheduler.get("disabled")) else "Ativo"
+        interval = scheduler.get("interval") or "sem intervalo"
+        event = scheduler.get("on-event")
+        existing.append(ExistingConfiguration(
+            area="Agendamentos",
+            field=name,
+            value=f"{state} · {interval}{f' · executa {event}' if event else ''}",
+        ))
     warnings = [
         "Um backup será criado antes da primeira alteração.",
         "Somente scripts e agendamentos identificados como ORION serão alterados.",
@@ -159,6 +208,7 @@ def _build_preview(
         lora_interface=lora.get("name") or lora.get("default-name") or "LoRa",
         lora_status=lora.get("status")
         or ("Desativada" if _optional_bool(lora.get("disabled")) else "Ativa"),
+        existing=existing,
         changes=[change for change in candidates if change is not None],
         warnings=warnings,
     )

@@ -1,8 +1,11 @@
 [package]
 name = "orion-field"
-version = "0.7.0"
+version = "0.7.2"
 description = "ORION MikroTik Field Assistant"
 authors = ["BIONIC"]
+license = "MIT"
+homepage = "https://github.com/henriqesl/orion-mikrotik-field-assistant"
+repository = "https://github.com/henriqesl/orion-mikrotik-field-assistant"
 edition = "2021"
 
 [lib]

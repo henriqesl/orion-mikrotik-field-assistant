@@ -4,6 +4,7 @@ import {
   applyLinkConfiguration,
   previewLinkConfiguration,
 } from "../services/api.js";
+import CurrentConfiguration from "./CurrentConfiguration.jsx";
 import fieldProfiles from "../data/field-profiles.json";
 
 function nextManagementAddress(value) {
@@ -379,6 +380,7 @@ function LinkConfiguration({
             <p className="card-kicker">Nenhuma alteração aplicada ainda</p>
             <h3 id="preview-title">Revise antes de confirmar</h3>
           </div>
+          <CurrentConfiguration items={preview.existing} />
           <div className="change-list">
             {preview.changes.map((change, index) => (
               <article key={`${change.area}-${change.field}-${index}`}>

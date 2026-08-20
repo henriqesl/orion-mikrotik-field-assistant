@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
-import { discoverLanDevices, openWinBox } from "../services/api.js";
+import {
+  applyMacBootstrap,
+  discoverLanDevices,
+  getMacBootstrapAdapters,
+  openWinBox,
+  previewMacBootstrap,
+} from "../services/api.js";
 import { isDesktopRuntime } from "../services/runtime.js";
 
 const INITIAL_FORM = {
@@ -33,36 +39,6 @@ function isValidInterfaceName(value) {
   return value.trim().length > 0 && !/["\\;\r\n]/.test(value);
 }
 
-function networkCidr(value) {
-  const [ipAddress, prefixText] = value.trim().split("/");
-  const prefix = Number(prefixText);
-  const address = ipAddress
-    .split(".")
-    .map(Number)
-    .reduce((result, octet) => ((result << 8) | octet) >>> 0, 0);
-  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
-  const network = (address & mask) >>> 0;
-  const octets = [24, 16, 8, 0].map((shift) => (network >>> shift) & 255);
-  return `${octets.join(".")}/${prefix}`;
-}
-
-async function copyText(value) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  const copied = document.execCommand("copy");
-  textarea.remove();
-  if (!copied) throw new Error("A cópia automática não está disponível.");
-}
-
 function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
@@ -74,7 +50,11 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   const [needsWinboxPath, setNeedsWinboxPath] = useState(false);
   const [bootstrapAddress, setBootstrapAddress] = useState("");
   const [bootstrapInterface, setBootstrapInterface] = useState("ether1");
-  const [commandCopyStatus, setCommandCopyStatus] = useState("");
+  const [networkAdapters, setNetworkAdapters] = useState([]);
+  const [adapterIndex, setAdapterIndex] = useState("");
+  const [bootstrapPreview, setBootstrapPreview] = useState(null);
+  const [bootstrapStatus, setBootstrapStatus] = useState("");
+  const [bootstrapBusy, setBootstrapBusy] = useState(false);
 
   const refreshLanDevices = useCallback(async () => {
     try {
@@ -142,12 +122,25 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     setWinboxMessage("");
   }
 
-  async function handleOpenWinBox(device, executablePath = null) {
+  async function selectMacDevice(device) {
     if (!device.ip_address || device.ip_address === "0.0.0.0") {
       setMacPreparation(device.mac_address);
       setBootstrapInterface(device.interface || "ether1");
-      setCommandCopyStatus("");
+      setBootstrapPreview(null);
+      setBootstrapStatus("");
+      try {
+        const adapters = await getMacBootstrapAdapters();
+        setNetworkAdapters(adapters);
+        setAdapterIndex((current) => current || String(adapters[0]?.interface_index || ""));
+      } catch (error) {
+        setBootstrapStatus(error.message);
+      }
+      return;
     }
+    await handleOpenWinBox(device);
+  }
+
+  async function handleOpenWinBox(device, executablePath = null) {
     setOpeningMac(device.mac_address);
     setWinboxMessage("");
     try {
@@ -189,26 +182,61 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     }
   }
 
-  async function copyBootstrapCommands() {
+  function bootstrapPayload(device) {
+    return {
+      mac_address: device.mac_address,
+      username: form.username,
+      password: form.password,
+      adapter_index: Number(adapterIndex),
+      router_interface: bootstrapInterface.trim(),
+      management_address: bootstrapAddress.trim(),
+    };
+  }
+
+  async function inspectMacBootstrap(device) {
     const address = bootstrapAddress.trim();
     const interfaceName = bootstrapInterface.trim();
-
-    if (!isValidIpv4Cidr(address) || !isValidInterfaceName(interfaceName)) {
-      setCommandCopyStatus("Informe um IP com prefixo e uma interface válida.");
+    if (!isValidIpv4Cidr(address) || !isValidInterfaceName(interfaceName) || !adapterIndex) {
+      setBootstrapStatus("Informe o IP, a interface do MikroTik e a placa de rede conectada.");
       return;
     }
-
-    const commands = [
-      `/ip address add address=${address} interface="${interfaceName}" comment="ORION Field - acesso inicial"`,
-      `/ip service set api disabled=no port=8728 address=${networkCidr(address)}`,
-    ].join("\n");
-
+    setBootstrapBusy(true);
+    setBootstrapStatus("");
+    setBootstrapPreview(null);
     try {
-      await copyText(commands);
-      setForm((current) => ({ ...current, host: address.split("/")[0] }));
-      setCommandCopyStatus("Comandos copiados. Cole no terminal do WinBox e pressione Enter.");
+      setBootstrapPreview(await previewMacBootstrap(bootstrapPayload(device)));
     } catch (error) {
-      setCommandCopyStatus(error.message);
+      setBootstrapStatus(error.message);
+    } finally {
+      setBootstrapBusy(false);
+    }
+  }
+
+  async function confirmMacBootstrap(device) {
+    setBootstrapBusy(true);
+    setBootstrapStatus("");
+    try {
+      const result = await applyMacBootstrap(bootstrapPayload(device));
+      const connection = {
+        ...form,
+        host: result.host,
+        port: result.api_port,
+        use_tls: false,
+        verify_tls: true,
+      };
+      setForm(connection);
+      setBootstrapStatus("IP aplicado. Conectando pela API do RouterOS…");
+      const connected = await onConnect(connection);
+      if (connected) {
+        setMacPreparation("");
+        setForm((current) => ({ ...current, password: "" }));
+      } else {
+        setBootstrapStatus("O IP foi aplicado. Use Conectar e identificar para tentar novamente.");
+      }
+    } catch (error) {
+      setBootstrapStatus(error.message);
+    } finally {
+      setBootstrapBusy(false);
     }
   }
 
@@ -217,14 +245,9 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       (device) => device.mac_address === macPreparation,
     ) || { mac_address: macPreparation }
     : null;
-  const bootstrapCommandsReady =
-    isValidIpv4Cidr(bootstrapAddress) && isValidInterfaceName(bootstrapInterface);
-  const bootstrapCommands = bootstrapCommandsReady
-    ? [
-        `/ip address add address=${bootstrapAddress.trim()} interface="${bootstrapInterface.trim()}" comment="ORION Field - acesso inicial"`,
-        `/ip service set api disabled=no port=8728 address=${networkCidr(bootstrapAddress)}`,
-      ].join("\n")
-    : "Preencha o IP com prefixo e confirme a interface para gerar os comandos.";
+  const bootstrapReady = isValidIpv4Cidr(bootstrapAddress)
+    && isValidInterfaceName(bootstrapInterface)
+    && Boolean(adapterIndex);
 
   return (
     <form className="connection-form" onSubmit={handleSubmit}>
@@ -282,12 +305,12 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                     <button
                       className={!hasUsableIp ? "lan-device__primary-action" : ""}
                       disabled={openingMac === device.mac_address}
-                      onClick={() => handleOpenWinBox(device)}
+                      onClick={() => selectMacDevice(device)}
                       type="button"
                     >
                       {openingMac === device.mac_address
                         ? "Abrindo…"
-                        : hasUsableIp ? "Abrir no WinBox" : "Abrir via MAC"}
+                        : hasUsableIp ? "Abrir no WinBox" : "Preparar por MAC"}
                     </button>
                   </div>
                 </article>
@@ -310,21 +333,10 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                 <button onClick={() => setMacPreparation("")} type="button">Fechar</button>
               </header>
 
-              {needsWinboxPath ? (
-                <div className="mac-access-panel__locator">
+              <div className="mac-access-panel__terminal">
                   <div>
-                    <strong>Localize o WinBox uma única vez</strong>
-                    <span>Selecione o executável oficial. O ORION memorizará esse caminho.</span>
-                  </div>
-                  <button onClick={() => chooseWinBox(preparedDevice)} type="button">
-                    Selecionar winbox.exe
-                  </button>
-                </div>
-              ) : (
-                <div className="mac-access-panel__terminal">
-                  <div>
-                    <strong>Preparar pelo terminal</strong>
-                    <span>Escolha o endereço deste equipamento e confirme a porta conectada.</span>
+                    <strong>Preparar acesso temporário</strong>
+                    <span>O ORION usará o MAC apenas para atribuir o IP e habilitar a API.</span>
                   </div>
                   <div className="mac-access-panel__network-fields">
                     <label className="field">
@@ -333,7 +345,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                         inputMode="decimal"
                         onChange={(event) => {
                           setBootstrapAddress(event.target.value);
-                          setCommandCopyStatus("");
+                          setBootstrapPreview(null);
+                          setBootstrapStatus("");
                         }}
                         placeholder="Ex.: 192.168.10.1/24"
                         value={bootstrapAddress}
@@ -344,40 +357,83 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                       <input
                         onChange={(event) => {
                           setBootstrapInterface(event.target.value);
-                          setCommandCopyStatus("");
+                          setBootstrapPreview(null);
+                          setBootstrapStatus("");
                         }}
                         placeholder="Ex.: ether1"
                         value={bootstrapInterface}
                       />
                     </label>
+                    <label className="field field--wide">
+                      <span>Placa de rede deste computador</span>
+                      <select
+                        onChange={(event) => {
+                          setAdapterIndex(event.target.value);
+                          setBootstrapPreview(null);
+                        }}
+                        value={adapterIndex}
+                      >
+                        <option value="">Selecione a conexão por cabo</option>
+                        {networkAdapters.map((adapter) => (
+                          <option key={`${adapter.interface_index}-${adapter.ipv4_address}`} value={adapter.interface_index}>
+                            {adapter.name} · {adapter.ipv4_address}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
-                  <pre className={bootstrapCommandsReady ? "routeros-command" : "routeros-command routeros-command--pending"}>
-                    <code>{bootstrapCommands}</code>
-                  </pre>
+                  {bootstrapPreview && (
+                    <div className="mac-bootstrap-preview">
+                      <div>
+                        <span>Configuração encontrada</span>
+                        <strong>{bootstrapPreview.current.identity || "Sem identidade"}</strong>
+                        <small>{bootstrapPreview.current.addresses.length
+                          ? bootstrapPreview.current.addresses.join(" · ")
+                          : "Nenhum IP configurado"}</small>
+                        <small>API {bootstrapPreview.current.api_enabled ? "ativa" : "inativa"}
+                          {bootstrapPreview.current.api_port ? ` · porta ${bootstrapPreview.current.api_port}` : ""}</small>
+                      </div>
+                      <ul>{bootstrapPreview.commands.map((command) => <li key={command}>{command}</li>)}</ul>
+                    </div>
+                  )}
+                  {bootstrapPreview?.warnings?.length > 0 && (
+                    <ul className="configuration-warnings">
+                      {bootstrapPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                    </ul>
+                  )}
                   <div className="mac-access-panel__command-actions">
-                    <button disabled={!bootstrapCommandsReady} onClick={copyBootstrapCommands} type="button">
-                      Copiar comandos
-                    </button>
-                    <span>A API será liberada somente para a rede informada. Cole uma vez no <strong>New Terminal</strong>.</span>
+                    {!bootstrapPreview ? (
+                      <button disabled={!bootstrapReady || bootstrapBusy} onClick={() => inspectMacBootstrap(preparedDevice)} type="button">
+                        {bootstrapBusy ? "Verificando…" : "Verificar configuração atual"}
+                      </button>
+                    ) : (
+                      <button disabled={bootstrapBusy} onClick={() => confirmMacBootstrap(preparedDevice)} type="button">
+                        {bootstrapBusy ? "Preparando…" : "Aplicar IP e conectar"}
+                      </button>
+                    )}
+                    <span>Depois disso, todo o gerenciamento continua pela API normal do RouterOS.</span>
                   </div>
-                  {commandCopyStatus && <small>{commandCopyStatus}</small>}
+                  {bootstrapStatus && <small>{bootstrapStatus}</small>}
                 </div>
-              )}
 
-              <div className="mac-access-panel__actions">
-                <button
-                  disabled={openingMac === preparedDevice.mac_address}
-                  onClick={() => handleOpenWinBox(preparedDevice)}
-                  type="button"
-                >
-                  {openingMac === preparedDevice.mac_address ? "Abrindo…" : "Abrir WinBox novamente"}
-                </button>
-                {!needsWinboxPath && (
-                  <button onClick={() => chooseWinBox(preparedDevice)} type="button">
-                    Trocar executável
+              <details className="mac-access-panel__fallback">
+                <summary>Plano B: abrir o WinBox</summary>
+                {needsWinboxPath ? (
+                  <div className="mac-access-panel__locator">
+                    <div>
+                      <strong>Localize o WinBox uma única vez</strong>
+                      <span>Use este caminho se o MAC Server do RouterOS estiver desativado.</span>
+                    </div>
+                    <button onClick={() => chooseWinBox(preparedDevice)} type="button">
+                      Selecionar winbox.exe
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => handleOpenWinBox(preparedDevice)} type="button">
+                    Abrir WinBox
                   </button>
                 )}
-              </div>
+              </details>
             </section>
         )}
 

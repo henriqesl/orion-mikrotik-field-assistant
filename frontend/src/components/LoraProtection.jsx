@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { applyLoraProtection, previewLoraProtection } from "../services/api.js";
+import CurrentConfiguration from "./CurrentConfiguration.jsx";
 
 function initialForm(device) {
   return {
@@ -113,6 +114,7 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
       {preview && <section className="configuration-preview">
         <div className="lora-detected"><span>Interface detectada</span><strong>{preview.lora_interface}</strong><b>{preview.lora_status}</b></div>
         <p className="card-kicker">Nenhuma alteração aplicada</p><h3>Prévia das proteções</h3>
+        <CurrentConfiguration items={preview.existing} />
         <div className="change-list">{preview.changes.map((change, index) => <article key={`${change.field}-${index}`}><span>{change.area}</span><strong>{change.field}</strong><div><small>{change.current_value || "Não configurado"}</small><b>→</b><small>{change.new_value}</small></div></article>)}</div>
         <ul className="configuration-warnings">{preview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
         {!device.demo_mode && <><label className="confirmation-field"><span>Digite <strong>APLICAR</strong> para confirmar</span><input onChange={(event) => setConfirmation(event.target.value)} value={confirmation} /></label><button className="danger-button" disabled={confirmation !== "APLICAR" || busy} onClick={apply} type="button">Criar backup e aplicar</button></>}
