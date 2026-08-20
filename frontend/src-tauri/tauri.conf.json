@@ -32,6 +32,12 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "publisher": "BIONIC",
+    "homepage": "https://github.com/henriqesl/orion-mikrotik-field-assistant",
+    "copyright": "Copyright © 2026 BIONIC. Todos os direitos reservados.",
+    "category": "Utility",
+    "shortDescription": "Assistente de campo para equipamentos MikroTik.",
+    "longDescription": "Aplicativo profissional para configuração, monitoramento e diagnóstico de equipamentos MikroTik em campo.",
     "targets": ["nsis"],
     "externalBin": ["binaries/orion-backend", "binaries/orion-network-engine"],
     "resources": {
@@ -45,7 +51,13 @@
         "type": "offlineInstaller"
       },
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "languages": ["PortugueseBR"],
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "startMenuFolder": "BIONIC"
       }
     }
   },
