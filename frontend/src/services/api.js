@@ -1,5 +1,6 @@
 import {
   demoBasicNetworkPreview,
+  demoBasicNetworkCurrent,
   demoConfigurationPreview,
   demoDevice,
   demoPing,
@@ -29,8 +30,11 @@ async function postJson(path, body) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    const message = typeof data?.detail === "string"
+      ? data.detail.replace(/&#x20;|&nbsp;/gi, " ").trim()
+      : data?.detail;
     throw new Error(
-      data?.detail ||
+      message ||
         "Não foi possível concluir a comunicação com o backend do ORION.",
     );
   }
@@ -66,7 +70,7 @@ export function openWinBox(macAddress, username, options = {}) {
 }
 
 export function discoverDevice(connection) {
-  if (isDemoConnection(connection)) return Promise.resolve(demoDevice());
+  if (isDemoConnection(connection)) return Promise.resolve(demoDevice(connection));
   return postJson("/api/mikrotik/discover", connection);
 }
 
@@ -80,7 +84,7 @@ export function runPing(connection, target, count = 10) {
 }
 
 export function previewLinkConfiguration(connection, configuration) {
-  if (isDemoConnection(connection)) return Promise.resolve(demoConfigurationPreview(configuration));
+  if (isDemoConnection(connection)) return Promise.resolve(demoConfigurationPreview(configuration, connection));
   return postJson("/api/mikrotik/configuration/preview", {
     connection,
     configuration,
@@ -107,7 +111,7 @@ export function validateConnectivity(connection) {
 
 export function previewBasicNetwork(connection, configuration) {
   if (isDemoConnection(connection)) {
-    return Promise.resolve(demoBasicNetworkPreview(configuration));
+    return Promise.resolve(demoBasicNetworkPreview(configuration, connection));
   }
   return postJson("/api/mikrotik/network/preview", {
     connection,
@@ -148,6 +152,30 @@ export function applyLoraProtection(connection, configuration) {
   return postJson("/api/mikrotik/lora/apply", { connection, configuration, confirmation: "APLICAR" });
 }
 
+export function getBasicNetworkCurrent(connection) {
+  if (isDemoConnection(connection)) {
+    return Promise.resolve(demoBasicNetworkCurrent(connection));
+  }
+  return postJson("/api/mikrotik/network/current", connection);
+}
+
+export function getInterfaceTraffic(connection, interfaceName) {
+  if (isDemoConnection(connection)) {
+    return Promise.resolve({
+      interface: interfaceName,
+      rx_bits_per_second: 18_400_000,
+      tx_bits_per_second: 7_200_000,
+      rx_packets_per_second: 2_140,
+      tx_packets_per_second: 1_080,
+      tx_queue_drops_per_second: 0,
+    });
+  }
+  return postJson("/api/mikrotik/traffic", {
+    connection,
+    interface: interfaceName,
+  });
+}
+
 export function getMacBootstrapAdapters() {
   return getJson("/api/mikrotik/mac-bootstrap/adapters");
 }
@@ -163,7 +191,7 @@ export function applyMacBootstrap(payload) {
   });
 }
 
-export async function downloadSupportBundle(device, recentError) {
+export async function createSupportBundle(device, recentError) {
   const response = await fetch(apiUrl("/api/support/bundle"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -193,7 +221,12 @@ export async function downloadSupportBundle(device, recentError) {
   const filename = decodeURIComponent(
     disposition.match(/filename\*=UTF-8''([^;]+)/)?.[1] || "orion-support.zip",
   );
-  const url = URL.createObjectURL(await response.blob());
+  const blob = await response.blob();
+  return { blob, filename };
+}
+
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
@@ -201,5 +234,4 @@ export async function downloadSupportBundle(device, recentError) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-  return filename;
 }

@@ -14,13 +14,5 @@
     "ap_ssid": "ORION-Link",
     "bridge_name": "bridge-field",
     "channel_width": "20/40mhz"
-  },
-  {
-    "id": "local-wifi",
-    "name": "Wi-Fi local",
-    "description": "Configuração AP simples para um roteador com Wi-Fi integrado.",
-    "ap_ssid": "ORION-WiFi",
-    "bridge_name": "bridge-lan",
-    "channel_width": "20mhz"
   }
 ]

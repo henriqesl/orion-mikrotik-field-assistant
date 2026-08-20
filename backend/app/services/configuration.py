@@ -61,19 +61,21 @@ def _context(client: Any, configuration: LinkConfiguration) -> dict[str, Any]:
             "O RouterOS não retornou a interface Wi-Fi selecionada."
         )
 
-    ethernet_rows = _rows(client.run("/interface/ethernet/print"))
-    ethernet_row = next(
-        (
-            row
-            for row in ethernet_rows
-            if (row.get("name") or row.get("default-name"))
-            == configuration.ethernet_interface
-        ),
-        None,
+    interface_rows = _rows(client.run("/interface/print"))
+    available_interfaces = {
+        row.get("name") or row.get("default-name"): row
+        for row in interface_rows
+        if row.get("name") or row.get("default-name")
+    }
+    missing_interfaces = sorted(
+        name
+        for name in configuration.bridge_interfaces
+        if name not in available_interfaces
     )
-    if ethernet_row is None:
+    if configuration.manage_topology and missing_interfaces:
         raise ConfigurationConflictError(
-            "A interface Ethernet selecionada não existe mais no equipamento."
+            "As interfaces selecionadas não existem mais: "
+            f"{', '.join(missing_interfaces)}."
         )
 
     return {
@@ -81,7 +83,7 @@ def _context(client: Any, configuration: LinkConfiguration) -> dict[str, Any]:
         "stack": stack,
         "wifi": wifi,
         "wifi_row": wifi_row,
-        "ethernet_row": ethernet_row,
+        "interfaces": interface_rows,
         "bridges": _rows(client.run("/interface/bridge/print")),
         "bridge_ports": _rows(client.run("/interface/bridge/port/print")),
         "ip_addresses": _rows(client.run("/ip/address/print")),
@@ -146,7 +148,7 @@ def _build_preview(
     configuration = request.configuration
     context = _context(client, configuration)
     wifi = context["wifi"]
-    desired_mode = "ap" if configuration.role == "ap" else "station-bridge"
+    desired_mode = _desired_wifi_mode(configuration, modern=True)
     changes: list[ConfigurationChange] = []
 
     comparisons = [
@@ -155,31 +157,37 @@ def _build_preview(
         ("Rádio", "SSID", wifi.ssid, configuration.ssid),
         ("Rádio", "Frequência", wifi.frequency, str(configuration.frequency_mhz)),
         ("Rádio", "Largura", wifi.channel_width, configuration.channel_width),
-        (
-            "Bridge",
-            f"Porta {configuration.wifi_interface}",
-            _current_bridge(context, configuration.wifi_interface),
-            configuration.bridge_name,
-        ),
-        (
-            "Bridge",
-            f"Porta {configuration.ethernet_interface}",
-            _current_bridge(context, configuration.ethernet_interface),
-            configuration.bridge_name,
-        ),
-        (
-            "Rede",
-            "IP de gerenciamento",
-            _current_management_ip(context, configuration.bridge_name),
-            str(configuration.management_ip),
-        ),
-        (
-            "Rede",
-            "Gateway",
-            _current_gateway(context),
-            str(configuration.gateway) if configuration.gateway else "Não configurar",
-        ),
     ]
+    if configuration.manage_topology:
+        comparisons.extend([
+            (
+                "Bridge",
+                f"Porta {configuration.wifi_interface}",
+                _current_bridge(context, configuration.wifi_interface),
+                configuration.bridge_name,
+            ),
+            *(
+                (
+                    "Bridge",
+                    f"Porta {interface}",
+                    _current_bridge(context, interface),
+                    configuration.bridge_name,
+                )
+                for interface in configuration.bridge_interfaces
+            ),
+            (
+                "Rede",
+                "IP de gerenciamento",
+                _current_management_ip(context, configuration.bridge_name),
+                str(configuration.management_ip),
+            ),
+            (
+                "Rede",
+                "Gateway",
+                _current_gateway(context),
+                str(configuration.gateway) if configuration.gateway else "Não configurar",
+            ),
+        ])
     changes.extend(
         _change(area, field, current, new)
         for area, field, current, new in comparisons
@@ -198,14 +206,23 @@ def _build_preview(
     warnings = [
         "A interface Wi-Fi será reiniciada e o enlace poderá cair temporariamente.",
         "Um backup binário será criado no MikroTik antes da primeira alteração.",
-        "Endereços IP existentes não serão removidos; o novo IP será adicionado com comentário do ORION.",
         "Servidores DHCP, clientes DHCP, regras de NAT e firewall existentes não serão removidos. Em rádios novos, use a preparação limpa do manual de campo.",
     ]
+    if configuration.manage_topology:
+        warnings.insert(
+            2,
+            "Endereços IP existentes não serão removidos nem movidos; um IP novo será adicionado somente se necessário.",
+        )
+    else:
+        warnings.insert(
+            2,
+            "Bridge, portas, IPs, gateway, DHCP, NAT e firewall serão preservados.",
+        )
     if context["stack"] == "wireless":
         warnings.append(
             "O equipamento usa Wireless legado; o ORION aplicará o perfil WPA2 compatível."
         )
-    if configuration.role == "station":
+    if configuration.role == "station" and configuration.device_kind == "radio":
         warnings.append(
             "Station-bridge exige um AP MikroTik com a mesma família de driver Wi-Fi."
         )
@@ -231,7 +248,11 @@ def _build_preview(
         ],
         changes=changes,
         warnings=warnings,
-        reconnect_ip=configuration.management_ip.ip,
+        reconnect_ip=(
+            configuration.management_ip.ip
+            if configuration.manage_topology
+            else request.connection.host
+        ),
     )
     return preview, context
 
@@ -302,7 +323,7 @@ def _configure_modern_wifi(
     context: dict[str, Any],
     configuration: LinkConfiguration,
 ) -> None:
-    mode = "ap" if configuration.role == "ap" else "station-bridge"
+    mode = _desired_wifi_mode(configuration, modern=True)
     client.run(
         f"/interface/{context['stack']}/set",
         f"=.id={_record_id(context['wifi_row'], 'interface Wi-Fi')}",
@@ -346,7 +367,7 @@ def _configure_legacy_wifi(
             *profile_words,
         )
 
-    mode = "bridge" if configuration.role == "ap" else "station-bridge"
+    mode = _desired_wifi_mode(configuration, modern=False)
     width = (
         "20mhz"
         if configuration.channel_width == "20mhz"
@@ -381,13 +402,9 @@ def _ensure_management_ip(
         None,
     )
     if existing:
-        client.run(
-            "/ip/address/set",
-            f"=.id={_record_id(existing, 'endereço IP')}",
-            f"=interface={configuration.bridge_name}",
-            "=comment=ORION Field - management",
-            "=disabled=no",
-        )
+        # An address already in use may be the path of the current API
+        # session. Moving it between interfaces can immediately strand the
+        # technician, so an exact match is always preserved in place.
         return
 
     client.run(
@@ -457,39 +474,58 @@ def apply_link_configuration(
 
         client.run("/system/backup/save", f"=name={backup_name}")
         client.run("/system/identity/set", f"=name={configuration.identity}")
-        _ensure_bridge(client, context, configuration.bridge_name)
+        if configuration.manage_topology:
+            _ensure_bridge(client, context, configuration.bridge_name)
 
         if context["stack"] in {"wifi", "wifiwave2"}:
             _configure_modern_wifi(client, context, configuration)
         else:
             _configure_legacy_wifi(client, context, configuration)
 
-        _ensure_gateway(client, context, configuration)
-        _ensure_management_ip(client, context, configuration)
-        _ensure_bridge_port(
-            client,
-            context,
-            configuration.wifi_interface,
-            configuration.bridge_name,
-        )
-        # Ethernet is deliberately moved last: changing the ingress port can
-        # interrupt the API session, so every other setting must already exist.
-        _ensure_bridge_port(
-            client,
-            context,
-            configuration.ethernet_interface,
-            configuration.bridge_name,
-        )
+        if configuration.manage_topology:
+            _ensure_gateway(client, context, configuration)
+            _ensure_management_ip(client, context, configuration)
+            _ensure_bridge_port(
+                client,
+                context,
+                configuration.wifi_interface,
+                configuration.bridge_name,
+            )
+            # Physical ports are deliberately moved last: changing the ingress
+            # port can interrupt the API session.
+            for interface in configuration.bridge_interfaces:
+                _ensure_bridge_port(
+                    client,
+                    context,
+                    interface,
+                    configuration.bridge_name,
+                )
 
         return ConfigurationApplyResult(
             status="applied",
             backup_file=f"{backup_name}.backup",
-            reconnect_ip=configuration.management_ip.ip,
+            reconnect_ip=(
+                configuration.management_ip.ip
+                if configuration.manage_topology
+                else request.connection.host
+            ),
             changes_applied=len(preview.changes),
             summary=(
                 "A configuração foi enviada ao MikroTik. Reconecte no IP informado "
                 "e execute a validação do enlace."
+                if configuration.manage_topology
+                else "A configuração Wi-Fi foi enviada sem alterar a topologia de rede."
             ),
         )
 
     return _with_connection(request.connection, apply)
+
+
+def _desired_wifi_mode(
+    configuration: LinkConfiguration,
+    *,
+    modern: bool,
+) -> str:
+    if configuration.role == "ap":
+        return "ap" if modern else "bridge"
+    return "station-bridge" if configuration.device_kind == "radio" else "station"

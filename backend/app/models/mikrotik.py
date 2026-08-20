@@ -160,6 +160,22 @@ class ConnectivityRequest(BaseModel):
     remote_target: IPv4Address | None = None
 
 
+class InterfaceTrafficRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    connection: MikroTikConnection
+    interface: str = Field(min_length=1, max_length=64, pattern=r"^[^\s\"'\\;]+$")
+
+
+class InterfaceTraffic(BaseModel):
+    interface: str
+    rx_bits_per_second: int
+    tx_bits_per_second: int
+    rx_packets_per_second: int | None = None
+    tx_packets_per_second: int | None = None
+    tx_queue_drops_per_second: int | None = None
+
+
 class ConnectivityProbe(BaseModel):
     label: str
     status: Literal["passed", "failed", "unavailable"]

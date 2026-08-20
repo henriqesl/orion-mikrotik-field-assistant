@@ -39,6 +39,15 @@ function isValidInterfaceName(value) {
   return value.trim().length > 0 && !/["\\;\r\n]/.test(value);
 }
 
+function suggestedManagementAddress(adapter) {
+  const octets = String(adapter?.ipv4_address || "").split(".").map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return "";
+  }
+  const routerHost = octets[3] === 1 ? 254 : 1;
+  return `${octets[0]}.${octets[1]}.${octets[2]}.${routerHost}/24`;
+}
+
 function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
@@ -55,6 +64,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   const [bootstrapPreview, setBootstrapPreview] = useState(null);
   const [bootstrapStatus, setBootstrapStatus] = useState("");
   const [bootstrapBusy, setBootstrapBusy] = useState(false);
+  const [endpointMessage, setEndpointMessage] = useState("");
+  const [selectedDeviceMac, setSelectedDeviceMac] = useState("");
 
   const refreshLanDevices = useCallback(async () => {
     try {
@@ -93,6 +104,9 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       ...current,
       [name]: type === "checkbox" ? checked : value,
     }));
+    if (name === "host" || name === "port") {
+      setEndpointMessage("");
+    }
   }
 
   function updateTls(event) {
@@ -107,19 +121,40 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   async function handleSubmit(event) {
     event.preventDefault();
 
-    const succeeded = await onConnect({
+    if (/^\s*\d{1,3}(?:\.\d{1,3}){3}:\d+\s*$/.test(form.host)) {
+      setEndpointMessage(
+        "Informe somente o IP nesse campo. A porta externa da API fica em Opções avançadas → Porta da API.",
+      );
+      return;
+    }
+
+    const connection = {
       ...form,
       port: Number(form.port),
-    });
+    };
+    const succeeded = await onConnect(connection);
 
     if (succeeded) {
+      setEndpointMessage("");
       setForm((current) => ({ ...current, password: "" }));
+    } else if (![8728, 8729].includes(connection.port)) {
+      setEndpointMessage(
+        `A porta ${connection.port} foi tentada como API. Se ela redireciona para o WinBox (8291), o ORION não consegue usá-la; crie outro encaminhamento para a API ou use VPN.`,
+      );
     }
   }
 
   function useDeviceIp(device) {
     setForm((current) => ({ ...current, host: device.ip_address }));
+    setSelectedDeviceMac(device.mac_address);
     setWinboxMessage("");
+    window.requestAnimationFrame(() => {
+      document.querySelector("#connection-credentials")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      document.querySelector('input[name="password"]')?.focus();
+    });
   }
 
   async function selectMacDevice(device) {
@@ -131,7 +166,16 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       try {
         const adapters = await getMacBootstrapAdapters();
         setNetworkAdapters(adapters);
-        setAdapterIndex((current) => current || String(adapters[0]?.interface_index || ""));
+        setAdapterIndex((current) => {
+          const nextIndex = current || String(adapters[0]?.interface_index || "");
+          const selectedAdapter = adapters.find(
+            (adapter) => String(adapter.interface_index) === nextIndex,
+          );
+          if (!bootstrapAddress && selectedAdapter) {
+            setBootstrapAddress(suggestedManagementAddress(selectedAdapter));
+          }
+          return nextIndex;
+        });
       } catch (error) {
         setBootstrapStatus(error.message);
       }
@@ -289,7 +333,12 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             {lanDiscovery.devices.map((device) => {
               const hasUsableIp = device.ip_address && device.ip_address !== "0.0.0.0";
               return (
-                <article className="lan-device" key={device.mac_address}>
+                <article
+                  className={selectedDeviceMac === device.mac_address
+                    ? "lan-device lan-device--selected"
+                    : "lan-device"}
+                  key={device.mac_address}
+                >
                   <div className="lan-device__identity">
                     <strong>{device.identity || "MikroTik sem identidade"}</strong>
                     <span>{device.board || device.platform || "Modelo não informado"}</span>
@@ -300,10 +349,16 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                   </div>
                   <div className="lan-device__actions">
                     {hasUsableIp && (
-                      <button onClick={() => useDeviceIp(device)} type="button">Usar IP</button>
+                      <button
+                        className="lan-device__primary-action"
+                        onClick={() => useDeviceIp(device)}
+                        type="button"
+                      >
+                        {selectedDeviceMac === device.mac_address ? "Selecionado" : "Usar no ORION"}
+                      </button>
                     )}
                     <button
-                      className={!hasUsableIp ? "lan-device__primary-action" : ""}
+                      className={!hasUsableIp ? "lan-device__primary-action" : "lan-device__secondary-action"}
                       disabled={openingMac === device.mac_address}
                       onClick={() => selectMacDevice(device)}
                       type="button"
@@ -340,7 +395,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                   </div>
                   <div className="mac-access-panel__network-fields">
                     <label className="field">
-                      <span>IP com prefixo</span>
+                        <span>IP temporário do MikroTik</span>
                       <input
                         inputMode="decimal"
                         onChange={(event) => {
@@ -348,12 +403,12 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                           setBootstrapPreview(null);
                           setBootstrapStatus("");
                         }}
-                        placeholder="Ex.: 192.168.10.1/24"
+                        placeholder="Selecione a placa de rede para sugerir"
                         value={bootstrapAddress}
                       />
                     </label>
                     <label className="field">
-                      <span>Interface Ethernet</span>
+                      <span>Porta conectada no MikroTik</span>
                       <input
                         onChange={(event) => {
                           setBootstrapInterface(event.target.value);
@@ -370,6 +425,11 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                         onChange={(event) => {
                           setAdapterIndex(event.target.value);
                           setBootstrapPreview(null);
+                          const adapter = networkAdapters.find(
+                            (item) => String(item.interface_index) === event.target.value,
+                          );
+                          const suggestion = suggestedManagementAddress(adapter);
+                          if (suggestion) setBootstrapAddress(suggestion);
                         }}
                         value={adapterIndex}
                       >
@@ -445,7 +505,16 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
         )}
       </section>
 
-      <div className="form-grid">
+      <div className="connection-selection-hint" role="status">
+        <span>1</span>
+        <strong>Escolha o MikroTik acima</strong>
+        <b>2</b>
+        <strong>Informe o acesso abaixo</strong>
+        <b>3</b>
+        <strong>Conecte e revise antes de alterar</strong>
+      </div>
+
+      <div className="form-grid" id="connection-credentials">
         <label className="field field--wide">
           <span>Endereço IP</span>
           <input
@@ -537,6 +606,10 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
           </p>
         )}
       </details>
+
+      {endpointMessage && (
+        <p className="security-note" role="alert">{endpointMessage}</p>
+      )}
 
       <button className="primary-button" disabled={isLoading} type="submit">
         {isLoading ? "Conectando…" : "Conectar e identificar"}

@@ -90,24 +90,18 @@ function PingTest({ connection }) {
             value={target}
           />
         </label>
-        <fieldset className="test-duration" disabled={isLoading}>
-          <legend>Duração</legend>
-          {[
-            [10, "Rápido"],
-            [30, "Estável"],
-            [60, "Prolongado"],
-          ].map(([count, label]) => (
-            <label key={count}>
-              <input
-                checked={sampleCount === count}
-                name="sample-count"
-                onChange={() => setSampleCount(count)}
-                type="radio"
-              />
-              <span>{label}<small>{count} amostras</small></span>
-            </label>
-          ))}
-        </fieldset>
+        <label className="field test-duration-field">
+          <span>Duração do teste</span>
+          <select
+            disabled={isLoading}
+            onChange={(event) => setSampleCount(Number(event.target.value))}
+            value={sampleCount}
+          >
+            <option value="10">Rápido · 10 amostras</option>
+            <option value="30">Estável · 30 amostras</option>
+            <option value="60">Prolongado · 60 amostras</option>
+          </select>
+        </label>
         <button className="primary-button" disabled={isLoading} type="submit">
           {isLoading ? "Testando…" : "Testar conexão"}
         </button>

@@ -33,6 +33,8 @@ from app.models.mikrotik import (
     DiagnosticCheck,
     EthernetInterface,
     IPAddressInfo,
+    InterfaceTraffic,
+    InterfaceTrafficRequest,
     MikroTikConnection,
     PingRequest,
     PingResult,
@@ -677,6 +679,29 @@ def _with_connection(
 def discover_device(connection: MikroTikConnection) -> DeviceSummary:
     """Open one short-lived API session and read RouterOS device information."""
     return _with_connection(connection, _read_device_summary)
+
+
+def read_interface_traffic(request: InterfaceTrafficRequest) -> InterfaceTraffic:
+    """Read one passive traffic sample without generating test traffic."""
+
+    def operation(client: Any) -> InterfaceTraffic:
+        row = _first_row(
+            client.run(
+                "/interface/monitor-traffic",
+                f"=interface={request.interface}",
+                "=once=",
+            )
+        )
+        return InterfaceTraffic(
+            interface=row.get("name") or request.interface,
+            rx_bits_per_second=_optional_int(row.get("rx-bits-per-second")) or 0,
+            tx_bits_per_second=_optional_int(row.get("tx-bits-per-second")) or 0,
+            rx_packets_per_second=_optional_int(row.get("rx-packets-per-second")),
+            tx_packets_per_second=_optional_int(row.get("tx-packets-per-second")),
+            tx_queue_drops_per_second=_optional_int(row.get("tx-queue-drops-per-second")),
+        )
+
+    return _with_connection(request.connection, operation)
 
 
 def _add_advanced_ping_metrics(result: PingResult) -> PingResult:

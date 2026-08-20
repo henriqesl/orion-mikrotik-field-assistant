@@ -23,12 +23,16 @@ function nextManagementAddress(value) {
 
 function initialConfiguration(device, fieldSession) {
   const wifi = device.wifi_interfaces.find((item) => !item.disabled) || device.wifi_interfaces[0];
-  const ethernet =
-    device.ethernet_interfaces.find((item) => !item.disabled) ||
-    device.ethernet_interfaces[0];
   const wifiPort = device.bridge_ports.find(
     (port) => port.interface === wifi?.name && !port.disabled,
   );
+  const bridgedEthernetInterfaces = device.bridge_ports.filter(
+    (port) => port.bridge === wifiPort?.bridge
+      && device.ethernet_interfaces.some((item) => item.name === port.interface && !item.disabled)
+      && !port.disabled,
+  ).map((port) => port.interface);
+  const fallbackEthernet = device.ethernet_interfaces.find((item) => !item.disabled)
+    || device.ethernet_interfaces[0];
   const managementAddress = device.ip_addresses.find(
     (address) => !address.disabled && !address.invalid,
   );
@@ -39,9 +43,15 @@ function initialConfiguration(device, fieldSession) {
 
   return {
     role: fieldSession?.next_role || detectedRole,
+    device_kind: device.radio_device ? "radio" : "generic",
+    manage_topology: Boolean(device.radio_device),
     identity: device.identity,
     wifi_interface: wifi?.name || "wifi1",
-    ethernet_interface: ethernet?.name || "ether1",
+    bridge_interfaces: bridgedEthernetInterfaces.length > 0
+      ? bridgedEthernetInterfaces
+      : device.radio_device && fallbackEthernet
+        ? [fallbackEthernet.name]
+        : [],
     ssid: fieldSession?.ssid || wifi?.ssid || "ORION-Link",
     passphrase: fieldSession?.passphrase || "",
     frequency_mhz: fieldSession?.frequency_mhz || frequency,
@@ -81,8 +91,34 @@ function LinkConfiguration({
   const [isApplying, setIsApplying] = useState(false);
 
   function updateField(event) {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    const { checked, name, type, value } = event.target;
+    setForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+    setPreview(null);
+    setResult(null);
+    setConfirmation("");
+  }
+
+  function toggleBridgeInterface(event) {
+    const { checked, value } = event.target;
+    setForm((current) => ({
+      ...current,
+      bridge_interfaces: checked
+        ? [...current.bridge_interfaces, value]
+        : current.bridge_interfaces.filter((item) => item !== value),
+    }));
+    setPreview(null);
+    setResult(null);
+    setConfirmation("");
+  }
+
+  function adjustFrequency(delta) {
+    setForm((current) => ({
+      ...current,
+      frequency_mhz: Math.min(7100, Math.max(2000, Number(current.frequency_mhz) + delta)),
+    }));
     setPreview(null);
     setResult(null);
     setConfirmation("");
@@ -131,6 +167,8 @@ function LinkConfiguration({
   function payload() {
     return {
       ...form,
+      device_kind: isRadioDevice ? "radio" : "generic",
+      manage_topology: isRadioDevice || form.manage_topology,
       frequency_mhz: Number(form.frequency_mhz),
       gateway: form.gateway.trim() || null,
     };
@@ -195,18 +233,18 @@ function LinkConfiguration({
         <span className="write-badge">{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
 
-      <section className="field-profiles" aria-labelledby="field-profiles-title">
-        <header>
-          <div>
-            <span>Perfis locais</span>
-            <strong id="field-profiles-title">Comece por um padrão editável</strong>
-          </div>
-          <small>Nenhum perfil é aplicado sem revisão e confirmação.</small>
-        </header>
-        <div className="field-profile-grid">
-          {fieldProfiles
-            .filter((profile) => isRadioDevice || profile.id === "local-wifi")
-            .map((profile) => (
+      {isRadioDevice && (
+        <section className="field-profiles" aria-labelledby="field-profiles-title">
+          <header>
+            <div>
+              <span>Cenário do enlace</span>
+              <strong id="field-profiles-title">Escolha o ponto de partida</strong>
+            </div>
+          </header>
+          <div className="field-profile-grid">
+            {fieldProfiles
+              .filter((profile) => profile.id !== "local-wifi")
+              .map((profile) => (
               <button
                 className={selectedProfile === profile.id ? "field-profile field-profile--selected" : "field-profile"}
                 key={profile.id}
@@ -217,8 +255,9 @@ function LinkConfiguration({
                 <span>{profile.description}</span>
               </button>
             ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {isRadioDevice && (
         <section className={fieldSession ? "pair-session pair-session--active" : "pair-session"}>
@@ -232,7 +271,7 @@ function LinkConfiguration({
             <small>
               {fieldSession
                 ? `${fieldSession.ssid} · sessão mantida somente enquanto o ORION estiver aberto`
-                : "A senha e os dados do enlace ficam apenas na memória durante esta sessão."}
+                : "Configure o AP primeiro; ao conectar a Station, o ORION reaproveitará os mesmos dados do enlace."}
             </small>
           </div>
           {fieldSession ? (
@@ -242,6 +281,14 @@ function LinkConfiguration({
           )}
         </section>
       )}
+
+      <div className="network-proposal-banner network-proposal-banner--loaded configuration-current-banner">
+        <div>
+          <span>Configuração atual carregada</span>
+          <strong>Função, SSID, frequência, interfaces e endereçamento</strong>
+        </div>
+        <b>Editável</b>
+      </div>
 
       <form className="configuration-form" onSubmit={handlePreview}>
         <fieldset disabled={isPreviewing || isApplying}>
@@ -288,6 +335,25 @@ function LinkConfiguration({
           </div>
         </fieldset>
 
+        {!isRadioDevice && (
+          <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
+            <legend>Topologia do router</legend>
+            <label className="setting-toggle setting-toggle--wide">
+              <span>
+                <strong>Alterar bridge e IP de gerenciamento</strong>
+                <small>Desativado: o ORION muda somente o Wi-Fi e preserva toda a rede atual</small>
+              </span>
+              <input
+                checked={form.manage_topology}
+                name="manage_topology"
+                onChange={updateField}
+                type="checkbox"
+              />
+              <span aria-hidden="true" className="toggle-control"><i /></span>
+            </label>
+          </fieldset>
+        )}
+
         <div className="configuration-grid">
           <label className="field">
             <span>Nome do equipamento</span>
@@ -298,7 +364,7 @@ function LinkConfiguration({
             <input maxLength="32" name="ssid" onChange={updateField} required value={form.ssid} />
           </label>
           <label className="field">
-            <span>Senha WPA2</span>
+            <span>Senha WPA2 — informe para aplicar</span>
             <input
               autoComplete="new-password"
               minLength="8"
@@ -309,18 +375,23 @@ function LinkConfiguration({
               value={form.passphrase}
             />
           </label>
-          <label className="field">
+          <div className="field">
             <span>Frequência (MHz)</span>
-            <input
-              max="6100"
-              min="4900"
-              name="frequency_mhz"
-              onChange={updateField}
-              required
-              type="number"
-              value={form.frequency_mhz}
-            />
-          </label>
+            <div className="number-stepper">
+              <button aria-label="Diminuir frequência em 5 MHz" onClick={() => adjustFrequency(-5)} type="button">−</button>
+              <input
+                aria-label="Frequência em MHz"
+                max="7100"
+                min="2000"
+                name="frequency_mhz"
+                onChange={updateField}
+                required
+                type="number"
+                value={form.frequency_mhz}
+              />
+              <button aria-label="Aumentar frequência em 5 MHz" onClick={() => adjustFrequency(5)} type="button">+</button>
+            </div>
+          </div>
           <label className="field">
             <span>Largura do canal</span>
             <select name="channel_width" onChange={updateField} value={form.channel_width}>
@@ -328,24 +399,28 @@ function LinkConfiguration({
               <option value="20/40mhz">20/40 MHz — mais capacidade</option>
             </select>
           </label>
-          <label className="field">
-            <span>IP de gerenciamento</span>
-            <input
-              name="management_ip"
-              onChange={updateField}
-              placeholder="192.168.88.2/24"
-              required
-              value={form.management_ip}
-            />
-          </label>
-          <label className="field">
-            <span>Gateway (opcional)</span>
-            <input name="gateway" onChange={updateField} value={form.gateway} />
-          </label>
-          <label className="field">
-            <span>Bridge</span>
-            <input name="bridge_name" onChange={updateField} required value={form.bridge_name} />
-          </label>
+          {(isRadioDevice || form.manage_topology) && (
+            <>
+              <label className="field">
+                <span>IP de gerenciamento</span>
+                <input
+                  name="management_ip"
+                  onChange={updateField}
+                  placeholder="192.168.88.2/24"
+                  required
+                  value={form.management_ip}
+                />
+              </label>
+              <label className="field">
+                <span>Gateway (opcional)</span>
+                <input name="gateway" onChange={updateField} value={form.gateway} />
+              </label>
+              <label className="field">
+                <span>Bridge</span>
+                <input name="bridge_name" onChange={updateField} required value={form.bridge_name} />
+              </label>
+            </>
+          )}
           <label className="field">
             <span>Interface Wi-Fi</span>
             <select name="wifi_interface" onChange={updateField} value={form.wifi_interface}>
@@ -354,20 +429,37 @@ function LinkConfiguration({
               ))}
             </select>
           </label>
-          <label className="field">
-            <span>Interface Ethernet</span>
-            <select name="ethernet_interface" onChange={updateField} value={form.ethernet_interface}>
-              {device.ethernet_interfaces.map((item) => (
-                <option key={item.name} value={item.name}>{item.name}</option>
-              ))}
-            </select>
-          </label>
         </div>
 
+        {(isRadioDevice || form.manage_topology) && (
+          <fieldset className="network-options" disabled={isPreviewing || isApplying}>
+            <legend>{isRadioDevice ? "Portas cabeadas do enlace" : "Interfaces Ethernet na bridge"}</legend>
+            <div className="port-selector">
+              {device.ethernet_interfaces.filter((item) => !item.disabled).map((item) => (
+                <label className="check-field" key={item.name}>
+                  <input
+                    checked={form.bridge_interfaces.includes(item.name)}
+                    onChange={toggleBridgeInterface}
+                    type="checkbox"
+                    value={item.name}
+                  />
+                  <span>{item.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
         <p className="configuration-note">
-          Use um usuário com permissão de escrita. O ORION cria backup, mas não remove IPs, DHCP, NAT ou firewall existentes.
+          {isRadioDevice || form.manage_topology
+            ? "O ORION cria backup e preserva IPs, DHCP, NAT e firewall existentes."
+            : "Somente identidade e Wi-Fi serão alterados; a rede atual permanecerá intacta."}
         </p>
-        <button className="primary-button" disabled={isPreviewing || isApplying} type="submit">
+        <button
+          className="primary-button"
+          disabled={isPreviewing || isApplying || (isRadioDevice && form.bridge_interfaces.length === 0)}
+          type="submit"
+        >
           {isPreviewing ? "Analisando…" : "Revisar alterações"}
         </button>
       </form>
@@ -422,7 +514,9 @@ function LinkConfiguration({
         <div className="configuration-success" role="status">
           <strong>Configuração enviada</strong>
           <span>{result.summary}</span>
-          <small>Backup: {result.backup_file} · novo IP: {result.reconnect_ip}</small>
+          <small>
+            Backup: {result.backup_file} · {isRadioDevice || form.manage_topology ? "IP de acesso" : "rede preservada"}: {result.reconnect_ip}
+          </small>
           {fieldSession && form.role === "ap" && (
             <button onClick={onPrepareNextDevice} type="button">
               Desconectar AP e configurar Station
