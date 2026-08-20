@@ -25,7 +25,7 @@ def test_support_bundle_redacts_secrets_and_contains_runtime(monkeypatch, tmp_pa
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
         report = json.loads(archive.read("orion-support-report.json"))
         log = archive.read("backend-sanitized.log").decode()
-    assert report["orion_version"] == "0.7.1"
+    assert report["orion_version"] == "0.7.2"
     assert "erro-privado" not in report["recent_error"]
     assert "nao-incluir" not in log
     assert "abc123" not in log

@@ -19,6 +19,6 @@ O arquivo `.cer` contém somente a chave pública. Nunca aceite um arquivo `.pfx
 
 ## 3. Instalar
 
-Execute o instalador `ORION Field_0.7.1_x64-setup.exe` e confirme que o Windows mostra **BIONIC ORION Internal Code Signing** como publicador.
+Execute o instalador `ORION Field_0.7.2_x64-setup.exe` e confirme que o Windows mostra **BIONIC ORION Internal Code Signing** como publicador da assinatura e **BIONIC** como editor em Aplicativos instalados.
 
 Depois da instalação, abra **ORION Field** pelo atalho da Área de Trabalho ou pelo menu Iniciar.
