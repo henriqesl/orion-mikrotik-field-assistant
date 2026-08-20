@@ -28,7 +28,7 @@ VALID_CONFIGURATION = {
     "role": "ap",
     "identity": "ORION-AP",
     "wifi_interface": "wifi1",
-    "ethernet_interface": "ether1",
+    "bridge_interfaces": ["ether1"],
     "bridge_name": "bridge-field",
     "ssid": "ORION-Link",
     "passphrase": "safe-field-password",

@@ -39,6 +39,20 @@ def test_parse_mndp_packet_rejects_truncated_tlv() -> None:
     assert service.parse_mndp_packet(packet, "192.168.88.1") is None
 
 
+def test_parse_mndp_packet_preserves_usable_source_when_advertised_ip_is_zero() -> None:
+    packet = b"\x00\x00\x00\x01" + b"".join(
+        [
+            tlv(1, bytes.fromhex("AABBCCDDEEFF")),
+            tlv(5, b"WiFi-Station"),
+            tlv(16, bytes([0, 0, 0, 0])),
+        ]
+    )
+
+    result = service.parse_mndp_packet(packet, "10.10.1.229")
+
+    assert result["ip_address"] == "10.10.1.229"
+
+
 def test_open_winbox_uses_argument_list_without_password(monkeypatch, tmp_path: Path) -> None:
     executable = tmp_path / "winbox.exe"
     executable.touch()

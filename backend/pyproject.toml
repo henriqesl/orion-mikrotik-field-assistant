@@ -24,3 +24,6 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "physical: requires dedicated MikroTik laboratory hardware",
+]

@@ -5,6 +5,7 @@ from routeros.errors import DeviceError
 
 from app.models.mikrotik import (
     ConnectivityRequest,
+    InterfaceTrafficRequest,
     MikroTikConnection,
     NetworkEngineMetrics,
     PingRequest,
@@ -193,6 +194,47 @@ def test_discover_device_uses_plain_api_and_maps_real_fields(monkeypatch) -> Non
     ]
 
 
+def test_read_interface_traffic_uses_passive_routeros_monitor(monkeypatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    class TrafficClient:
+        def run(self, *words: str):
+            calls.append(words)
+            return SimpleNamespace(
+                re=[SimpleNamespace(map={
+                    "name": "ether1",
+                    "rx-bits-per-second": "18400000",
+                    "tx-bits-per-second": "7200000",
+                    "rx-packets-per-second": "2140",
+                    "tx-packets-per-second": "1080",
+                    "tx-queue-drops-per-second": "0",
+                })]
+            )
+
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, operation: operation(TrafficClient()),
+    )
+    result = service.read_interface_traffic(
+        InterfaceTrafficRequest(
+            connection=MikroTikConnection(
+                host="192.168.88.1",
+                username="orion",
+                password="secret",
+            ),
+            interface="ether1",
+        )
+    )
+
+    assert result.interface == "ether1"
+    assert result.rx_bits_per_second == 18_400_000
+    assert result.tx_bits_per_second == 7_200_000
+    assert result.rx_packets_per_second == 2_140
+    assert result.tx_queue_drops_per_second == 0
+    assert calls == [
+        ("/interface/monitor-traffic", "=interface=ether1", "=once="),
+    ]
 def test_device_classification_separates_wifi_router_from_field_radio() -> None:
     wifi_ap = service.WiFiInterface(
         name="wifi1",
