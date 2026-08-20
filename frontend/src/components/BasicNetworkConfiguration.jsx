@@ -5,6 +5,7 @@ import {
   previewBasicNetwork,
   validateConnectivity,
 } from "../services/api.js";
+import CurrentConfiguration from "./CurrentConfiguration.jsx";
 
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
@@ -346,6 +347,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         <section className="configuration-preview">
           <p className="card-kicker">Nenhuma alteração aplicada</p>
           <h3>Prévia da rede</h3>
+          <CurrentConfiguration items={preview.existing} />
           <div className="change-list">
             {preview.changes.map((change, index) => (
               <article key={`${change.area}-${change.field}-${index}`}>

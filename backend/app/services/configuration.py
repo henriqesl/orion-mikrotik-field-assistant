@@ -5,6 +5,7 @@ from app.models.configuration import (
     ConfigurationApplyRequest,
     ConfigurationApplyResult,
     ConfigurationChange,
+    ExistingConfiguration,
     ConfigurationPreview,
     ConfigurationPreviewRequest,
     LinkConfiguration,
@@ -212,6 +213,22 @@ def _build_preview(
     preview = ConfigurationPreview(
         device_identity=context["identity"].get("name") or "MikroTik",
         wifi_stack=context["stack"],
+        existing=[
+            ExistingConfiguration(
+                area=area,
+                field=field,
+                value=current or "Não configurado",
+            )
+            for area, field, current, _new in comparisons
+        ] + [
+            ExistingConfiguration(
+                area="Endereços IP",
+                field=str(row.get("interface") or "Interface"),
+                value=str(row.get("address") or "Sem endereço"),
+            )
+            for row in context["ip_addresses"]
+            if not _optional_bool(row.get("disabled"))
+        ],
         changes=changes,
         warnings=warnings,
         reconnect_ip=configuration.management_ip.ip,
