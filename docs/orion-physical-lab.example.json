@@ -1,0 +1,66 @@
+{
+  "devices": [
+    {
+      "name": "router-wifi-station",
+      "dedicated_lab": true,
+      "recovery_plan": "WinBox por MAC e restauração do backup orion-before mais recente",
+      "connection": {
+        "host": "192.0.2.10",
+        "username": "orion-lab",
+        "password_env": "ORION_LAB_ROUTER_PASSWORD",
+        "api_port": 8728,
+        "use_tls": false,
+        "verify_tls": true
+      },
+      "expect_device": {
+        "radio_device": false,
+        "lora_available": false
+      },
+      "expect_network": {
+        "wan_interface": "wifi1",
+        "wan_mode": "static"
+      },
+      "validate_connectivity": true,
+      "ping_targets": ["192.0.2.1", "1.1.1.1"],
+      "write_cycles": {
+        "network": [
+          {
+            "name": "servicos-sem-alterar-topologia",
+            "reconnect_host": "192.0.2.10",
+            "configuration": {
+              "identity": "ORION-LAB-ROUTER",
+              "wan_interface": "wifi1",
+              "wan_mode": "static",
+              "wan_address": "192.0.2.10/24",
+              "gateway": "192.0.2.1",
+              "configure_lan": false,
+              "lan_bridge": null,
+              "lan_address": null,
+              "lan_ports": [],
+              "dns_servers": ["1.1.1.1", "8.8.8.8"],
+              "enable_nat": false,
+              "enable_lan_dhcp": false,
+              "dhcp_pool_start": null,
+              "dhcp_pool_end": null,
+              "enable_ssh": true,
+              "enable_winbox": true,
+              "enable_webfig_https": false,
+              "enable_telnet": false,
+              "enable_ftp": false,
+              "enable_webfig_http": false
+            },
+            "expect_network": {
+              "wan_interface": "wifi1",
+              "wan_mode": "static",
+              "enable_ssh": true,
+              "enable_winbox": true,
+              "enable_ftp": false
+            }
+          }
+        ],
+        "wifi": [],
+        "lora": []
+      }
+    }
+  ]
+}
