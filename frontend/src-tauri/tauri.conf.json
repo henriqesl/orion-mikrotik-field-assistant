@@ -35,7 +35,9 @@
     "targets": ["nsis"],
     "externalBin": ["binaries/orion-backend", "binaries/orion-network-engine"],
     "resources": {
-      "binaries/orion-backend-runtime": "orion-backend-runtime"
+      "binaries/orion-backend-runtime": "orion-backend-runtime",
+      "../../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../../LICENSES": "LICENSES"
     },
     "icon": ["icons/icon.ico"],
     "windows": {

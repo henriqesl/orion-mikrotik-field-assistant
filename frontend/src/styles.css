@@ -2346,6 +2346,112 @@ h2 {
   gap: 0.75rem;
 }
 
+.current-configuration {
+  margin: 1rem 0 1.25rem;
+  border: 1px solid rgba(107, 153, 201, 0.18);
+  border-radius: 16px;
+  background: rgba(6, 19, 34, 0.54);
+  overflow: hidden;
+}
+
+.current-configuration summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.current-configuration summary small,
+.current-configuration__grid article > span,
+.current-configuration__grid article > small {
+  color: var(--text-muted);
+}
+
+.current-configuration__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+  gap: 1px;
+  border-top: 1px solid rgba(107, 153, 201, 0.14);
+  background: rgba(107, 153, 201, 0.1);
+}
+
+.current-configuration__grid article {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  background: #071729;
+}
+
+.current-configuration__grid article > span {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.current-configuration__grid article > strong,
+.current-configuration__grid article > small {
+  overflow-wrap: anywhere;
+}
+
+.mac-bootstrap-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(77, 144, 255, 0.24);
+  border-radius: 14px;
+  background: rgba(5, 17, 31, 0.62);
+}
+
+.mac-bootstrap-preview > div {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+}
+
+.mac-bootstrap-preview span,
+.mac-bootstrap-preview small {
+  color: var(--text-muted);
+}
+
+.mac-bootstrap-preview strong {
+  color: var(--text-primary);
+}
+
+.mac-bootstrap-preview ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--text-secondary);
+}
+
+.mac-access-panel__fallback {
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(122, 158, 196, 0.14);
+}
+
+.mac-access-panel__fallback summary {
+  width: fit-content;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.mac-access-panel__fallback > button,
+.mac-access-panel__fallback > div {
+  margin-top: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .mac-bootstrap-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
 .test-duration {
   display: flex;
   gap: 0.3rem;

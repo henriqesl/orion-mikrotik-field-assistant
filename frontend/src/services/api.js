@@ -148,6 +148,21 @@ export function applyLoraProtection(connection, configuration) {
   return postJson("/api/mikrotik/lora/apply", { connection, configuration, confirmation: "APLICAR" });
 }
 
+export function getMacBootstrapAdapters() {
+  return getJson("/api/mikrotik/mac-bootstrap/adapters");
+}
+
+export function previewMacBootstrap(payload) {
+  return postJson("/api/mikrotik/mac-bootstrap/preview", payload);
+}
+
+export function applyMacBootstrap(payload) {
+  return postJson("/api/mikrotik/mac-bootstrap/apply", {
+    ...payload,
+    confirmation: "APLICAR",
+  });
+}
+
 export async function downloadSupportBundle(device, recentError) {
   const response = await fetch(apiUrl("/api/support/bundle"), {
     method: "POST",

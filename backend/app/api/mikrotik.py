@@ -24,6 +24,11 @@ from app.models.mikrotik import (
 )
 from app.models.discovery import (
     LanDiscoveryResult,
+    LocalNetworkAdapter,
+    MacBootstrapApplyRequest,
+    MacBootstrapPreview,
+    MacBootstrapRequest,
+    MacBootstrapResult,
     WinBoxLaunchRequest,
     WinBoxLaunchResult,
 )
@@ -50,9 +55,54 @@ from app.services.lan_discovery import (
     mndp_collector,
     open_winbox,
 )
+from app.services.mac_bootstrap import (
+    NetworkAdapterError,
+    apply_mac_bootstrap,
+    list_network_adapters,
+    preview_mac_bootstrap,
+)
+from app.services.mac_telnet import (
+    MacTelnetAuthenticationError,
+    MacTelnetError,
+    MacTelnetTimeoutError,
+)
 
 
 router = APIRouter(prefix="/api/mikrotik", tags=["mikrotik"])
+
+
+def _mac_http_error(error: Exception) -> HTTPException:
+    if isinstance(error, MacTelnetAuthenticationError):
+        return HTTPException(status_code=401, detail=str(error))
+    if isinstance(error, MacTelnetTimeoutError):
+        return HTTPException(status_code=504, detail=str(error))
+    if isinstance(error, NetworkAdapterError):
+        return HTTPException(status_code=409, detail=str(error))
+    return HTTPException(status_code=502, detail="O acesso temporário por MAC não pôde ser concluído.")
+
+
+@router.get("/mac-bootstrap/adapters", response_model=list[LocalNetworkAdapter])
+def network_adapters() -> list[LocalNetworkAdapter]:
+    try:
+        return list_network_adapters()
+    except NetworkAdapterError as error:
+        raise _mac_http_error(error) from error
+
+
+@router.post("/mac-bootstrap/preview", response_model=MacBootstrapPreview)
+def preview_bootstrap(request: MacBootstrapRequest) -> MacBootstrapPreview:
+    try:
+        return preview_mac_bootstrap(request)
+    except (MacTelnetError, NetworkAdapterError) as error:
+        raise _mac_http_error(error) from error
+
+
+@router.post("/mac-bootstrap/apply", response_model=MacBootstrapResult)
+def apply_bootstrap(request: MacBootstrapApplyRequest) -> MacBootstrapResult:
+    try:
+        return apply_mac_bootstrap(request)
+    except (MacTelnetError, NetworkAdapterError) as error:
+        raise _mac_http_error(error) from error
 
 
 @router.post("/lora/preview", response_model=LoraProtectionPreview)
