@@ -4,7 +4,7 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
-## ORION Field V7
+## ORION Field V7.1
 
 A V7 consolida o fluxo profissional de campo sem adicionar cadastro, nuvem ou integração prematura com o ARGOS:
 
@@ -15,6 +15,8 @@ A V7 consolida o fluxo profissional de campo sem adicionar cadastro, nuvem ou in
 - pacote de suporte sanitizado, sem senha, token, MAC ou endereço IP;
 - testes de 10, 30 ou 60 amostras, comparação antes/depois na sessão e novas medidas nativas de variação, amplitude e cauda p99;
 - atualização pelo GitHub Releases com validação criptográfica independente da assinatura do Windows.
+- preparação temporária por MAC, sem copiar comandos: o ORION atribui o IP, habilita a API e encerra a sessão MAC;
+- leitura da configuração atual antes de aplicar mudanças em Wi-Fi/rádio, rede básica e LoRa, incluindo scripts e agendamentos existentes.
 
 Os dados da sessão continuam locais e temporários. A integração com o ARGOS fica deliberadamente fora da V7 até que o ARGOS esteja concluído.
 
@@ -51,11 +53,12 @@ O ORION não armazena credenciais, instalações ou dados de técnicos. A aplica
 
 1. Conecte o computador e o MikroTik à mesma rede local.
 2. Abra o ORION e aguarde o equipamento aparecer na descoberta LAN.
-3. Clique em **Abrir via MAC**. Se necessário, localize o `winbox.exe` pela própria tela; o ORION memorizará o caminho.
-4. Entre no equipamento pela janela oficial do WinBox.
-5. No ORION, informe o IP com prefixo e confirme a interface Ethernet. O endereço é escolhido para aquela instalação; os valores exibidos nos campos são apenas exemplos.
-6. Clique em **Copiar comandos**, abra **New Terminal** no WinBox e cole os comandos uma vez.
-7. O ORION detectará o novo IP, preencherá o endereço e permitirá continuar pela API.
+3. Clique em **Preparar por MAC**.
+4. Informe o IP com prefixo, confirme a interface Ethernet do MikroTik e escolha a placa de rede do computador conectada ao equipamento. O endereço é escolhido para aquela instalação; os valores exibidos nos campos são apenas exemplos.
+5. Clique em **Verificar configuração atual** e confira os IPs e o estado da API encontrados.
+6. Clique em **Aplicar IP e conectar**. O ORION faz somente a preparação necessária, encerra o acesso MAC e continua pela API IPv4.
+
+Se o MAC Server estiver desativado no RouterOS, abra **Plano B: abrir o WinBox** e prepare o equipamento manualmente.
 
 O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
 
@@ -124,7 +127,7 @@ C++ não faz parte da lógica de formulários, configuração ou API. Ele perman
 
 ## Executar localmente
 
-Requisitos: Windows, Node.js, Python 3.11 ou superior e um MikroTik. Para a configuração direta, o serviço API precisa estar habilitado e o usuário do RouterOS deve ter permissão de escrita. O WinBox é opcional e necessário somente para a preparação assistida por MAC.
+Requisitos: Windows, Node.js, Python 3.11 ou superior e um MikroTik. Para a configuração direta, o serviço API precisa estar habilitado e o usuário do RouterOS deve ter permissão de escrita. O WinBox é opcional e funciona como plano B quando o MAC Server não responde.
 
 ### Inicialização simplificada
 
@@ -138,7 +141,7 @@ Para escolher outra porta:
 
 O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
 
-Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, use **Abrir via MAC** e, se solicitado, selecione o executável oficial do WinBox. O caminho fica memorizado localmente; nenhum arquivo de configuração precisa ser copiado ou importado.
+Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, use **Preparar por MAC**. Nenhum comando precisa ser copiado; o WinBox fica disponível apenas como plano B.
 
 ### Desenvolvimento
 
@@ -238,7 +241,7 @@ O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele ge
 - histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
 - a proteção LoRa exige RouterOS 7, pacote IoT e uma interface compatível em `/iot lora`;
 - a configuração LoRa ainda precisa de validação física no equipamento de destino;
-- o seletor do WinBox e a detecção do novo IP ainda precisam de validação física com um MikroTik sem IP;
+- a preparação temporária por MAC ainda precisa de validação física nos modelos e versões de RouterOS usados pela equipe;
 - os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
 
 ## Identidade visual

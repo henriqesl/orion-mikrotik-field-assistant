@@ -16,7 +16,7 @@ def test_health_check() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "orion-field-api",
-        "version": "0.7.0",
+        "version": "0.7.1",
     }
 
 
