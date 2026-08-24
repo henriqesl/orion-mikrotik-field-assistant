@@ -1,253 +1,114 @@
-# ORION — MikroTik Field Assistant
+# ORION Field
 
-O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces MikroTik para equipes de campo.
+ORION Field is a local Windows assistant for configuring, monitoring, and validating MikroTik devices in the field.
 
-> Configure. Monitore. Valide.
+> Configure. Monitor. Validate.
 
-## ORION Field V7.2
+## Features
 
-A V7 consolida o fluxo profissional de campo sem adicionar cadastro, nuvem ou integração prematura com o ARGOS:
+- LAN discovery through MNDP and temporary MAC preparation for devices without a usable IP;
+- current RouterOS configuration loaded before any proposal;
+- assisted setup for basic routing, LAN, Wi-Fi, AP/Station links, and supported LoRa protections;
+- live RouterOS data, negotiated radio rates, RX/TX traffic, and structural diagnostics;
+- latency, loss, jitter, p95, p99, spike, and stability measurements;
+- preview, explicit confirmation, and RouterOS backup before writes;
+- sanitized diagnostic export with a technician-selected destination;
+- offline demo profiles for training and interface validation.
 
-- cenários editáveis para enlace estável e enlace de maior capacidade;
-- sessão guiada AP + Station, mantendo SSID, senha e canal apenas na memória até concluir o par;
-- catálogo de compatibilidade por família, com modo genérico seguro para modelos desconhecidos;
-- preparação da API limitada à rede informada pelo técnico;
-- diagnóstico exportável no local escolhido pelo técnico, sem senha, token, MAC ou endereço IP;
-- testes de 10, 30 ou 60 amostras, comparação antes/depois na sessão e novas medidas nativas de variação, amplitude e cauda p99;
-- atualização pelo GitHub Releases com validação criptográfica independente da assinatura do Windows.
-- preparação temporária por MAC, sem copiar comandos: o ORION atribui o IP, habilita a API e encerra a sessão MAC;
-- leitura da configuração atual antes de aplicar mudanças em Wi-Fi/rádio, rede básica e LoRa, incluindo scripts e agendamentos existentes;
-- tráfego RX/TX atual por interface, com média e pico, sem gerar carga de teste;
-- diagnóstico estrutural neutro em roteadores genéricos e validação por perfil nos rádios reconhecidos.
+ORION stores no technician accounts, inventory, installation history, or cloud data.
 
-Os dados da sessão continuam locais e temporários. A integração com o ARGOS fica deliberadamente fora da V7 até que o ARGOS esteja concluído.
+## Safety
 
-## ORION Field V6
+- existing addresses and unrelated RouterOS rules are preserved whenever possible;
+- LAN topology on configured routers stays protected until explicitly enabled for editing;
+- API services are preserved so ORION does not disable its own access;
+- MAC access is temporary and only prepares IPv4 API access;
+- credentials remain in memory and are excluded from diagnostic exports.
 
-A V6 transforma o ORION em um aplicativo Windows x64 independente e adiciona diagnóstico nativo:
+Validate changes on recoverable lab equipment before production use.
 
-- aplicativo desktop Tauri para Windows 10 e Windows 11;
-- FastAPI empacotado e iniciado automaticamente;
-- instalador NSIS com WebView2 offline;
-- ORION Network Engine em C++ para jitter, p95, p99, picos e estabilidade;
-- ping executado pelo próprio MikroTik, preservando o ponto real da medição;
-- instância única: abrir o ORION novamente apenas restaura a janela existente;
-- encerramento conjunto do aplicativo e do backend, sem deixar a porta local ocupada.
+## Requirements
 
-RSSI, ruído e SNR continuam sendo lidos do RouterOS quando o equipamento os fornece. O motor C++ não inventa nem estima métricas de rádio.
+- Windows 10 or Windows 11 x64;
+- RouterOS API access with suitable permissions;
+- local Ethernet access for discovery and MAC preparation.
 
-## ORION Field V5
+RouterOS 7 is recommended. WinBox is optional and used only as a fallback. For remote management, prefer a VPN instead of exposing the standard RouterOS API.
 
-A V5 fecha o fluxo local de campo em uma única aplicação:
+## Demo mode
 
-- inicialização pelo `start-orion.cmd`, em `http://127.0.0.1:8765`;
-- descoberta de MikroTiks na LAN por MNDP;
-- abertura assistida do WinBox pelo MAC;
-- seleção e memorização do executável oficial do WinBox pela própria interface;
-- configuração direta de enlace e rede básica;
-- configuração LoRa com proteção da interface, LNS e reinício do dispositivo por falha de conectividade;
-- prévia, confirmação explícita e backup antes das alterações;
-- modo demonstração para navegar sem um MikroTik disponível.
+Enter a profile name in the IP field:
 
-O ORION não armazena credenciais, instalações ou dados de técnicos. A aplicação continua local e sem banco de dados.
+| Profile | Device |
+|---|---|
+| `demo` or `teste` | MikroTik radio |
+| `demo-router` | configured generic router |
+| `demo-novo` | router without a prepared network |
 
-### Acesso a um equipamento sem IP
+Demo mode never writes to real hardware.
 
-1. Conecte o computador e o MikroTik à mesma rede local.
-2. Abra o ORION e aguarde o equipamento aparecer na descoberta LAN.
-3. Clique em **Preparar por MAC**.
-4. Informe o IP com prefixo, confirme a interface Ethernet do MikroTik e escolha a placa de rede do computador conectada ao equipamento. O endereço é escolhido para aquela instalação; os valores exibidos nos campos são apenas exemplos.
-5. Clique em **Verificar configuração atual** e confira os IPs e o estado da API encontrados.
-6. Clique em **Aplicar IP e conectar**. O ORION faz somente a preparação necessária, encerra o acesso MAC e continua pela API IPv4.
+## Development
 
-Se o MAC Server estiver desativado no RouterOS, abra **Plano B: abrir o WinBox** e prepare o equipamento manualmente.
-
-O acesso MAC é usado somente para a preparação inicial. A leitura e a configuração direta continuam sendo feitas pela API IP do RouterOS.
-
-### LoRa
-
-Na aba **LoRa**, o ORION confirma a existência de `/iot lora` antes de oferecer os watchdogs. Ele altera somente scripts e agendamentos identificados como ORION; a configuração do servidor LoRaWAN permanece intacta.
-
-## ORION Field V4
-
-A V4 introduziu as configurações gerais na tela **Rede básica**, com:
-
-- WAN por DHCP Client ou IP fixo;
-- bridge e endereço da LAN;
-- seleção de portas LAN;
-- DHCP Server automático para os dispositivos da LAN;
-- pool DHCP automático ou definido manualmente;
-- servidores DNS;
-- NAT opcional;
-- controle individual de SSH, WinBox, WebFig, Telnet e FTP;
-- bloqueio preventivo de interfaces desativadas e conflitos de nomes;
-- pré-visualização e confirmação explícita;
-- backup automático antes da aplicação;
-- preservação das regras preexistentes.
-
-As portas LAN são alteradas por último, depois que o novo endereço de acesso já foi criado. A sessão atual ainda pode cair, e o técnico deverá reconectar pelo IP configurado para a LAN.
-
-### Configurar uma rede básica
-
-1. Conecte ao MikroTik e abra **Rede básica**.
-2. Escolha se a WAN receberá o endereço por DHCP ou usará IP fixo.
-3. Confirme a interface WAN, as portas LAN e o endereço da LAN.
-4. Clique em **Revisar configuração** e confira a prévia e os alertas.
-5. Digite `APLICAR`. O ORION cria um backup e envia a configuração.
-6. Conecte o computador a uma porta LAN e aguarde a validação do novo acesso.
-
-O endereço `192.168.50.1/24` é apenas uma sugestão do perfil. Ele pode ser substituído por qualquer rede válida adequada à instalação.
-
-## ORION Field V3
-
-A V3 conecta diretamente à API do RouterOS e oferece:
-
-- configuração assistida de rádio como AP ou Station;
-- identidade, SSID, senha WPA2, frequência, largura de canal, bridge, IP e gateway;
-- suporte às pilhas `wifi`, `wifiwave2` e `wireless`;
-- pré-visualização das alterações e confirmação explícita antes da escrita;
-- backup binário automático antes da primeira alteração;
-- preservação dos endereços IP preexistentes e tentativa de reconexão no novo IP;
-- leitura de interfaces, registration table, sinal, taxas TX/RX e associação;
-- monitoramento, alinhamento, ping, saúde ponderada e diagnóstico estrutural;
-- alinhamento avançado com gráfico, melhor, média e pior sinal da sessão;
-- som opcional que varia conforme o sinal;
-- identidade visual própria, fontes locais e interface preparada para uso offline.
-
-Não existe banco de dados. As credenciais e a senha do enlace permanecem somente na memória durante a conexão e não são devolvidas pelas respostas da API.
-
-## Tecnologias
-
-- React 19 e Vite no frontend;
-- FastAPI no backend;
-- `routeros-py` para a API binária do RouterOS;
-- Rust e Tauri no aplicativo desktop da V6;
-- C++ no motor de métricas avançadas da V6;
-- pytest para os testes do backend.
-
-C++ não faz parte da lógica de formulários, configuração ou API. Ele permanece restrito ao processamento nativo de diagnóstico avançado.
-
-## Executar localmente
-
-Requisitos: Windows, Node.js, Python 3.11 ou superior e um MikroTik. Para a configuração direta, o serviço API precisa estar habilitado e o usuário do RouterOS deve ter permissão de escrita. O WinBox é opcional e funciona como plano B quando o MAC Server não responde.
-
-### Inicialização simplificada
-
-No Windows, execute `start-orion.cmd`. O inicializador prepara as dependências quando necessário, compila a interface, inicia todo o ORION em `http://127.0.0.1:8765` e abre o navegador automaticamente.
-
-Para escolher outra porta:
+Requirements: Node.js, Python 3.11+, Rust, and Visual Studio Build Tools 2022 with **Desktop development with C++**.
 
 ```powershell
-.\scripts\start-orion.ps1 -Port 8877
-```
-
-O terminal deve permanecer aberto durante o uso. Fechá-lo encerra o ORION.
-
-Na tela inicial, o ORION escuta os anúncios MNDP da rede local e lista os MikroTiks encontrados. Equipamentos com IP podem preencher a conexão diretamente. Para equipamentos em `0.0.0.0`, use **Preparar por MAC**. Nenhum comando precisa ser copiado; o WinBox fica disponível apenas como plano B.
-
-### Desenvolvimento
-
-### Backend
-
-```powershell
+# Backend
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 uvicorn app.main:app --reload
-```
 
-O backend fica em `http://127.0.0.1:8000`.
-
-### Frontend
-
-Em outro terminal:
-
-```powershell
+# Frontend, in another terminal
 cd frontend
 npm ci
 npm run dev
 ```
 
-O frontend fica em `http://localhost:5174`. A porta é fixa; se estiver ocupada, o Vite exibirá um erro claro.
+The frontend uses `http://localhost:5174` and proxies FastAPI at `http://127.0.0.1:8000`.
 
-### Aplicativo desktop (V7)
-
-Para desenvolver ou gerar o aplicativo Windows, instale também o Rust e a carga de trabalho **Desenvolvimento para desktop com C++** do Visual Studio Build Tools 2022.
+Run the complete desktop application with:
 
 ```powershell
 cd frontend
 npm run desktop:dev
 ```
 
-O comando prepara o backend empacotado e abre o ORION como aplicativo Tauri. Para gerar o instalador x64:
+## Build and test
 
 ```powershell
+# Backend tests
+cd backend
+.\.venv\Scripts\python.exe -m pytest
+
+# Frontend validation
+cd ..\frontend
+npm run build
+npm audit --audit-level=high
+
+# Windows installer
 npm run desktop:build
 ```
 
-O instalador é criado em `frontend/src-tauri/target/release/bundle/nsis`. Depois de instalado, o usuário final não precisa instalar Node.js, Python, Rust ou Visual Studio. O backend inicia e encerra junto com o aplicativo e atende somente em `127.0.0.1:8765`.
+The NSIS installer is generated under `frontend/src-tauri/target/release/bundle/nsis`. Internal signed builds use `npm run desktop:build:signed`; see the installation guide before handling certificates.
 
-Para o pacote interno assinado, instale o certificado BIONIC com chave privada no repositório pessoal da conta de build e execute:
+## Architecture
 
-```powershell
-npm run desktop:build:signed
-```
+`React + Vite → Tauri → FastAPI → RouterOS API`
 
-O comando localiza o certificado por assunto, assina os binários próprios e gera o NSIS com SHA-256 e timestamp. A chave privada nunca deve ser exportada para a pasta de entrega. Nos computadores da empresa, distribua apenas o certificado público `.cer` e instale-o em **Autoridades de Certificação Raiz Confiáveis** e **Editores Confiáveis** antes do ORION.
+The C++ Network Engine is restricted to advanced latency metrics. Configuration and RouterOS operations remain in TypeScript and Python.
 
-O mesmo comando gera o arquivo `latest.json` e a assinatura `.sig` do atualizador. Publique no GitHub Release `vX.Y.Z` o instalador, o arquivo `.sig` e o `latest.json`. A chave privada do updater fica em `%LOCALAPPDATA%\BIONIC\ORION Field\signing`; ela e sua senha protegida pelo Windows não entram no Git. A proteção da senha é vinculada à conta atual do Windows: antes de trocar de computador ou conta, execute `scripts/show-updater-recovery-info.ps1 -ConfirmExposure` e guarde a chave e a senha separadamente em local seguro. Perder qualquer uma delas impede publicar atualizações aceitas pelas instalações existentes.
+## Documentation
 
-### Demonstração sem MikroTik
+- [Field manual](docs/manual-de-campo.md)
+- [Internal Windows installation](docs/instalacao-interna-windows.md)
+- [V7.2 lab validation](docs/TESTE-DE-BANCADA-V7.2.md)
+- [Network Engine](native/network-engine/README.md)
 
-Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar por um rádio simulado. Use `demo-router` para um router já configurado ou `demo-novo` para um router sem rede pronta. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.
+## Limitations
 
-## Fluxo de configuração
-
-O procedimento para preparar dois rádios está no [Manual de campo da V2](docs/manual-de-campo-v2.md).
-
-1. Conecte o computador ao MikroTik por Ethernet.
-2. Acesse o equipamento com um usuário RouterOS que possua leitura e escrita.
-3. Preencha o cartão **Configurar enlace** como AP ou Station.
-4. Clique em **Revisar alterações** e confira todos os itens e alertas.
-5. Digite `APLICAR` e confirme. O ORION cria o backup antes de escrever.
-6. Confirme a reconexão e execute os testes de alinhamento e conectividade.
-
-Configure primeiro o AP e depois a Station com o mesmo SSID, senha, frequência e largura. `station-bridge` requer AP MikroTik e a mesma família de driver nos dois lados (`wifi` com `wifi`, ou `wireless` com `wireless`).
-
-## Testes e build
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m pytest
-```
-
-```powershell
-cd frontend
-npm run build
-npm audit --audit-level=high
-```
-
-Os cenários stateful e o executor para MikroTiks reais de laboratório estão documentados em [Validação de bancada da V7.2](docs/TESTE-DE-BANCADA-V7.2.md). A bancada física funciona somente em leitura por padrão e exige confirmação explícita para gravar.
-
-## Modo offline
-
-O arquivo `mikrotik-generator.html` continua sendo o ORION Setup offline. Ele gera scripts `.rsc` para Enlace, Rede básica e LoRa sem depender do backend.
-
-## Limites conhecidos
-
-- o instalador interno possui assinatura privada BIONIC; computadores que ainda não confiam no certificado podem exibir um aviso do Windows;
-- a instalação foi validada no Windows 11 x64; ainda falta uma execução física em um Windows 10 x64 limpo;
-- o acesso por MAC prepara o equipamento, mas a operação direta do ORION ainda acontece pela API IPv4;
-- não há reset nem restauração automática do backup;
-- o ORION não apaga IPs antigos automaticamente, para preservar uma rota de recuperação;
-- frequências permitidas dependem do modelo, da regulamentação e do RouterOS;
-- histórico e métricas da sessão existem somente enquanto a conexão atual estiver aberta;
-- a proteção LoRa exige RouterOS 7, pacote IoT e uma interface compatível em `/iot lora`;
-- a configuração LoRa ainda precisa de validação física no equipamento de destino;
-- a preparação temporária por MAC ainda precisa de validação física nos modelos e versões de RouterOS usados pela equipe;
-- os testes automatizados usam clientes RouterOS simulados; a validação física continua obrigatória antes da entrega operacional.
-
-## Identidade visual
-
-O sistema de marca, cores, tipografia e uso dos ativos está documentado em [Identidade visual do ORION](docs/brand/visual-identity.md).
+- direct management requires IPv4 API access after MAC preparation;
+- backup restoration is manual;
+- wireless frequencies depend on hardware, RouterOS, and local regulations;
+- LoRa features require RouterOS 7, the IoT package, and a compatible interface;
+- physical validation remains required for target hardware.
