@@ -39,14 +39,40 @@ Use MikroTiks que possam ser restaurados por MAC ou resetados sem impacto extern
 - anote a interface usada para acessar o equipamento;
 - não use dados ou senhas de clientes.
 
-Copie [orion-physical-lab.example.json](orion-physical-lab.example.json) para um arquivo local ignorado pelo Git:
+Crie `.vscode/orion-physical-lab.json`, ignorado pelo Git. Estrutura mínima:
+
+```json
+{
+  "devices": [
+    {
+      "name": "router-lab",
+      "dedicated_lab": true,
+      "recovery_plan": "WinBox por MAC e restauração do backup mais recente",
+      "connection": {
+        "host": "IP_REAL_DA_BANCADA",
+        "username": "orion-lab",
+        "password_env": "ORION_LAB_ROUTER_PASSWORD",
+        "api_port": 8728,
+        "use_tls": false,
+        "verify_tls": true
+      },
+      "expect_device": {},
+      "expect_network": {},
+      "validate_connectivity": true,
+      "ping_targets": [],
+      "write_cycles": { "network": [], "wifi": [], "lora": [] }
+    }
+  ]
+}
+```
+
+Defina a senha somente na sessão do terminal:
 
 ```powershell
-Copy-Item .\docs\orion-physical-lab.example.json .\.vscode\orion-physical-lab.json
 $env:ORION_LAB_ROUTER_PASSWORD = "SENHA_SOMENTE_DA_BANCADA"
 ```
 
-Os endereços do exemplo são ilustrativos. Preencha os IPs, interfaces, bridges e redes realmente usados na bancada.
+Preencha somente IPs, interfaces, bridges e redes realmente usados na bancada.
 
 ## Rodada segura, somente leitura
 

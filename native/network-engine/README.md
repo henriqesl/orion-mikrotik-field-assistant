@@ -1,21 +1,39 @@
 # ORION Network Engine
 
-Componente nativo do ORION para transformar amostras reais de latência em métricas reproduzíveis. Ele não lê RSSI, ruído ou SNR: esses valores continuam vindo do RouterOS.
+Native C++ component used by ORION Field to calculate reproducible metrics from real latency samples.
 
-## Métricas
+It calculates:
 
-- perda e disponibilidade: relação entre pacotes enviados e respostas;
-- jitter: média da diferença absoluta entre respostas consecutivas;
-- p95 e p99: interpolação linear sobre as latências ordenadas;
-- pico: amostra acima de `média + max(5 ms, 3 × jitter)`;
-- estabilidade: nota calculada de 0 a 100, penalizada por perda (até 65 pontos), jitter (20), cauda p95 (10) e proporção de picos (5).
+- packet loss and availability;
+- average, minimum, and maximum latency;
+- jitter, p95, and p99;
+- latency spikes and range;
+- standard deviation and stability score.
 
-A nota é uma interpretação do ORION, não um dado fornecido pelo MikroTik. As demais métricas são valores calculados a partir das amostras recebidas.
+RSSI, noise, and SNR are not calculated by this engine. They are read directly from RouterOS when the device provides them.
 
-## Interface
+## CLI
 
 ```powershell
 orion-network-engine.exe analyze --sent 5 --samples "1,2,3,4,52"
 ```
 
-O resultado é emitido como um único objeto JSON em `stdout`. Entradas inválidas são explicadas em `stderr` e retornam código de saída `2`.
+The result is emitted as one JSON object on `stdout`. Invalid input is written to `stderr` and returns exit code `2`.
+
+## Build and test
+
+From the repository root:
+
+```powershell
+.\scripts\build-network-engine.ps1
+```
+
+Or directly with CMake:
+
+```powershell
+cmake -S native/network-engine -B native/network-engine/build -A x64
+cmake --build native/network-engine/build --config Release
+ctest --test-dir native/network-engine/build -C Release --output-on-failure
+```
+
+The engine is packaged as a Tauri sidecar. It does not contain RouterOS configuration or application UI logic.
