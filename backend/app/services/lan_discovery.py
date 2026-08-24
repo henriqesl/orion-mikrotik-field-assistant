@@ -93,7 +93,13 @@ def parse_mndp_packet(data: bytes, source_ip: str) -> dict[str, str | None] | No
     advertised_ip = values.get(TLV_IPV4)
     ip_address = source_ip if source_ip != "0.0.0.0" else None
     if advertised_ip and len(advertised_ip) == 4:
-        ip_address = str(IPv4Address(advertised_ip))
+        advertised_address = str(IPv4Address(advertised_ip))
+        # Some RouterOS devices announce 0.0.0.0 through MNDP even while the
+        # packet itself arrives from a usable address (for example through a
+        # Wi-Fi station interface). Never discard the address that actually
+        # reached ORION in that case.
+        if advertised_address != "0.0.0.0" or ip_address is None:
+            ip_address = advertised_address
 
     return {
         "mac_address": mac_address,

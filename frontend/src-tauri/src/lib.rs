@@ -1,9 +1,23 @@
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::{Manager, RunEvent};
 use tauri_plugin_shell::{process::CommandChild, ShellExt};
 
 struct BackendProcess(Mutex<Option<CommandChild>>);
+
+#[tauri::command]
+fn save_diagnostic_file(path: PathBuf, contents: Vec<u8>) -> Result<(), String> {
+    let is_zip = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"));
+    if !is_zip {
+        return Err("O diagnóstico deve ser salvo como arquivo .zip.".to_string());
+    }
+    std::fs::write(path, contents)
+        .map_err(|error| format!("Não foi possível salvar o diagnóstico: {error}"))
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![save_diagnostic_file])
         .manage(BackendProcess(Mutex::new(None)))
         .setup(|app| {
             let parent_pid = std::process::id().to_string();

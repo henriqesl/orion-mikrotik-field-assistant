@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.models.configuration import (
     BasicNetworkApplyRequest,
     BasicNetworkApplyResult,
+    BasicNetworkCurrentState,
     BasicNetworkPreview,
     BasicNetworkPreviewRequest,
     ConfigurationApplyRequest,
@@ -18,6 +19,8 @@ from app.models.mikrotik import (
     ConnectivityRequest,
     ConnectivityValidation,
     DeviceSummary,
+    InterfaceTraffic,
+    InterfaceTrafficRequest,
     MikroTikConnection,
     PingRequest,
     PingResult,
@@ -40,6 +43,7 @@ from app.services.routeros import (
     MikroTikTLSVerificationError,
     discover_device,
     ping_device,
+    read_interface_traffic,
     validate_connectivity,
 )
 from app.services.configuration import (
@@ -47,7 +51,11 @@ from app.services.configuration import (
     apply_link_configuration,
     preview_link_configuration,
 )
-from app.services.network_configuration import apply_basic_network, preview_basic_network
+from app.services.network_configuration import (
+    apply_basic_network,
+    preview_basic_network,
+    read_basic_network_state,
+)
 from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
 from app.services.lan_discovery import (
     InvalidWinBoxPathError,
@@ -207,6 +215,23 @@ def discover_mikrotik(connection: MikroTikConnection) -> DeviceSummary:
     """Connect to one MikroTik and return its basic identity."""
     try:
         return discover_device(connection)
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/network/current", response_model=BasicNetworkCurrentState)
+def current_basic_network(connection: MikroTikConnection) -> BasicNetworkCurrentState:
+    try:
+        return read_basic_network_state(connection)
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/traffic", response_model=InterfaceTraffic)
+def interface_traffic(request: InterfaceTrafficRequest) -> InterfaceTraffic:
+    """Read current traffic from one RouterOS interface without creating load."""
+    try:
+        return read_interface_traffic(request)
     except MikroTikError as error:
         raise _friendly_http_error(error) from error
 

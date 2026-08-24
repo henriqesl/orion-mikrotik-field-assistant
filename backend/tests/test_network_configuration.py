@@ -45,6 +45,12 @@ class NetworkClient:
                 {"name": "ether2"},
                 {"name": "ether3"},
             ],
+            "/interface/print": [
+                {"name": "ether1", "type": "ether"},
+                {"name": "ether2", "type": "ether"},
+                {"name": "ether3", "type": "ether"},
+                {"name": "wifi1", "type": "wifi"},
+            ],
             "/interface/bridge/print": [],
             "/interface/bridge/port/print": [],
             "/ip/address/print": [{"address": "10.0.0.2/24", "interface": "ether1"}],
@@ -111,6 +117,132 @@ def test_preview_basic_network_without_mutating_router(monkeypatch) -> None:
     assert any(change.field == "NAT" for change in result.changes)
     assert any(change.field == "Telnet" for change in result.changes)
     assert all(command[0].endswith("/print") for command in commands)
+
+
+def test_current_network_state_maps_router_values_into_editable_fields(monkeypatch) -> None:
+    class CurrentNetworkClient(NetworkClient):
+        def run(self, *words):
+            rows = {
+                "/interface/bridge/print": [
+                    {"name": "bridge", "disabled": "false"},
+                ],
+                "/interface/bridge/port/print": [
+                    {"bridge": "bridge", "interface": "ether2", "disabled": "false"},
+                    {"bridge": "bridge", "interface": "ether3", "disabled": "false"},
+                ],
+                "/ip/address/print": [
+                    {"address": "100.64.0.2/24", "interface": "ether1", "dynamic": "true"},
+                    {"address": "192.168.88.1/24", "interface": "bridge", "dynamic": "false"},
+                ],
+                "/ip/route/print": [
+                    {
+                        "dst-address": "0.0.0.0/0",
+                        "gateway": "100.64.0.1",
+                        "immediate-gw": "100.64.0.1%ether1",
+                        "dynamic": "true",
+                    },
+                ],
+                "/ip/dhcp-client/print": [
+                    {"interface": "ether1", "disabled": "false"},
+                ],
+                "/ip/dns/print": [{"servers": "1.1.1.1,8.8.8.8"}],
+                "/ip/firewall/nat/print": [
+                    {"action": "masquerade", "out-interface": "ether1", "disabled": "false"},
+                ],
+                "/ip/dhcp-server/print": [
+                    {"name": "dhcp-lan", "interface": "bridge", "address-pool": "pool-lan", "disabled": "false"},
+                ],
+                "/ip/pool/print": [
+                    {"name": "pool-lan", "ranges": "192.168.88.20-192.168.88.250"},
+                ],
+            }.get(words[0])
+            if rows is not None:
+                return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
+            return super().run(*words)
+
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(CurrentNetworkClient()),
+    )
+    state = service.read_basic_network_state(
+        MikroTikConnection(
+            host="192.168.88.1",
+            username="orion",
+            password="field-secret",
+        )
+    )
+
+    assert state.wan_interface == "ether1"
+    assert state.wan_mode == "dhcp"
+    assert state.configure_lan is True
+    assert state.lan_bridge == "bridge"
+    assert state.lan_address == "192.168.88.1/24"
+    assert state.lan_ports == ["ether2", "ether3"]
+    assert state.dns_servers == ["1.1.1.1", "8.8.8.8"]
+    assert state.enable_nat is True
+    assert state.enable_lan_dhcp is True
+    assert state.dhcp_pool_start == "192.168.88.20"
+    assert state.dhcp_pool_end == "192.168.88.250"
+    assert state.enable_winbox is True
+    assert state.enable_telnet is True
+
+
+def test_wifi_station_with_fixed_ip_is_detected_as_static_wan(monkeypatch) -> None:
+    class WifiWanClient(NetworkClient):
+        def run(self, *words):
+            rows = {
+                "/interface/print": [
+                    {"name": "ether1", "type": "ether"},
+                    {"name": "ether2", "type": "ether"},
+                    {"name": "wifi1", "type": "wifi", "running": "true"},
+                ],
+                "/ip/address/print": [
+                    {"address": "10.10.1.229/24", "interface": "wifi1", "dynamic": "false"},
+                ],
+                "/ip/route/print": [
+                    {
+                        "dst-address": "0.0.0.0/0",
+                        "gateway": "10.10.1.1",
+                        "immediate-gw": "10.10.1.1%wifi1",
+                    },
+                ],
+                "/ip/dhcp-client/print": [],
+            }.get(words[0])
+            if rows is not None:
+                return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
+            return super().run(*words)
+
+    client = WifiWanClient()
+    monkeypatch.setattr(
+        service,
+        "_with_connection",
+        lambda _connection, callback: callback(client),
+    )
+
+    state = service.read_basic_network_state(request(configuration()).connection)
+    assert state.wan_interface == "wifi1"
+    assert state.wan_mode == "static"
+    assert state.wan_address == "10.10.1.229/24"
+    assert state.gateway == "10.10.1.1"
+
+    selected = configuration(
+        wan_interface="wifi1",
+        wan_mode="static",
+        wan_address="10.10.1.229/24",
+        gateway="10.10.1.1",
+        configure_lan=False,
+        lan_bridge=None,
+        lan_address=None,
+        lan_ports=[],
+        enable_nat=False,
+        enable_lan_dhcp=False,
+    )
+    preview = service.preview_basic_network(request(selected))
+    assert not any(
+        change.area == "WAN" and change.field == "Endereçamento"
+        for change in preview.changes
+    )
 
 
 def test_static_wan_requires_address_and_gateway() -> None:

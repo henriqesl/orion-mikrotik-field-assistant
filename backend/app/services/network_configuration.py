@@ -6,6 +6,7 @@ from app.models.configuration import (
     BasicNetworkApplyRequest,
     BasicNetworkApplyResult,
     BasicNetworkConfiguration,
+    BasicNetworkCurrentState,
     BasicNetworkPreview,
     BasicNetworkPreviewRequest,
     ConfigurationChange,
@@ -19,33 +20,45 @@ from app.services.configuration import (
     _record_id,
 )
 from app.services.routeros import _first_row, _optional_bool, _rows, _with_connection
+from app.models.mikrotik import MikroTikConnection
 
 
 def _validate_interfaces(
+    interface_rows: list[dict],
     ethernet_rows: list[dict],
     configuration: BasicNetworkConfiguration,
 ) -> None:
-    available = {
+    available_interfaces = {
+        row.get("name") or row.get("default-name")
+        for row in interface_rows
+    }
+    available_ethernet = {
         row.get("name") or row.get("default-name")
         for row in ethernet_rows
     }
-    selected = {configuration.wan_interface, *configuration.lan_ports}
-    missing = sorted(item for item in selected if item not in available)
+    missing = []
+    if configuration.wan_interface not in available_interfaces:
+        missing.append(configuration.wan_interface)
+    missing.extend(
+        item for item in configuration.lan_ports if item not in available_ethernet
+    )
+    missing = sorted(set(missing))
     if missing:
         raise ConfigurationConflictError(
             f"As interfaces selecionadas não existem mais: {', '.join(missing)}."
         )
-    disabled = sorted(
-        (row.get("name") or row.get("default-name"))
-        for row in ethernet_rows
+    selected = {configuration.wan_interface, *configuration.lan_ports}
+    disabled = sorted({
+        str(row.get("name") or row.get("default-name"))
+        for row in [*interface_rows, *ethernet_rows]
         if (row.get("name") or row.get("default-name")) in selected
         and _optional_bool(row.get("disabled"))
-    )
+    })
     if disabled:
         raise ConfigurationConflictError(
             f"Ative as interfaces antes de continuar: {', '.join(disabled)}."
         )
-    if configuration.configure_lan and configuration.lan_bridge in available:
+    if configuration.configure_lan and configuration.lan_bridge in available_ethernet:
         raise ConfigurationConflictError(
             "O nome da bridge LAN não pode ser igual ao de uma interface física."
         )
@@ -68,6 +81,7 @@ def _change(
 def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNetworkPreview:
     configuration = request.configuration
     identity = _first_row(client.run("/system/identity/print"))
+    interface_rows = _rows(client.run("/interface/print"))
     ethernet_rows = _rows(client.run("/interface/ethernet/print"))
     bridge_rows = _rows(client.run("/interface/bridge/print"))
     bridge_ports = _rows(client.run("/interface/bridge/port/print"))
@@ -79,22 +93,32 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     dhcp_server_rows = _rows(client.run("/ip/dhcp-server/print"))
     pool_rows = _rows(client.run("/ip/pool/print"))
     service_rows = _rows(client.run("/ip/service/print"))
-    _validate_interfaces(ethernet_rows, configuration)
+    _validate_interfaces(interface_rows, ethernet_rows, configuration)
 
     bridge = (
         _find_row(bridge_rows, "name", configuration.lan_bridge)
         if configuration.configure_lan
         else None
     )
-    current_lan_ip = next(
+    current_lan_row = next(
         (
-            row.get("address")
+            row
+            for row in ip_rows
+            if row.get("interface") == configuration.lan_bridge
+            and row.get("comment") == "ORION Field - LAN"
+            and not _optional_bool(row.get("disabled"))
+        ),
+        None,
+    ) or next(
+        (
+            row
             for row in ip_rows
             if row.get("interface") == configuration.lan_bridge
             and not _optional_bool(row.get("disabled"))
         ),
         None,
     )
+    current_lan_ip = current_lan_row.get("address") if current_lan_row else None
     active_dhcp = next(
         (
             row
@@ -266,6 +290,8 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         for row in ip_rows
         if not _optional_bool(row.get("disabled"))
     )
+
+
     for item in bridge_rows:
         name = item.get("name")
         if not name:
@@ -334,6 +360,243 @@ def preview_basic_network(request: BasicNetworkPreviewRequest) -> BasicNetworkPr
     )
 
 
+def _active(row: dict) -> bool:
+    return not _optional_bool(row.get("disabled"))
+
+
+def _route_interface(
+    route: dict,
+    interface_names: set[str],
+    ip_rows: list[dict],
+) -> str | None:
+    immediate_gateway = route.get("immediate-gw") or route.get("immediate-gateway")
+    if immediate_gateway and "%" in immediate_gateway:
+        return immediate_gateway.rsplit("%", 1)[-1]
+    gateway = route.get("gateway")
+    if gateway in interface_names:
+        return gateway
+    try:
+        gateway_ip = IPv4Address(str(gateway).split("%", 1)[0])
+    except ValueError:
+        return None
+    matching_address = next(
+        (
+            row
+            for row in ip_rows
+            if row.get("interface") in interface_names
+            and row.get("address")
+            and _active(row)
+            and gateway_ip in IPv4Interface(str(row.get("address"))).network
+        ),
+        None,
+    )
+    return str(matching_address.get("interface")) if matching_address else None
+
+
+def _read_basic_network_state(client: Any) -> BasicNetworkCurrentState:
+    identity = _first_row(client.run("/system/identity/print"))
+    interface_rows = _rows(client.run("/interface/print"))
+    ethernet_rows = _rows(client.run("/interface/ethernet/print"))
+    bridge_rows = _rows(client.run("/interface/bridge/print"))
+    bridge_ports = _rows(client.run("/interface/bridge/port/print"))
+    ip_rows = _rows(client.run("/ip/address/print"))
+    route_rows = _rows(client.run("/ip/route/print"))
+    dhcp_rows = _rows(client.run("/ip/dhcp-client/print"))
+    dns = _first_row(client.run("/ip/dns/print"))
+    nat_rows = _rows(client.run("/ip/firewall/nat/print"))
+    dhcp_server_rows = _rows(client.run("/ip/dhcp-server/print"))
+    pool_rows = _rows(client.run("/ip/pool/print"))
+    service_rows = _rows(client.run("/ip/service/print"))
+
+    interface_names = {
+        str(row.get("name") or row.get("default-name"))
+        for row in interface_rows
+        if row.get("name") or row.get("default-name")
+    }
+    ethernet_names = {
+        str(row.get("name") or row.get("default-name"))
+        for row in ethernet_rows
+        if row.get("name") or row.get("default-name")
+    }
+    wifi_names = {
+        str(row.get("name") or row.get("default-name"))
+        for row in interface_rows
+        if row.get("name") or row.get("default-name")
+        if any(token in str(row.get("type") or "").lower() for token in ("wifi", "wlan", "wireless"))
+    }
+    active_default_route = next(
+        (
+            row
+            for row in route_rows
+            if row.get("dst-address") in (None, "", "0.0.0.0/0") and _active(row)
+        ),
+        None,
+    )
+    active_dhcp = next(
+        (row for row in dhcp_rows if row.get("interface") and _active(row)),
+        None,
+    )
+    routed_interface = (
+        _route_interface(active_default_route, interface_names, ip_rows)
+        if active_default_route
+        else None
+    )
+    static_wifi_interface = next(
+        (
+            str(row.get("interface"))
+            for row in ip_rows
+            if row.get("interface") in wifi_names
+            and row.get("address")
+            and _active(row)
+            and not _optional_bool(row.get("dynamic"))
+        ),
+        None,
+    )
+    wan_interface = str(
+        (active_dhcp or {}).get("interface")
+        or routed_interface
+        or static_wifi_interface
+        or next(
+            (
+                row.get("name") or row.get("default-name")
+                for row in ethernet_rows
+                if row.get("name") or row.get("default-name")
+            ),
+            "ether1",
+        )
+    )
+    static_wan_address = next(
+        (
+            str(row.get("address"))
+            for row in ip_rows
+            if row.get("interface") == wan_interface
+            and row.get("address")
+            and _active(row)
+            and not _optional_bool(row.get("dynamic"))
+        ),
+        None,
+    )
+    gateway = (
+        str(active_default_route.get("gateway"))
+        if active_default_route and active_default_route.get("gateway")
+        else None
+    )
+    static_wan_complete = bool(
+        static_wan_address and gateway and gateway not in interface_names
+    )
+    active_bridge_names = [
+        str(row.get("name"))
+        for row in bridge_rows
+        if row.get("name") and _active(row)
+    ]
+
+    def bridge_score(name: str) -> tuple[int, int, int]:
+        has_address = any(
+            row.get("interface") == name and row.get("address") and _active(row)
+            for row in ip_rows
+        )
+        physical_ports = sum(
+            1
+            for row in bridge_ports
+            if row.get("bridge") == name
+            and row.get("interface") in ethernet_names
+            and row.get("interface") != wan_interface
+            and _active(row)
+        )
+        return (int(has_address), int(name in {"bridge-lan", "bridge"}), physical_ports)
+
+    lan_bridge = max(active_bridge_names, key=bridge_score) if active_bridge_names else None
+    lan_ports = sorted(
+        str(row.get("interface"))
+        for row in bridge_ports
+        if lan_bridge
+        and row.get("bridge") == lan_bridge
+        and row.get("interface") in ethernet_names
+        and row.get("interface") != wan_interface
+        and _active(row)
+    )
+    lan_address_row = next(
+        (
+            row
+            for row in ip_rows
+            if lan_bridge
+            and row.get("interface") == lan_bridge
+            and row.get("address")
+            and row.get("comment") == "ORION Field - LAN"
+            and _active(row)
+        ),
+        None,
+    ) or next(
+        (
+            row
+            for row in ip_rows
+            if lan_bridge
+            and row.get("interface") == lan_bridge
+            and row.get("address")
+            and _active(row)
+        ),
+        None,
+    )
+    lan_address = (
+        str(lan_address_row.get("address"))
+        if lan_address_row
+        else None
+    )
+    configure_lan = bool(lan_bridge and lan_address and lan_ports)
+    lan_dhcp = next(
+        (
+            row
+            for row in dhcp_server_rows
+            if lan_bridge and row.get("interface") == lan_bridge and _active(row)
+        ),
+        None,
+    )
+    pool_name = lan_dhcp.get("address-pool") if lan_dhcp else None
+    pool = _find_row(pool_rows, "name", pool_name) if pool_name else None
+    pool_range = str(pool.get("ranges")) if pool and pool.get("ranges") else ""
+    pool_start, separator, pool_end = pool_range.split(",", 1)[0].partition("-")
+    service_states = {
+        row.get("name"): _active(row)
+        for row in service_rows
+        if row.get("name")
+    }
+    static_dns = [
+        server.strip()
+        for server in str(dns.get("servers") or "").split(",")
+        if server.strip()
+    ]
+
+    return BasicNetworkCurrentState(
+        identity=str(identity.get("name") or "MikroTik"),
+        wan_interface=wan_interface,
+        wan_mode="dhcp" if active_dhcp or not static_wan_complete else "static",
+        wan_address=static_wan_address if static_wan_complete else None,
+        gateway=gateway if static_wan_complete else None,
+        configure_lan=configure_lan,
+        lan_bridge=lan_bridge if configure_lan else None,
+        lan_address=lan_address if configure_lan else None,
+        lan_ports=lan_ports if configure_lan else [],
+        dns_servers=static_dns[:3],
+        enable_nat=any(
+            row.get("action") == "masquerade" and _active(row)
+            for row in nat_rows
+        ),
+        enable_lan_dhcp=bool(lan_dhcp),
+        dhcp_pool_start=pool_start if separator else None,
+        dhcp_pool_end=pool_end if separator else None,
+        enable_ssh=service_states.get("ssh", False),
+        enable_winbox=service_states.get("winbox", False),
+        enable_webfig_https=service_states.get("www-ssl", False),
+        enable_telnet=service_states.get("telnet", False),
+        enable_ftp=service_states.get("ftp", False),
+        enable_webfig_http=service_states.get("www", False),
+    )
+
+
+def read_basic_network_state(connection: MikroTikConnection) -> BasicNetworkCurrentState:
+    return _with_connection(connection, _read_basic_network_state)
+
+
 def _ensure_ip(
     client: Any,
     rows: list[dict],
@@ -344,6 +607,16 @@ def _ensure_ip(
 ) -> None:
     managed = _find_row(rows, "comment", comment)
     matching = _find_row(rows, "address", address)
+    if matching and managed is None:
+        if (
+            matching.get("interface") == interface
+            and not _optional_bool(matching.get("disabled"))
+        ):
+            return
+        raise ConfigurationConflictError(
+            f"O endereço {address} já existe em {matching.get('interface') or 'outra interface'}. "
+            "O ORION não o moverá automaticamente."
+        )
     row = managed or matching
     if row:
         client.run(

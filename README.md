@@ -4,19 +4,21 @@ O ORION simplifica a configuração, o monitoramento e o diagnóstico de enlaces
 
 > Configure. Monitore. Valide.
 
-## ORION Field V7.1
+## ORION Field V7.2
 
 A V7 consolida o fluxo profissional de campo sem adicionar cadastro, nuvem ou integração prematura com o ARGOS:
 
-- perfis locais e editáveis para enlace estável, enlace de maior capacidade e Wi-Fi local;
+- cenários editáveis para enlace estável e enlace de maior capacidade;
 - sessão guiada AP + Station, mantendo SSID, senha e canal apenas na memória até concluir o par;
 - catálogo de compatibilidade por família, com modo genérico seguro para modelos desconhecidos;
 - preparação da API limitada à rede informada pelo técnico;
-- pacote de suporte sanitizado, sem senha, token, MAC ou endereço IP;
+- diagnóstico exportável no local escolhido pelo técnico, sem senha, token, MAC ou endereço IP;
 - testes de 10, 30 ou 60 amostras, comparação antes/depois na sessão e novas medidas nativas de variação, amplitude e cauda p99;
 - atualização pelo GitHub Releases com validação criptográfica independente da assinatura do Windows.
 - preparação temporária por MAC, sem copiar comandos: o ORION atribui o IP, habilita a API e encerra a sessão MAC;
-- leitura da configuração atual antes de aplicar mudanças em Wi-Fi/rádio, rede básica e LoRa, incluindo scripts e agendamentos existentes.
+- leitura da configuração atual antes de aplicar mudanças em Wi-Fi/rádio, rede básica e LoRa, incluindo scripts e agendamentos existentes;
+- tráfego RX/TX atual por interface, com média e pico, sem gerar carga de teste;
+- diagnóstico estrutural neutro em roteadores genéricos e validação por perfil nos rádios reconhecidos.
 
 Os dados da sessão continuam locais e temporários. A integração com o ARGOS fica deliberadamente fora da V7 até que o ARGOS esteja concluído.
 
@@ -198,7 +200,7 @@ O mesmo comando gera o arquivo `latest.json` e a assinatura `.sig` do atualizado
 
 ### Demonstração sem MikroTik
 
-Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar pelo ORION com um equipamento simulado. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.
+Informe `teste`, `demo` ou `192.0.2.1` no campo de endereço para navegar por um rádio simulado. Use `demo-router` para um router já configurado ou `demo-novo` para um router sem rede pronta. O modo fica identificado em toda a interface, funciona localmente mesmo sem o backend e nunca aplica configurações.
 
 ## Fluxo de configuração
 
@@ -225,6 +227,8 @@ cd frontend
 npm run build
 npm audit --audit-level=high
 ```
+
+Os cenários stateful e o executor para MikroTiks reais de laboratório estão documentados em [Validação de bancada da V7.2](docs/TESTE-DE-BANCADA-V7.2.md). A bancada física funciona somente em leitura por padrão e exige confirmação explícita para gravar.
 
 ## Modo offline
 

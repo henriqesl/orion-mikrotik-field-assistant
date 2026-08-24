@@ -31,11 +31,18 @@ const MONITOR_INTERVAL_MS = 15_000;
 const ALIGNMENT_INTERVAL_MS = 3_000;
 const WORKSPACE_TABS = [
   { id: "routeros", label: "Dados reais do RouterOS" },
-  { id: "network", label: "Rede básica" },
+  { id: "network", label: "Rede básica", capability: "router" },
   { id: "configuration", label: "Configuração do rádio", capability: "wifi" },
   { id: "lora", label: "LoRa", capability: "lora" },
   { id: "tests", label: "Testes" },
 ];
+
+function resetWorkspaceScroll() {
+  window.requestAnimationFrame(() => {
+    document.querySelector(".app-viewport")?.scrollTo({ top: 0, left: 0 });
+    window.scrollTo({ top: 0, left: 0 });
+  });
+}
 
 function App() {
   const [apiState, setApiState] = useState("checking");
@@ -158,12 +165,17 @@ function App() {
   useEffect(() => {
     const activeCapabilityUnavailable =
       (activeTab === "configuration" && !wifiAvailable) ||
-      (activeTab === "lora" && !loraAvailable);
+      (activeTab === "lora" && !loraAvailable) ||
+      (activeTab === "network" && radioDevice);
 
     if (device && activeCapabilityUnavailable) {
       setActiveTab("routeros");
     }
-  }, [activeTab, device, loraAvailable, wifiAvailable]);
+  }, [activeTab, device, loraAvailable, radioDevice, wifiAvailable]);
+
+  useEffect(() => {
+    resetWorkspaceScroll();
+  }, [activeTab, device?.identity]);
 
   async function handleConnect(connection) {
     setIsLoading(true);
@@ -250,7 +262,8 @@ function App() {
   function handleTabChange(tabId) {
     if (
       (tabId === "configuration" && !wifiAvailable) ||
-      (tabId === "lora" && !loraAvailable)
+      (tabId === "lora" && !loraAvailable) ||
+      (tabId === "network" && radioDevice)
     ) {
       return;
     }
@@ -318,9 +331,16 @@ function App() {
           </div>
         </section>
 
-        <div className={currentState.className} role="status">
-          <span className="status-dot" aria-hidden="true" />
-          {currentState.label}
+        <div className="app-header-actions">
+          <div className={currentState.className} role="status">
+            <span className="status-dot" aria-hidden="true" />
+            {currentState.label}
+          </div>
+          {device && (
+            <button className="global-disconnect-button" onClick={handleDisconnect} type="button">
+              Desconectar
+            </button>
+          )}
         </div>
       </header>
 
@@ -354,7 +374,8 @@ function App() {
             {WORKSPACE_TABS.map((tab) => {
               const unavailable =
                 (tab.capability === "wifi" && !wifiAvailable) ||
-                (tab.capability === "lora" && !loraAvailable);
+                (tab.capability === "lora" && !loraAvailable) ||
+                (tab.capability === "router" && radioDevice);
 
               return (
                 <button
@@ -370,7 +391,11 @@ function App() {
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   role="tab"
-                  title={unavailable ? "Recurso não detectado neste equipamento" : undefined}
+                  title={unavailable
+                    ? tab.id === "network"
+                      ? "Rede básica indisponível para equipamentos classificados como rádio"
+                      : "Recurso não detectado neste equipamento"
+                    : undefined}
                   type="button"
                 >
                   <span>
@@ -394,12 +419,13 @@ function App() {
             role="tabpanel"
           >
             <DeviceSummary
+              connection={activeConnection}
               device={device}
+              isActive={activeTab === "routeros"}
               isMonitoring={isMonitoring}
               isRefreshing={isRefreshing}
               lastUpdatedAt={lastUpdatedAt}
               monitoringError={monitoringError}
-              onDisconnect={handleDisconnect}
               onRefresh={refreshDevice}
               onToggleMonitoring={handleToggleMonitoring}
             />
@@ -454,7 +480,7 @@ function App() {
           </section>
         )}
 
-        {device && activeConnection && (
+        {device && activeConnection && !radioDevice && (
           <section
             aria-labelledby="tab-network"
             className="tab-panel"

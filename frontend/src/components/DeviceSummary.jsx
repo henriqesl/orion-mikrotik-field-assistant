@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 
-import { downloadSupportBundle } from "../services/api.js";
+import { createSupportBundle, downloadBlob } from "../services/api.js";
+import { isDesktopRuntime } from "../services/runtime.js";
 import AssessmentBadge from "./AssessmentBadge.jsx";
+import TrafficMonitor from "./TrafficMonitor.jsx";
 
 const DEVICE_FIELDS = [
   ["Identidade", "identity"],
@@ -21,6 +25,13 @@ const DIAGNOSTIC_LABELS = {
   passed: "Tudo certo",
   warning: "Atenção",
   failed: "Verificar",
+  unavailable: "Não avaliado",
+};
+
+const GENERIC_DIAGNOSTIC_LABELS = {
+  passed: "Detectado",
+  warning: "Não detectado",
+  failed: "Não detectado",
   unavailable: "Não avaliado",
 };
 
@@ -66,6 +77,15 @@ function formatChannelValue(value) {
   return value ? value.replaceAll("mhz", " MHz") : "Não informada";
 }
 
+function formatBitRate(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value || "Não informada";
+  if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(2)} Gbps`;
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)} Mbps`;
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)} Kbps`;
+  return `${amount} bps`;
+}
+
 function peerName(peer) {
   return peer.radio_name || peer.ssid || peer.mac_address || "Peer sem identificação";
 }
@@ -83,26 +103,49 @@ function formatUpdateTime(value) {
 }
 
 function DeviceSummary({
+  connection,
   device,
+  isActive,
   isMonitoring,
   isRefreshing,
   lastUpdatedAt,
   monitoringError,
-  onDisconnect,
   onRefresh,
   onToggleMonitoring,
 }) {
   const wifiAvailable = device.wifi_interfaces.length > 0;
   const radioDevice = Boolean(device.radio_device);
   const [supportStatus, setSupportStatus] = useState("");
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false);
+  const [diagnosticBusy, setDiagnosticBusy] = useState(false);
 
   async function handleSupportBundle() {
-    setSupportStatus("Gerando pacote…");
+    setDiagnosticBusy(true);
+    setSupportStatus("");
     try {
-      const filename = await downloadSupportBundle(device, monitoringError);
-      setSupportStatus(`${filename} gerado com sucesso.`);
+      const { blob, filename } = await createSupportBundle(device, monitoringError);
+      if (!isDesktopRuntime()) {
+        downloadBlob(blob, filename);
+        setSupportStatus(`${filename} exportado com sucesso.`);
+        setDiagnosticOpen(false);
+        return;
+      }
+
+      const path = await saveDialog({
+        defaultPath: filename,
+        title: "Salvar diagnóstico do ORION",
+        filters: [{ name: "Diagnóstico ORION", extensions: ["zip"] }],
+      });
+      if (!path) return;
+
+      const contents = Array.from(new Uint8Array(await blob.arrayBuffer()));
+      await invoke("save_diagnostic_file", { path, contents });
+      setSupportStatus(`Diagnóstico salvo em ${path}`);
+      setDiagnosticOpen(false);
     } catch (error) {
       setSupportStatus(error.message);
+    } finally {
+      setDiagnosticBusy(false);
     }
   }
 
@@ -142,16 +185,43 @@ function DeviceSummary({
           <button onClick={onToggleMonitoring} type="button">
             {isMonitoring ? "Pausar" : "Retomar"}
           </button>
-          <button className="disconnect-button" onClick={onDisconnect} type="button">
-            Desconectar
-          </button>
-          <button onClick={handleSupportBundle} type="button">
-            Gerar suporte
+          <button onClick={() => setDiagnosticOpen(true)} type="button">
+            Exportar diagnóstico
           </button>
         </div>
       </div>
 
       {supportStatus && <p className="support-status" role="status">{supportStatus}</p>}
+
+      {diagnosticOpen && (
+        <div className="diagnostic-modal-backdrop" onMouseDown={() => !diagnosticBusy && setDiagnosticOpen(false)}>
+          <section
+            aria-labelledby="diagnostic-modal-title"
+            aria-modal="true"
+            className="diagnostic-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="diagnostic-modal__mark" aria-hidden="true">OR</div>
+            <div>
+              <p className="card-kicker">Diagnóstico técnico</p>
+              <h3 id="diagnostic-modal-title">Exportar dados para análise</h3>
+              <p>
+                O ORION criará um arquivo protegido contra exposição de senha,
+                endereços IP e MAC. Escolha onde deseja salvá-lo.
+              </p>
+            </div>
+            <div className="diagnostic-modal__actions">
+              <button disabled={diagnosticBusy} onClick={() => setDiagnosticOpen(false)} type="button">
+                Cancelar
+              </button>
+              <button className="primary-button" disabled={diagnosticBusy} onClick={handleSupportBundle} type="button">
+                {diagnosticBusy ? "Preparando…" : "Escolher local e salvar"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {monitoringError && (
         <div className="monitoring-warning" role="alert">
@@ -185,6 +255,8 @@ function DeviceSummary({
           </ul>
         </section>
       )}
+
+      <TrafficMonitor connection={connection} device={device} enabled={isActive} />
 
       <div className={`wifi-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
@@ -304,12 +376,16 @@ function DeviceSummary({
                   </div>
                 </div>
                 <div>
-                  <dt>Taxa TX</dt>
-                  <dd>{peer.tx_rate || "Não informada"}</dd>
+                  <dt>Taxa negociada TX</dt>
+                  <dd title="Velocidade negociada do enlace; não representa o tráfego atual.">
+                    {formatBitRate(peer.tx_rate)}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Taxa RX</dt>
-                  <dd>{peer.rx_rate || "Não informada"}</dd>
+                  <dt>Taxa negociada RX</dt>
+                  <dd title="Velocidade negociada do enlace; não representa o tráfego atual.">
+                    {formatBitRate(peer.rx_rate)}
+                  </dd>
                 </div>
                 <div>
                   <dt>Tempo conectado</dt>
@@ -333,11 +409,11 @@ function DeviceSummary({
       <div className={`wifi-heading diagnostic-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
           <p className="card-kicker">Diagnóstico estrutural</p>
-          <h3>{radioDevice ? "Caminho do enlace" : "Estrutura Wi-Fi"}</h3>
+          <h3>{radioDevice ? "Caminho do enlace" : "Estrutura detectada"}</h3>
         </div>
         {wifiAvailable && (
           <span className="diagnostic-count">
-            {device.structural_diagnostic.checks.length} verificações
+            {device.structural_diagnostic.checks.length} {radioDevice ? "verificações" : "observações"}
           </span>
         )}
       </div>
@@ -346,15 +422,15 @@ function DeviceSummary({
         <div className="diagnostic-list">
           {device.structural_diagnostic.checks.map((check) => (
             <article
-              className={`diagnostic-item diagnostic-item--${check.status}`}
+              className={`diagnostic-item diagnostic-item--${radioDevice ? check.status : "informational"}`}
               key={check.key}
             >
               <div className="diagnostic-item__header">
                 <strong>{check.label}</strong>
-                <span>{DIAGNOSTIC_LABELS[check.status]}</span>
+                <span>{(radioDevice ? DIAGNOSTIC_LABELS : GENERIC_DIAGNOSTIC_LABELS)[check.status]}</span>
               </div>
               <p>{check.summary}</p>
-              {check.possible_causes.length > 0 && (
+              {radioDevice && check.possible_causes.length > 0 && (
                 <small>{check.possible_causes.join(" ")}</small>
               )}
             </article>

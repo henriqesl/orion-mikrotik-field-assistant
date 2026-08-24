@@ -23,9 +23,11 @@ def connection() -> MikroTikConnection:
 def settings(**updates) -> LinkConfiguration:
     values = {
         "role": "station",
+        "device_kind": "radio",
+        "manage_topology": True,
         "identity": "ORION-Station",
         "wifi_interface": "wifi1",
-        "ethernet_interface": "ether1",
+        "bridge_interfaces": ["ether1"],
         "bridge_name": "bridge1",
         "ssid": "ORION-New-Link",
         "passphrase": "safe-field-password",
@@ -71,6 +73,11 @@ class ConfigurationClient:
             ],
             "/interface/ethernet/print": [
                 {".id": "*2", "name": "ether1", "disabled": "false"}
+            ],
+            "/interface/print": [
+                {".id": "*1", "name": "wifi1", "disabled": "false"},
+                {".id": "*2", "name": "ether1", "disabled": "false"},
+                {".id": "*3", "name": "bridge1", "disabled": "false"},
             ],
             "/interface/bridge/print": [
                 {".id": "*3", "name": "bridge1", "disabled": "false"}
@@ -176,7 +183,7 @@ def test_configuration_rejects_gateway_outside_management_network() -> None:
         settings(gateway="10.0.0.1")
 
 
-def test_existing_management_ip_is_moved_to_bridge_without_duplicate(monkeypatch) -> None:
+def test_existing_management_ip_is_preserved_without_duplicate(monkeypatch) -> None:
     fake = ConfigurationClient()
     monkeypatch.setattr(service, "_with_connection", lambda _c, operation: operation(fake))
     request = ConfigurationApplyRequest(
@@ -188,10 +195,7 @@ def test_existing_management_ip_is_moved_to_bridge_without_duplicate(monkeypatch
     service.apply_link_configuration(request)
 
     assert not any(command[0] == "/ip/address/add" for command in fake.commands)
-    address_set = next(
-        command for command in fake.commands if command[0] == "/ip/address/set"
-    )
-    assert "=interface=bridge1" in address_set
+    assert not any(command[0] == "/ip/address/set" for command in fake.commands)
 
 
 def test_apply_supports_legacy_wireless_stack(monkeypatch) -> None:
@@ -215,3 +219,57 @@ def test_apply_supports_legacy_wireless_stack(monkeypatch) -> None:
     )
     assert "=mode=station-bridge" in wireless_set
     assert "=channel-width=20/40mhz-XX" in wireless_set
+
+
+def test_generic_station_preserves_topology_and_uses_station_mode(monkeypatch) -> None:
+    fake = ConfigurationClient()
+    monkeypatch.setattr(service, "_with_connection", lambda _c, operation: operation(fake))
+    request = ConfigurationApplyRequest(
+        connection=connection(),
+        configuration=settings(
+            device_kind="generic",
+            manage_topology=False,
+            bridge_interfaces=[],
+        ),
+        confirmation="APLICAR",
+    )
+
+    result = service.apply_link_configuration(request)
+
+    wifi_set = next(command for command in fake.commands if command[0] == "/interface/wifi/set")
+    assert "=configuration.mode=station" in wifi_set
+    assert not any(command[0].startswith("/interface/bridge/") and command[0].endswith(("/set", "/add")) for command in fake.commands)
+    assert not any(command[0].startswith("/ip/address/") and command[0].endswith(("/set", "/add")) for command in fake.commands)
+    assert not any(command[0].startswith("/ip/route/") and command[0].endswith(("/set", "/add")) for command in fake.commands)
+    assert "sem alterar a topologia" in result.summary
+    assert str(result.reconnect_ip) == "192.168.88.1"
+
+
+def test_radio_can_add_multiple_ethernet_interfaces_to_bridge(monkeypatch) -> None:
+    class MultiPortClient(ConfigurationClient):
+        def run(self, *words):
+            if words[0] == "/interface/print":
+                rows = [
+                    {".id": "*1", "name": "wifi1", "disabled": "false"},
+                    {".id": "*2", "name": "ether1", "disabled": "false"},
+                    {".id": "*8", "name": "ether2", "disabled": "false"},
+                    {".id": "*3", "name": "bridge1", "disabled": "false"},
+                ]
+                return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
+            return super().run(*words)
+
+    fake = MultiPortClient()
+    monkeypatch.setattr(service, "_with_connection", lambda _c, operation: operation(fake))
+    request = ConfigurationApplyRequest(
+        connection=connection(),
+        configuration=settings(bridge_interfaces=["ether1", "ether2"]),
+        confirmation="APLICAR",
+    )
+
+    service.apply_link_configuration(request)
+
+    added_or_set = [
+        command for command in fake.commands
+        if command[0] in {"/interface/bridge/port/set", "/interface/bridge/port/add"}
+    ]
+    assert any("=interface=ether2" in command for command in added_or_set)
