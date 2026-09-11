@@ -91,6 +91,8 @@ class BasicNetworkConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     identity: str = Field(min_length=1, max_length=64)
+    configure_wan: bool = True
+    configure_dns: bool = True
     wan_interface: str = Field(min_length=1, max_length=64)
     wan_mode: Literal["dhcp", "static"] = "dhcp"
     wan_address: IPv4Interface | None = None
@@ -150,6 +152,8 @@ class BasicNetworkConfiguration(BaseModel):
             if self.dhcp_pool_start > self.dhcp_pool_end:
                 raise ValueError("O início do pool DHCP deve ser menor que o fim.")
 
+        if not self.configure_wan:
+            return self
         if self.wan_mode == "dhcp":
             if self.wan_address is not None or self.gateway is not None:
                 raise ValueError("WAN por DHCP não utiliza IP ou gateway fixos.")
@@ -172,6 +176,7 @@ class BasicNetworkConfiguration(BaseModel):
 
 class BasicNetworkCurrentState(BaseModel):
     identity: str
+    wan_configured: bool = False
     wan_interface: str
     wan_mode: Literal["dhcp", "static"]
     wan_address: str | None = None

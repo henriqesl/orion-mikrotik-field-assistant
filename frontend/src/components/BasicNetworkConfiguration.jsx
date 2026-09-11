@@ -7,6 +7,7 @@ import {
   validateConnectivity,
 } from "../services/api.js";
 import CurrentConfiguration from "./CurrentConfiguration.jsx";
+import { networkFormFromCurrent, networkPayload } from "../services/networkForm.js";
 
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
@@ -15,6 +16,8 @@ function initialForm(device) {
 
   return {
     identity: device.identity,
+    configure_wan: false,
+    configure_dns: false,
     wan_interface: wan,
     wan_mode: "dhcp",
     wan_address: "",
@@ -49,25 +52,6 @@ function wanInterfaces(device) {
   );
 }
 
-function formFromCurrent(current, fallback) {
-  const hasExistingLan = current.configure_lan;
-  return {
-    ...fallback,
-    ...current,
-    // Existing LANs are loaded into the fields but protected from writes until
-    // the technician explicitly chooses to alter them. A router without a
-    // usable LAN starts with the guided LAN proposal enabled.
-    configure_lan: !hasExistingLan,
-    existing_lan_configured: hasExistingLan,
-    lan_bridge: current.lan_bridge || fallback.lan_bridge,
-    lan_address: current.lan_address || fallback.lan_address,
-    lan_ports: hasExistingLan ? current.lan_ports : fallback.lan_ports,
-    dns_servers: current.dns_servers.join(", "),
-    dhcp_pool_start: current.dhcp_pool_start || "",
-    dhcp_pool_end: current.dhcp_pool_end || "",
-  };
-}
-
 function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart }) {
   const defaults = useMemo(() => initialForm(device), [device.identity]);
   const [form, setForm] = useState(defaults);
@@ -90,7 +74,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
     getBasicNetworkCurrent(connection)
       .then((current) => {
         if (cancelled) return;
-        setForm(formFromCurrent(current, defaults));
+        setForm(networkFormFromCurrent(current, defaults));
         setCurrentLoad("loaded");
       })
       .catch(() => {
@@ -137,22 +121,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
   }
 
   function payload() {
-    return {
-      ...form,
-      wan_address: form.wan_mode === "static" ? form.wan_address : null,
-      gateway: form.wan_mode === "static" ? form.gateway : null,
-      lan_bridge: form.configure_lan ? form.lan_bridge : null,
-      lan_address: form.configure_lan ? form.lan_address : null,
-      lan_ports: form.configure_lan ? form.lan_ports : [],
-      enable_nat: form.configure_lan && form.enable_nat,
-      enable_lan_dhcp: form.configure_lan && form.enable_lan_dhcp,
-      dns_servers: form.dns_servers
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-      dhcp_pool_start: form.configure_lan ? form.dhcp_pool_start || null : null,
-      dhcp_pool_end: form.configure_lan ? form.dhcp_pool_end || null : null,
-    };
+    return networkPayload(form);
   }
 
   async function handlePreview(event) {
@@ -235,7 +204,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
                 ? form.existing_lan_configured
                   ? "Os valores atuais foram carregados; a LAN só muda se você autorizar"
                   : "Nenhuma LAN completa foi detectada; o ORION preparou uma sugestão"
-                : "Não foi possível ler tudo; confira os valores sugeridos"}
+                : "Leitura incompleta. Reconecte ao equipamento para tentar novamente; nenhuma alteração está liberada."}
           </strong>
         </div>
         <b>{currentLoad === "loaded" && form.existing_lan_configured ? "LAN protegida" : "Revisar"}</b>
@@ -246,6 +215,14 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         className={`configuration-form${currentLoad === "loading" ? " configuration-form--loading" : ""}`}
         onSubmit={handlePreview}
       >
+        <fieldset className="form-scope" disabled={currentLoad !== "loaded" || isPreviewing || isApplying}>
+        <legend className="sr-only">Configuração básica</legend>
+        <label className="setting-toggle setting-toggle--wide">
+          <span><strong>{form.configure_wan ? "Alterar entrada de internet (WAN)" : "Manter entrada de internet (WAN)"}</strong><small>Ative somente para mudar a conexão com a rede de origem</small></span>
+          <input checked={form.configure_wan} name="configure_wan" onChange={updateField} type="checkbox" />
+          <span aria-hidden="true" className="toggle-control"><i /></span>
+        </label>
+        {form.configure_wan && <>
         <fieldset disabled={isPreviewing || isApplying}>
           <legend>Escolha como a internet chegará ao MikroTik</legend>
           <div className="role-selector">
@@ -263,6 +240,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
             </label>
           </div>
         </fieldset>
+        </>}
 
         <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
           <legend>Rede LAN</legend>
@@ -285,13 +263,14 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
           </label>
           <label className="field">
             <span>Interface WAN</span>
-            <select name="wan_interface" onChange={updateField} required value={form.wan_interface}>
+            <select disabled={!form.configure_wan && !form.enable_nat} name="wan_interface" onChange={updateField} required={form.configure_wan} value={form.wan_interface}>
+              {!availableWanInterfaces.some((item) => item.name === form.wan_interface) && <option value={form.wan_interface}>{form.wan_interface || "Preservar conexão atual"}</option>}
               {availableWanInterfaces.map((item) => (
                 <option key={item.name} value={item.name}>{item.name} · {item.kind}</option>
               ))}
             </select>
           </label>
-          {form.wan_mode === "static" && (
+          {form.configure_wan && form.wan_mode === "static" && (
             <>
               <label className="field">
                 <span>IP da WAN</span>
@@ -315,9 +294,14 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
               </label>
             </>
           )}
+          <label className="setting-toggle setting-toggle--wide">
+            <span><strong>Alterar servidores DNS</strong><small>Desativado preserva o DNS atual</small></span>
+            <input checked={form.configure_dns} name="configure_dns" onChange={updateField} type="checkbox" />
+            <span aria-hidden="true" className="toggle-control"><i /></span>
+          </label>
           <label className="field field--wide">
             <span>Servidores DNS</span>
-            <input name="dns_servers" onChange={updateField} placeholder="Sem DNS fixo" value={form.dns_servers} />
+            <input disabled={!form.configure_dns} name="dns_servers" onChange={updateField} placeholder="Automático / não configurado" value={form.dns_servers} />
           </label>
         </div>
 
@@ -408,6 +392,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         <button className="primary-button" disabled={isPreviewing || isApplying || (form.configure_lan && form.lan_ports.length === 0)} type="submit">
           {isPreviewing ? "Analisando…" : "Revisar configuração"}
         </button>
+        </fieldset>
       </form>
 
       {errorMessage && <div className="inline-error" role="alert">{errorMessage}</div>}

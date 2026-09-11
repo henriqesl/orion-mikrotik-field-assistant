@@ -3467,3 +3467,7 @@ h2 {
     border-top: 1px solid #1e293b;
   }
 }
+/* Layout-only fieldsets keep native disabled semantics without extra chrome. */
+.configuration-form > .form-scope {
+  display: contents;
+}

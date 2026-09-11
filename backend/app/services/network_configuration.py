@@ -37,7 +37,7 @@ def _validate_interfaces(
         for row in ethernet_rows
     }
     missing = []
-    if configuration.wan_interface not in available_interfaces:
+    if (configuration.configure_wan or configuration.enable_nat) and configuration.wan_interface not in available_interfaces:
         missing.append(configuration.wan_interface)
     missing.extend(
         item for item in configuration.lan_ports if item not in available_ethernet
@@ -47,7 +47,9 @@ def _validate_interfaces(
         raise ConfigurationConflictError(
             f"As interfaces selecionadas não existem mais: {', '.join(missing)}."
         )
-    selected = {configuration.wan_interface, *configuration.lan_ports}
+    selected = set(configuration.lan_ports)
+    if configuration.configure_wan or configuration.enable_nat:
+        selected.add(configuration.wan_interface)
     disabled = sorted({
         str(row.get("name") or row.get("default-name"))
         for row in [*interface_rows, *ethernet_rows]
@@ -78,6 +80,26 @@ def _change(
     )
 
 
+def _validate_existing_lan(configuration, bridges, ports, addresses, servers, pools):
+    """Keep advanced/shared LAN arrangements out of the basic field workflow."""
+    if not configuration.configure_lan:
+        return
+    bridge = _find_row(bridges, "name", configuration.lan_bridge)
+    if bridge and _optional_bool(bridge.get("vlan-filtering")):
+        raise ConfigurationConflictError("Esta bridge usa VLANs. Mantenha a LAN atual e peça ao responsável pela rede para alterá-la no WinBox.")
+    selected = [row for row in servers if row.get("interface") == configuration.lan_bridge]
+    if len(selected) > 1:
+        raise ConfigurationConflictError("Há mais de um servidor DHCP nesta LAN. Mantenha a LAN atual e revise-a no WinBox.")
+    if selected and configuration.enable_lan_dhcp:
+        pool_name = selected[0].get("address-pool")
+        pool = _find_row(pools, "name", pool_name)
+        if not pool or pool.get("next-pool") not in (None, "", "none") or sum(row.get("address-pool") == pool_name for row in servers) > 1:
+            raise ConfigurationConflictError("O pool DHCP desta LAN é especial ou compartilhado. Mantenha a LAN atual e ajuste o DHCP no WinBox.")
+    for address in addresses:
+        if address.get("address") == str(configuration.lan_address) and address.get("interface") != configuration.lan_bridge:
+            raise ConfigurationConflictError("O IP da LAN já pertence a outra interface. Mantenha a LAN atual ou escolha um endereço livre.")
+
+
 def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNetworkPreview:
     configuration = request.configuration
     identity = _first_row(client.run("/system/identity/print"))
@@ -94,6 +116,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     pool_rows = _rows(client.run("/ip/pool/print"))
     service_rows = _rows(client.run("/ip/service/print"))
     _validate_interfaces(interface_rows, ethernet_rows, configuration)
+    _validate_existing_lan(configuration, bridge_rows, bridge_ports, ip_rows, dhcp_server_rows, pool_rows)
 
     bridge = (
         _find_row(bridge_rows, "name", configuration.lan_bridge)
@@ -172,7 +195,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         ),
         None,
     )
-    lan_pool = _find_row(pool_rows, "name", "orion-lan-pool")
+    lan_pool = _find_row(pool_rows, "name", lan_dhcp.get("address-pool")) if lan_dhcp else None
     service_states = {
         row.get("name"): not _optional_bool(row.get("disabled"))
         for row in service_rows
@@ -248,6 +271,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
                 _resolved_dhcp_pool(configuration),
             )
         )
+    comparisons = [item for item in comparisons if (item[0] != "WAN" or configuration.configure_wan) and (item[0] != "DNS" or configuration.configure_dns)]
     changes = [
         _change(area, field, current, new)
         for area, field, current, new in comparisons
@@ -269,11 +293,13 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             "Estas portas sairão da bridge atual: "
             f"{', '.join(ports_moved_from_other_bridges)}."
         )
-    if configuration.wan_mode == "dhcp" and current_wan_ip:
+    if not configuration.configure_wan:
+        warnings.append("A conexão WAN atual, seus endereços e rotas serão preservados.")
+    if configuration.configure_wan and configuration.wan_mode == "dhcp" and current_wan_ip:
         warnings.append(
             "O IP fixo existente na WAN será preservado junto com o DHCP Client."
         )
-    if configuration.wan_mode == "static" and active_dhcp:
+    if configuration.configure_wan and configuration.wan_mode == "static" and active_dhcp:
         warnings.append(
             "O DHCP Client preexistente na WAN será preservado junto com o IP fixo."
         )
@@ -568,6 +594,7 @@ def _read_basic_network_state(client: Any) -> BasicNetworkCurrentState:
 
     return BasicNetworkCurrentState(
         identity=str(identity.get("name") or "MikroTik"),
+        wan_configured=bool(active_dhcp or static_wan_address or route_rows),
         wan_interface=wan_interface,
         wan_mode="dhcp" if active_dhcp or not static_wan_complete else "static",
         wan_address=static_wan_address if static_wan_complete else None,
@@ -822,9 +849,10 @@ def _configure_lan_dhcp(
     context: dict[str, list[dict]],
     configuration: BasicNetworkConfiguration,
 ) -> None:
-    pool = _find_row(context["dhcp_pools"], "name", "orion-lan-pool")
-    server = _find_row(context["dhcp_servers"], "name", "orion-lan-dhcp")
-    network_row = _find_row(
+    server = _find_row(context["dhcp_servers"], "interface", configuration.lan_bridge)
+    pool_name = server.get("address-pool") if server else "orion-lan-pool"
+    pool = _find_row(context["dhcp_pools"], "name", pool_name)
+    network_row = _find_row(context["dhcp_networks"], "address", str(configuration.lan_address.network)) or _find_row(
         context["dhcp_networks"],
         "comment",
         "ORION Field - LAN",
@@ -848,7 +876,7 @@ def _configure_lan_dhcp(
     else:
         client.run(
             "/ip/pool/add",
-            "=name=orion-lan-pool",
+            f"=name={pool_name}",
             f"=ranges={pool_range}",
         )
 
@@ -857,7 +885,7 @@ def _configure_lan_dhcp(
             "/ip/dhcp-server/set",
             f"=.id={_record_id(server, 'DHCP Server da LAN')}",
             f"=interface={configuration.lan_bridge}",
-            "=address-pool=orion-lan-pool",
+            f"=address-pool={pool_name}",
             "=disabled=no",
         )
     else:
@@ -865,7 +893,7 @@ def _configure_lan_dhcp(
             "/ip/dhcp-server/add",
             "=name=orion-lan-dhcp",
             f"=interface={configuration.lan_bridge}",
-            "=address-pool=orion-lan-pool",
+            f"=address-pool={pool_name}",
             "=disabled=no",
         )
 
@@ -874,8 +902,8 @@ def _configure_lan_dhcp(
     words = (
         f"=address={network}",
         f"=gateway={configuration.lan_address.ip}",
-        f"=dns-server={dns_servers}",
-        "=comment=ORION Field - LAN",
+        *((f"=dns-server={dns_servers}",) if configuration.configure_dns or not network_row else ()),
+        *(("=comment=ORION Field - LAN",) if not network_row else ()),
     )
     if network_row:
         client.run(
@@ -949,15 +977,13 @@ def apply_basic_network(
                 interface=configuration.lan_bridge,
                 comment="ORION Field - LAN",
             )
-        client.run(
-            "/ip/dns/set",
-            f"=servers={','.join(str(server) for server in configuration.dns_servers)}",
-            "=allow-remote-requests=yes",
-        )
-        if configuration.wan_mode == "dhcp":
-            _configure_dhcp_wan(client, context, configuration)
-        else:
-            _configure_static_wan(client, context, configuration)
+        if configuration.configure_dns:
+            client.run("/ip/dns/set", f"=servers={','.join(str(server) for server in configuration.dns_servers)}")
+        if configuration.configure_wan:
+            if configuration.wan_mode == "dhcp":
+                _configure_dhcp_wan(client, context, configuration)
+            else:
+                _configure_static_wan(client, context, configuration)
         if configuration.configure_lan:
             _configure_nat(client, context["nat"], configuration)
             _configure_lan_dhcp(client, context, configuration)
