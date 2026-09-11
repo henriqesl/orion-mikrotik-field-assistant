@@ -28,7 +28,7 @@ if (-not (Test-Path -LiteralPath $TauriCommand)) {
 }
 if (-not (Test-Path -LiteralPath $UpdaterPrivateKey) -or
     -not (Test-Path -LiteralPath $UpdaterProtectedPassword)) {
-    throw "Chave privada do atualizador não encontrada. Consulte docs/RELEASE.md."
+    throw "Chave privada do atualizador não encontrada. Consulte docs/instalacao-interna-windows.md."
 }
 
 $SecureUpdaterPassword = Get-Content -LiteralPath $UpdaterProtectedPassword |

@@ -9,6 +9,7 @@ ORION Field is a local Windows assistant for configuring, monitoring, and valida
 - LAN discovery through MNDP and temporary MAC preparation for devices without a usable IP;
 - current RouterOS configuration loaded before any proposal;
 - assisted setup for basic routing, LAN, Wi-Fi, AP/Station links, and supported LoRa protections;
+- nearby AP discovery and verified Station BSSID locking on the classic `wireless` driver;
 - live RouterOS data, negotiated radio rates, RX/TX traffic, and structural diagnostics;
 - latency, loss, jitter, p95, p99, spike, and stability measurements;
 - preview, explicit confirmation, and RouterOS backup before writes;
@@ -20,7 +21,7 @@ ORION stores no technician accounts, inventory, installation history, or cloud d
 ## Safety
 
 - existing addresses and unrelated RouterOS rules are preserved whenever possible;
-- LAN topology on configured routers stays protected until explicitly enabled for editing;
+- existing WAN, LAN topology, and DNS stay protected until explicitly enabled for editing;
 - API services are preserved so ORION does not disable its own access;
 - MAC access is temporary and only prepares IPv4 API access;
 - credentials remain in memory and are excluded from diagnostic exports.
@@ -44,6 +45,7 @@ Enter a profile name in the IP field:
 | `demo` or `teste` | MikroTik radio |
 | `demo-router` | configured generic router |
 | `demo-novo` | router without a prepared network |
+| `demo-wireless` | classic wireless Station with AP discovery/lock demo |
 
 Demo mode never writes to real hardware.
 
@@ -83,6 +85,7 @@ cd backend
 
 # Frontend validation
 cd ..\frontend
+npm test
 npm run build
 npm audit --audit-level=high
 
@@ -96,13 +99,14 @@ The NSIS installer is generated under `frontend/src-tauri/target/release/bundle/
 
 `React + Vite → Tauri → FastAPI → RouterOS API`
 
-The C++ Network Engine is restricted to advanced latency metrics. Configuration and RouterOS operations remain in TypeScript and Python.
+The C++ Network Engine is restricted to advanced latency metrics. Configuration and RouterOS operations remain in JavaScript and Python.
 
 ## Documentation
 
 - [Field manual](docs/manual-de-campo.md)
 - [Internal Windows installation](docs/instalacao-interna-windows.md)
 - [V7.2 lab validation](docs/TESTE-DE-BANCADA-V7.2.md)
+- [0.7.3 validation and release scope](docs/MVP-VALIDATION.md)
 - [Network Engine](native/network-engine/README.md)
 
 ## Limitations
@@ -110,5 +114,8 @@ The C++ Network Engine is restricted to advanced latency metrics. Configuration 
 - direct management requires IPv4 API access after MAC preparation;
 - backup restoration is manual;
 - wireless frequencies depend on hardware, RouterOS, and local regulations;
+- AP scans temporarily interrupt Wi-Fi; use Ethernet and confirm before scanning;
+- BSSID lock uses the classic [wireless connect-list](https://manual.mikrotik.com/docs/cli-reference/interface/wireless/connect-list/); modern `wifi`/`wifiwave2` drivers are not offered an equivalent lock;
+- VLAN-aware bridges, shared DHCP pools, and complex routing/NAT require the network administrator;
 - LoRa features require RouterOS 7, the IoT package, and a compatible interface;
 - physical validation remains required for target hardware.
