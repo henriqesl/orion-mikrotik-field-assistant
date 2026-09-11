@@ -67,6 +67,33 @@ def test_mac_normalization_and_ap_role_validation():
         settings(role="ap", ap_lock_action="lock", ap_bssid="02:11:22:33:44:55")
 
 
+def test_password_change_cannot_mutate_another_interface_security(monkeypatch):
+    router = legacy_radio()
+    router.rows("/interface/wireless/print").append({".id": "*W2", "name": "wlan2", "security-profile": "orion-field-security"})
+    router.rows("/interface/wireless/security-profiles/print").append({".id": "*SEC", "name": "orion-field-security", "wpa2-pre-shared-key": "untouched-password"})
+    wire(monkeypatch, router)
+    configuration.apply_link_configuration(ConfigurationApplyRequest(connection=connection(), configuration=settings(), confirmation="APLICAR"))
+    assert router.rows("/interface/wireless/security-profiles/print")[0]["wpa2-pre-shared-key"] == "untouched-password"
+    assert router.rows("/interface/wireless/print")[1]["security-profile"] == "orion-field-security"
+
+
+@pytest.mark.parametrize("factory", [legacy_radio, radio_router])
+def test_preserve_security_frequency_and_country_omits_writes(monkeypatch, factory):
+    router = factory()
+    wire(monkeypatch, router)
+    config = settings(passphrase=None, frequency_mhz=None, channel_width=None, country=None)
+    configuration.apply_link_configuration(ConfigurationApplyRequest(connection=connection(), configuration=config, confirmation="APLICAR"))
+    writes = [word for command in router.commands if command[0].endswith(("/set", "/add")) for word in command[1:]]
+    assert not any(any(term in word for term in ("passphrase=", "pre-shared-key=", "security-profile=", "authentication-types=", "country=", "frequency=", "channel-width=", "channel.width=")) for word in writes)
+
+
+def test_generic_legacy_ap_supports_multiple_clients(monkeypatch):
+    router = legacy_radio()
+    wire(monkeypatch, router)
+    configuration.apply_link_configuration(ConfigurationApplyRequest(connection=connection(), configuration=settings(role="ap", device_kind="generic", manage_topology=False), confirmation="APLICAR"))
+    assert router.rows("/interface/wireless/print")[0]["mode"] == "ap-bridge"
+
+
 @pytest.mark.parametrize("factory,argument", [(legacy_radio, "interface"), (radio_router, "number")])
 def test_scan_is_bounded_deduplicates_and_never_writes(monkeypatch, factory, argument):
     router = factory()

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from hashlib import sha256
 from typing import Any
 from app.services.ap_lock import validate_lock, apply_lock
 
@@ -78,6 +79,14 @@ def _context(client: Any, configuration: LinkConfiguration) -> dict[str, Any]:
             "As interfaces selecionadas não existem mais: "
             f"{', '.join(missing_interfaces)}."
         )
+    if wifi_row.get("configuration.manager") in {"capsman", "capsman-or-local"} or _optional_bool(wifi_row.get("dynamic")):
+        raise ConfigurationConflictError("Esta interface é gerenciada centralmente. Peça ao responsável pela rede para ajustá-la no CAPsMAN.")
+    if stack == "wireless" and wifi_row.get("wireless-protocol") in {"nv2", "nstreme", "nv2-nstreme", "nv2-nstreme-802.11"}:
+        raise ConfigurationConflictError("Este enlace usa um protocolo avançado. Preserve-o e faça o ajuste pelo WinBox; o assistente básico usa enlaces 802.11.")
+    if stack == "wireless" and configuration.passphrase is not None:
+        profile_name = "orion-field-" + sha256(configuration.wifi_interface.encode()).hexdigest()[:12]
+        if any(row.get("name") != configuration.wifi_interface and row.get("security-profile") == profile_name for row in wifi_rows):
+            raise ConfigurationConflictError("O perfil de segurança desta interface foi compartilhado. Separe os perfis no WinBox antes de trocar a senha.")
 
     return {
         "identity": identity,
@@ -150,16 +159,20 @@ def _build_preview(
     context = _context(client, configuration)
     lock_state = validate_lock(client, context, configuration)
     wifi = context["wifi"]
-    desired_mode = _desired_wifi_mode(configuration, modern=True)
+    desired_mode = _desired_wifi_mode(configuration, modern=context["stack"] != "wireless")
     changes: list[ConfigurationChange] = []
 
     comparisons = [
         ("Equipamento", "Identidade", context["identity"].get("name"), configuration.identity),
         ("Rádio", "Função", wifi.mode, desired_mode),
         ("Rádio", "SSID", wifi.ssid, configuration.ssid),
-        ("Rádio", "Frequência", wifi.frequency, str(configuration.frequency_mhz)),
-        ("Rádio", "Largura", wifi.channel_width, configuration.channel_width),
     ]
+    if configuration.frequency_mhz is not None:
+        comparisons.append(("Rádio", "Frequência", wifi.frequency, str(configuration.frequency_mhz)))
+    if configuration.channel_width:
+        comparisons.append(("Rádio", "Largura", wifi.channel_width, configuration.channel_width))
+    if configuration.country:
+        comparisons.append(("Rádio", "País regulatório", context["wifi_row"].get("configuration.country") or context["wifi_row"].get("country"), configuration.country))
     if configuration.manage_topology:
         comparisons.extend([
             (
@@ -197,7 +210,8 @@ def _build_preview(
     )
     if configuration.ap_lock_action != "preserve":
         changes.append(_change("Enlace", "Lock no AP (BSSID)", lock_state.locked_bssid or "Sem lock ORION confirmado", str(configuration.ap_bssid) if configuration.ap_lock_action == "lock" else "Remover lock ORION e restaurar regra anterior"))
-    changes.append(
+    if configuration.passphrase is not None:
+        changes.append(
         _change(
             "Segurança",
             "Senha WPA2",
@@ -205,7 +219,7 @@ def _build_preview(
             "Será atualizada",
             sensitive=True,
         )
-    )
+        )
 
     warnings = [
         "A interface Wi-Fi será reiniciada e o enlace poderá cair temporariamente.",
@@ -232,6 +246,8 @@ def _build_preview(
         )
     if configuration.ap_lock_action == "lock":
         warnings.append("A Station aceitará somente o MAC do AP escolhido; se ele estiver fora de alcance ou incorreto, o enlace não conectará. Lock não substitui a senha WPA2.")
+    if configuration.passphrase is None:
+        warnings.append("A senha e os métodos de segurança atuais serão mantidos. Para um enlace novo, defina a mesma senha WPA2 nos dois lados.")
 
     preview = ConfigurationPreview(
         device_identity=context["identity"].get("name") or "MikroTik",
@@ -333,14 +349,12 @@ def _configure_modern_wifi(
     client.run(
         f"/interface/{context['stack']}/set",
         f"=.id={_record_id(context['wifi_row'], 'interface Wi-Fi')}",
-        "=configuration.manager=local",
         f"=configuration.mode={mode}",
-        "=configuration.country=Brazil",
+        *((f"=configuration.country={configuration.country}",) if configuration.country else ()),
         f"=configuration.ssid={configuration.ssid}",
-        f"=channel.frequency={configuration.frequency_mhz}",
-        f"=channel.width={configuration.channel_width}",
-        "=security.authentication-types=wpa2-psk",
-        f"=security.passphrase={configuration.passphrase}",
+        *((f"=channel.frequency={configuration.frequency_mhz}",) if configuration.frequency_mhz is not None else ()),
+        *((f"=channel.width={configuration.channel_width}",) if configuration.channel_width else ()),
+        *(("=security.authentication-types=wpa2-psk", f"=security.passphrase={configuration.passphrase}") if configuration.passphrase is not None else ()),
         "=disabled=no",
     )
 
@@ -350,7 +364,7 @@ def _configure_legacy_wifi(
     context: dict[str, Any],
     configuration: LinkConfiguration,
 ) -> None:
-    profile_name = "orion-field-security"
+    profile_name = "orion-field-" + sha256(configuration.wifi_interface.encode()).hexdigest()[:12]
     profiles = _rows(client.run("/interface/wireless/security-profiles/print"))
     profile = _find_row(profiles, "name", profile_name)
     profile_words = (
@@ -360,7 +374,9 @@ def _configure_legacy_wifi(
         "=group-ciphers=aes-ccm",
         f"=wpa2-pre-shared-key={configuration.passphrase}",
     )
-    if profile:
+    if configuration.passphrase is None:
+        pass  # Keep the currently selected security profile and all its properties.
+    elif profile:
         client.run(
             "/interface/wireless/security-profiles/set",
             f"=.id={_record_id(profile, 'perfil de segurança')}",
@@ -384,11 +400,10 @@ def _configure_legacy_wifi(
         f"=.id={_record_id(context['wifi_row'], 'interface Wireless')}",
         f"=mode={mode}",
         f"=ssid={configuration.ssid}",
-        f"=frequency={configuration.frequency_mhz}",
-        f"=channel-width={width}",
-        "=country=brazil",
-        "=wireless-protocol=802.11",
-        f"=security-profile={profile_name}",
+        *((f"=frequency={configuration.frequency_mhz}",) if configuration.frequency_mhz is not None else ()),
+        *((f"=channel-width={width}",) if configuration.channel_width else ()),
+        *(("=country=brazil",) if configuration.country else ()),
+        *((f"=security-profile={profile_name}",) if configuration.passphrase is not None else ()),
         "=disabled=no",
     )
 
@@ -534,5 +549,5 @@ def _desired_wifi_mode(
     modern: bool,
 ) -> str:
     if configuration.role == "ap":
-        return "ap" if modern else "bridge"
+        return "ap" if modern else ("bridge" if configuration.device_kind == "radio" else "ap-bridge")
     return "station-bridge" if configuration.device_kind == "radio" else "station"

@@ -152,6 +152,19 @@ export function applyLoraProtection(connection, configuration) {
   return postJson("/api/mikrotik/lora/apply", { connection, configuration, confirmation: "APLICAR" });
 }
 
+export function getAPLockState(connection, wifiInterface) {
+  if (isDemoConnection(connection)) return Promise.resolve({ supported: demoDevice(connection).wifi_stack === "wireless", managed: false, locked_bssid: null, external_rules: false, reason: "Este driver não oferece lock por BSSID. Use SSID e senha exclusivos no enlace." });
+  return postJson("/api/mikrotik/radio/lock-state", { connection, wifi_interface: wifiInterface });
+}
+
+export function scanAccessPoints(connection, wifiInterface) {
+  if (isDemoConnection(connection)) return Promise.resolve({ wifi_interface: wifiInterface, wifi_stack: demoDevice(connection).wifi_stack, access_points: [
+    { bssid: "02:11:22:33:44:50", ssid: "ENLACE-TORRE-01", frequency_mhz: 5500, signal_dbm: -54, security: "WPA2-PSK" },
+    { bssid: "02:11:22:33:44:60", ssid: "ENLACE-TORRE-02", frequency_mhz: 5745, signal_dbm: -72, security: "WPA2-PSK" },
+  ] });
+  return postJson("/api/mikrotik/radio/scan", { connection, wifi_interface: wifiInterface, confirmation: "BUSCAR" });
+}
+
 export function getBasicNetworkCurrent(connection) {
   if (isDemoConnection(connection)) {
     return Promise.resolve(demoBasicNetworkCurrent(connection));

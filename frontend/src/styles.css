@@ -3471,3 +3471,16 @@ h2 {
 .configuration-form > .form-scope {
   display: contents;
 }
+
+.ap-selector { padding: 22px; border: 1px solid var(--border, #293d50); border-radius: 16px; background: #0a1624; }
+.ap-selector h3 { margin: 0; }
+.ap-scan-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0; }
+.ap-results { display: grid; gap: 8px; margin: 16px 0; max-height: 360px; overflow: auto; }
+.ap-result { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 18px; align-items: center; padding: 16px; background: #101f30; border: 1px solid #263d52; border-radius: 10px; }
+.ap-result--selected { border-color: #38bdd1; }
+.ap-result > div { display: grid; gap: 5px; min-width: 0; }
+.ap-result strong { overflow-wrap: anywhere; }
+.ap-result code, .ap-result span { color: #a2b6c9; font-size: 12px; }
+.ap-result button, .ap-scan-actions button { border: 1px solid #36556e; border-radius: 8px; background: #19354d; color: #e9f4ff; padding: 10px 14px; cursor: pointer; }
+.ap-lock-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 650px) { .ap-result { grid-template-columns: 1fr auto; } .ap-result button { grid-column: 1 / -1; } .ap-lock-controls { grid-template-columns: 1fr; } .ap-selector { padding: 16px; } }

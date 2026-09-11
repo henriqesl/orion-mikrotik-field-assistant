@@ -18,11 +18,12 @@ class LinkConfiguration(BaseModel):
     bridge_interfaces: list[str] = Field(default_factory=list, max_length=64)
     bridge_name: str = Field(default="bridge-field", min_length=1, max_length=64)
     ssid: str = Field(min_length=1, max_length=32)
-    passphrase: str = Field(min_length=8, max_length=63)
+    passphrase: str | None = Field(default=None, min_length=8, max_length=63)
+    country: Literal["Brazil"] | None = None
     ap_lock_action: Literal["preserve", "lock", "unlock"] = "preserve"
     ap_bssid: BSSID | None = None
-    frequency_mhz: int = Field(ge=2000, le=7100)
-    channel_width: Literal["20mhz", "20/40mhz"] = "20mhz"
+    frequency_mhz: int | None = Field(default=None, ge=2000, le=7100)
+    channel_width: Literal["20mhz", "20/40mhz"] | None = None
     management_ip: IPv4Interface
     gateway: IPv4Address | None = None
 

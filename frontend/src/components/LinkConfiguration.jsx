@@ -5,6 +5,7 @@ import {
   previewLinkConfiguration,
 } from "../services/api.js";
 import CurrentConfiguration from "./CurrentConfiguration.jsx";
+import AccessPointSelector from "./AccessPointSelector.jsx";
 import fieldProfiles from "../data/field-profiles.json";
 
 function nextManagementAddress(value) {
@@ -21,8 +22,8 @@ function nextManagementAddress(value) {
   return `${parts.join(".")}/${prefix}`;
 }
 
-function initialConfiguration(device, fieldSession) {
-  const wifi = device.wifi_interfaces.find((item) => !item.disabled) || device.wifi_interfaces[0];
+function initialConfiguration(device, fieldSession, wifiInterface) {
+  const wifi = device.wifi_interfaces.find((item) => item.name === wifiInterface) || device.wifi_interfaces.find((item) => !item.disabled) || device.wifi_interfaces[0];
   const wifiPort = device.bridge_ports.find(
     (port) => port.interface === wifi?.name && !port.disabled,
   );
@@ -37,7 +38,7 @@ function initialConfiguration(device, fieldSession) {
     (address) => !address.disabled && !address.invalid,
   );
   const defaultRoute = device.default_routes.find((route) => !route.disabled);
-  const frequency = Number.parseInt(wifi?.frequency?.match(/\d+/)?.[0] || "5500", 10);
+  const frequency = /^\d{4}$/.test(wifi?.frequency || "") ? Number(wifi.frequency) : "";
 
   const detectedRole = wifi?.mode?.startsWith("station") ? "station" : "ap";
 
@@ -54,10 +55,13 @@ function initialConfiguration(device, fieldSession) {
         : [],
     ssid: fieldSession?.ssid || wifi?.ssid || "ORION-Link",
     passphrase: fieldSession?.passphrase || "",
+    country: "",
+    ap_lock_action: fieldSession?.next_role === "station" && fieldSession.ap_bssid && device.wifi_stack === "wireless" ? "lock" : "preserve",
+    ap_bssid: fieldSession?.next_role === "station" && device.wifi_stack === "wireless" ? fieldSession.ap_bssid || "" : "",
     frequency_mhz: fieldSession?.frequency_mhz || frequency,
     channel_width: fieldSession?.channel_width || (wifi?.channel_width?.startsWith("20/40")
       ? "20/40mhz"
-      : "20mhz"),
+      : wifi?.channel_width === "20mhz" ? "20mhz" : ""),
     management_ip: fieldSession?.next_role === "station"
       ? fieldSession.station_management_ip
       : managementAddress?.address || "192.168.88.2/24",
@@ -89,12 +93,16 @@ function LinkConfiguration({
   const [result, setResult] = useState(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
     setForm((current) => ({
       ...current,
+      ...(name === "wifi_interface" ? initialConfiguration(device, fieldSession, value) : {}),
       [name]: type === "checkbox" ? checked : value,
+      ...(name === "ap_lock_action" && value !== "lock" ? { ap_bssid: "" } : {}),
+      ...(name === "role" ? { ap_lock_action: "preserve", ap_bssid: "" } : {}),
     }));
     setPreview(null);
     setResult(null);
@@ -169,9 +177,18 @@ function LinkConfiguration({
       ...form,
       device_kind: isRadioDevice ? "radio" : "generic",
       manage_topology: isRadioDevice || form.manage_topology,
-      frequency_mhz: Number(form.frequency_mhz),
+      frequency_mhz: form.frequency_mhz === "" ? null : Number(form.frequency_mhz),
+      channel_width: form.channel_width || null,
+      passphrase: form.passphrase || null,
+      country: form.country || null,
+      ap_bssid: form.ap_lock_action === "lock" ? form.ap_bssid : null,
       gateway: form.gateway.trim() || null,
     };
+  }
+
+  function selectAccessPoint(point, lock) {
+    setForm((current) => ({ ...current, ssid: point.ssid, frequency_mhz: point.frequency_mhz || "", ap_lock_action: lock ? "lock" : "preserve", ap_bssid: lock ? point.bssid : "" }));
+    setPreview(null); setResult(null); setConfirmation(""); setErrorMessage("");
   }
 
   async function handlePreview(event) {
@@ -207,6 +224,7 @@ function LinkConfiguration({
         ]));
         onFieldSessionChange({
           ...fieldSession,
+          ...(form.role === "ap" ? { ap_bssid: device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address || null } : {}),
           completed_roles: completedRoles,
           next_role: form.role === "ap" ? "station" : "complete",
         });
@@ -259,7 +277,7 @@ function LinkConfiguration({
         </section>
       )}
 
-      {isRadioDevice && (
+      {isRadioDevice && fieldSession && (
         <section className={fieldSession ? "pair-session pair-session--active" : "pair-session"}>
           <div>
             <span>AP + Station</span>
@@ -291,6 +309,8 @@ function LinkConfiguration({
       </div>
 
       <form className="configuration-form" onSubmit={handlePreview}>
+        <fieldset className="form-scope" disabled={isPreviewing || isApplying || isScanning}>
+        <legend className="sr-only">Configuração Wi-Fi</legend>
         <fieldset disabled={isPreviewing || isApplying}>
           <legend>{isRadioDevice ? "Função do rádio" : "Modo de operação"}</legend>
           <div className="role-selector">
@@ -335,6 +355,14 @@ function LinkConfiguration({
           </div>
         </fieldset>
 
+        <label className="field">
+          <span>Interface Wi-Fi a configurar</span>
+          <select name="wifi_interface" onChange={updateField} value={form.wifi_interface}>
+            {device.wifi_interfaces.map((item) => <option key={item.name} value={item.name}>{item.name}{item.band ? ` · ${item.band}` : ""}</option>)}
+          </select>
+        </label>
+        {form.role === "station" && <AccessPointSelector connection={connection} wifiInterface={form.wifi_interface} action={form.ap_lock_action} bssid={form.ap_bssid} busy={isPreviewing || isApplying} onChange={updateField} onSelect={selectAccessPoint} onScanning={setIsScanning} refreshKey={result?.backup_file} />}
+
         {!isRadioDevice && (
           <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
             <legend>Topologia do router</legend>
@@ -364,13 +392,13 @@ function LinkConfiguration({
             <input maxLength="32" name="ssid" onChange={updateField} required value={form.ssid} />
           </label>
           <label className="field">
-            <span>Senha WPA2 — informe para aplicar</span>
+            <span>Nova senha WPA2 (opcional)</span>
             <input
               autoComplete="new-password"
               minLength="8"
               name="passphrase"
               onChange={updateField}
-              required
+              placeholder="Vazio mantém a segurança atual"
               type="password"
               value={form.passphrase}
             />
@@ -385,7 +413,7 @@ function LinkConfiguration({
                 min="2000"
                 name="frequency_mhz"
                 onChange={updateField}
-                required
+                placeholder="Manter frequência atual / automática"
                 type="number"
                 value={form.frequency_mhz}
               />
@@ -395,6 +423,7 @@ function LinkConfiguration({
           <label className="field">
             <span>Largura do canal</span>
             <select name="channel_width" onChange={updateField} value={form.channel_width}>
+              <option value="">Manter largura atual</option>
               <option value="20mhz">20 MHz — mais estável</option>
               <option value="20/40mhz">20/40 MHz — mais capacidade</option>
             </select>
@@ -421,14 +450,7 @@ function LinkConfiguration({
               </label>
             </>
           )}
-          <label className="field">
-            <span>Interface Wi-Fi</span>
-            <select name="wifi_interface" onChange={updateField} value={form.wifi_interface}>
-              {device.wifi_interfaces.map((item) => (
-                <option key={item.name} value={item.name}>{item.name}</option>
-              ))}
-            </select>
-          </label>
+          <label className="field"><span>País regulatório</span><select name="country" onChange={updateField} value={form.country}><option value="">Manter país do MikroTik</option><option value="Brazil">Brasil</option></select></label>
         </div>
 
         {(isRadioDevice || form.manage_topology) && (
@@ -462,6 +484,8 @@ function LinkConfiguration({
         >
           {isPreviewing ? "Analisando…" : "Revisar alterações"}
         </button>
+        {isRadioDevice && !fieldSession && <button className="secondary-button" onClick={startPairConfiguration} type="button">Usar estes dados para configurar o par AP + Station</button>}
+        </fieldset>
       </form>
 
       {errorMessage && <div className="inline-error" role="alert">{errorMessage}</div>}
