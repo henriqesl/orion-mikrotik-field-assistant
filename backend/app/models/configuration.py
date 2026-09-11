@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.mikrotik import MikroTikConnection
+from app.models.radio import BSSID
 
 
 class LinkConfiguration(BaseModel):
@@ -18,6 +19,8 @@ class LinkConfiguration(BaseModel):
     bridge_name: str = Field(default="bridge-field", min_length=1, max_length=64)
     ssid: str = Field(min_length=1, max_length=32)
     passphrase: str = Field(min_length=8, max_length=63)
+    ap_lock_action: Literal["preserve", "lock", "unlock"] = "preserve"
+    ap_bssid: BSSID | None = None
     frequency_mhz: int = Field(ge=2000, le=7100)
     channel_width: Literal["20mhz", "20/40mhz"] = "20mhz"
     management_ip: IPv4Interface
@@ -25,6 +28,10 @@ class LinkConfiguration(BaseModel):
 
     @model_validator(mode="after")
     def validate_network(self):
+        if self.ap_lock_action == "lock" and (self.role != "station" or not self.ap_bssid):
+            raise ValueError("Para fixar o AP, selecione Station e informe o MAC do AP.")
+        if self.ap_lock_action != "lock" and self.ap_bssid is not None:
+            raise ValueError("O MAC do AP só deve ser enviado ao ativar o lock.")
         if len(set(self.bridge_interfaces)) != len(self.bridge_interfaces):
             raise ValueError("As interfaces da bridge não podem ser repetidas.")
         if self.wifi_interface in self.bridge_interfaces:

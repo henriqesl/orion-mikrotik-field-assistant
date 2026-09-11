@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Any
+from app.services.ap_lock import validate_lock, apply_lock
 
 from app.models.configuration import (
     ConfigurationApplyRequest,
@@ -147,6 +148,7 @@ def _build_preview(
 ) -> tuple[ConfigurationPreview, dict[str, Any]]:
     configuration = request.configuration
     context = _context(client, configuration)
+    lock_state = validate_lock(client, context, configuration)
     wifi = context["wifi"]
     desired_mode = _desired_wifi_mode(configuration, modern=True)
     changes: list[ConfigurationChange] = []
@@ -193,6 +195,8 @@ def _build_preview(
         for area, field, current, new in comparisons
         if current != new
     )
+    if configuration.ap_lock_action != "preserve":
+        changes.append(_change("Enlace", "Lock no AP (BSSID)", lock_state.locked_bssid or "Sem lock ORION confirmado", str(configuration.ap_bssid) if configuration.ap_lock_action == "lock" else "Remover lock ORION e restaurar regra anterior"))
     changes.append(
         _change(
             "Segurança",
@@ -226,6 +230,8 @@ def _build_preview(
         warnings.append(
             "Station-bridge exige um AP MikroTik com a mesma família de driver Wi-Fi."
         )
+    if configuration.ap_lock_action == "lock":
+        warnings.append("A Station aceitará somente o MAC do AP escolhido; se ele estiver fora de alcance ou incorreto, o enlace não conectará. Lock não substitui a senha WPA2.")
 
     preview = ConfigurationPreview(
         device_identity=context["identity"].get("name") or "MikroTik",
@@ -481,6 +487,7 @@ def apply_link_configuration(
             _configure_modern_wifi(client, context, configuration)
         else:
             _configure_legacy_wifi(client, context, configuration)
+        apply_lock(client, context, configuration)
 
         if configuration.manage_topology:
             _ensure_gateway(client, context, configuration)

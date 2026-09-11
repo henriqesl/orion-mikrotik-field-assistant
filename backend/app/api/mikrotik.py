@@ -58,6 +58,8 @@ from app.services.network_configuration import (
 )
 from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
 from app.services.mutations import ConfigurationApplyError
+from app.models.radio import APLockStatus, RadioInterfaceRequest, RadioScanRequest, RadioScanResult
+from app.services.ap_lock import read_ap_lock, scan_access_points
 from app.services.lan_discovery import (
     InvalidWinBoxPathError,
     WinBoxNotFoundError,
@@ -78,6 +80,26 @@ from app.services.mac_telnet import (
 
 
 router = APIRouter(prefix="/api/mikrotik", tags=["mikrotik"])
+
+
+@router.post("/radio/lock-state", response_model=APLockStatus)
+def radio_lock_state(request: RadioInterfaceRequest):
+    try:
+        return read_ap_lock(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/radio/scan", response_model=RadioScanResult)
+def radio_scan(request: RadioScanRequest):
+    try:
+        return scan_access_points(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
 
 
 def _mac_http_error(error: Exception) -> HTTPException:
