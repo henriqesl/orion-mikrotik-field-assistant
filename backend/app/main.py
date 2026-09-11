@@ -4,6 +4,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.api.mikrotik import router as mikrotik_router
 from app.api.support import router as support_router
@@ -44,6 +46,15 @@ app.add_middleware(
 
 app.include_router(mikrotik_router)
 app.include_router(support_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request, error):
+    # Validation errors can otherwise echo connection passwords and entire forms.
+    return JSONResponse(status_code=422, content={"detail": [
+        {"loc": list(item["loc"]), "msg": item["msg"], "type": item["type"]}
+        for item in error.errors()
+    ]})
 
 
 @app.get("/api/health", tags=["system"])

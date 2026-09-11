@@ -167,15 +167,15 @@ class BasicNetworkConfiguration(BaseModel):
                 raise ValueError("WAN por DHCP não utiliza IP ou gateway fixos.")
             return self
 
-        if self.wan_address is None or self.gateway is None:
-            raise ValueError("WAN com IP fixo exige endereço e gateway.")
+        if self.wan_address is None:
+            raise ValueError("WAN com IP fixo exige um endereço.")
         wan_network = self.wan_address.network
         if self.wan_address.ip in {
             wan_network.network_address,
             wan_network.broadcast_address,
         }:
             raise ValueError("O IP da WAN não pode ser rede ou broadcast.")
-        if self.gateway not in wan_network:
+        if self.gateway is not None and self.gateway not in wan_network:
             raise ValueError("O gateway deve pertencer à rede da WAN.")
         if lan_network and wan_network.overlaps(lan_network):
             raise ValueError("As redes WAN e LAN não podem se sobrepor.")

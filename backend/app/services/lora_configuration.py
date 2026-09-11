@@ -366,15 +366,11 @@ def apply_lora_protection(
         )
         preview, context = _build_preview(client, preview_request)
         configuration = request.configuration
-        backup = f"orion-before-lora-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+        backup = f"orion-before-lora-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S-%f')}"
         writer = ConfigurationWriter(client, backup)
         writer.create_backup()
 
-        class ProtectedClient:
-            def run(self, *words):
-                return writer.run("o salvamento das proteções LoRa", *words)
-
-        write_client = ProtectedClient()
+        write_client = writer.tracked_client("o salvamento das proteções LoRa")
 
         lora_enabled = (
             configuration.enable_lns_watchdog or configuration.enable_lora_guard

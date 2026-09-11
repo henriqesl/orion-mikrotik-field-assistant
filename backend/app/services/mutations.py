@@ -36,3 +36,10 @@ class ConfigurationWriter:
     def create_backup(self):
         self.run("a criação do backup", "/system/backup/save", f"=name={self.backup}")
         self.backup_created = True
+
+    def tracked_client(self, stage: str):
+        writer = self
+        class TrackedClient:
+            def run(self, *words):
+                return writer.run(stage, *words)
+        return TrackedClient()

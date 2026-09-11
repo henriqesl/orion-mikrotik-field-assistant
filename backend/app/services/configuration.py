@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any
 from app.services.ap_lock import validate_lock, apply_lock
+from app.services.mutations import ConfigurationWriter
 
 from app.models.configuration import (
     ConfigurationApplyRequest,
@@ -212,13 +213,7 @@ def _build_preview(
         changes.append(_change("Enlace", "Lock no AP (BSSID)", lock_state.locked_bssid or "Sem lock ORION confirmado", str(configuration.ap_bssid) if configuration.ap_lock_action == "lock" else "Remover lock ORION e restaurar regra anterior"))
     if configuration.passphrase is not None:
         changes.append(
-        _change(
-            "Segurança",
-            "Senha WPA2",
-            "Protegida pelo RouterOS",
-            "Será atualizada",
-            sensitive=True,
-        )
+            _change("Segurança", "Senha WPA2", "Protegida pelo RouterOS", "Será atualizada", sensitive=True)
         )
 
     warnings = [
@@ -491,9 +486,11 @@ def apply_link_configuration(
         )
         preview, context = _build_preview(client, preview_request)
         configuration = request.configuration
-        backup_name = f"orion-before-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+        backup_name = f"orion-before-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S-%f')}"
 
-        client.run("/system/backup/save", f"=name={backup_name}")
+        writer = ConfigurationWriter(client, backup_name)
+        writer.create_backup()
+        client = writer.tracked_client("o envio da configuração Wi-Fi")
         client.run("/system/identity/set", f"=name={configuration.identity}")
         if configuration.manage_topology:
             _ensure_bridge(client, context, configuration.bridge_name)
@@ -502,7 +499,7 @@ def apply_link_configuration(
             _configure_modern_wifi(client, context, configuration)
         else:
             _configure_legacy_wifi(client, context, configuration)
-        apply_lock(client, context, configuration)
+        apply_lock(client, context, configuration, writer=writer)
 
         if configuration.manage_topology:
             _ensure_gateway(client, context, configuration)

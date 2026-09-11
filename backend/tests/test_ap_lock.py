@@ -45,6 +45,15 @@ def test_lock_change_and_unlock_preserve_other_interfaces(monkeypatch):
     assert not any(command[0].endswith("/remove") for command in router.commands)
 
 
+def test_empty_modern_menu_does_not_hide_legacy_interfaces():
+    from app.services.routeros import _read_wifi
+    router = legacy_radio()
+    router.tables["/system/package/print"] = [{"name": "wifi-qcom"}]
+    _package, stack, interfaces = _read_wifi(router)
+    assert stack == "wireless"
+    assert interfaces[0].name == "wifi1"
+
+
 @pytest.mark.parametrize("factory", [legacy_radio, radio_router])
 def test_custom_rules_or_unsupported_stack_block_before_backup(monkeypatch, factory):
     router = factory()

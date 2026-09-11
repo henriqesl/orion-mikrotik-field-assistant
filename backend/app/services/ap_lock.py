@@ -63,7 +63,7 @@ def validate_lock(client, context, configuration):
     return state
 
 
-def apply_lock(client: Any, context, configuration):
+def apply_lock(client: Any, context, configuration, *, writer=None):
     action = configuration.ap_lock_action
     if action == "preserve":
         return
@@ -87,6 +87,8 @@ def apply_lock(client: Any, context, configuration):
     current = next((item for item in wifi_rows if item.get("name") == interface), {})
     state, _ = lock_context(client, "wireless", interface, current)
     if (action == "lock" and state.locked_bssid != configuration.ap_bssid) or (action == "unlock" and (state.managed or _optional_bool(current.get("default-authentication")) != (original == "yes"))):
+        if writer is not None:
+            writer.fail("a confirmação do lock")
         from app.services.mutations import ConfigurationApplyError
         raise ConfigurationApplyError("O lock foi enviado, mas não pôde ser confirmado. Pode haver alterações parciais; confira a connect-list e o backup antes de repetir.")
 

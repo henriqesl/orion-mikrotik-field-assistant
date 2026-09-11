@@ -21,6 +21,7 @@ from app.services.configuration import (
 )
 from app.services.routeros import _first_row, _optional_bool, _rows, _with_connection
 from app.models.mikrotik import MikroTikConnection
+from app.services.mutations import ConfigurationWriter
 
 
 def _validate_interfaces(
@@ -84,6 +85,8 @@ def _validate_existing_lan(configuration, bridges, ports, addresses, servers, po
     """Keep advanced/shared LAN arrangements out of the basic field workflow."""
     if not configuration.configure_lan:
         return
+    if sum(not _optional_bool(row.get("disabled")) for row in bridges) > 1:
+        raise ConfigurationConflictError("Este equipamento usa múltiplas bridges. Mantenha a LAN atual e peça ao responsável pela rede para ajustar a topologia no WinBox.")
     bridge = _find_row(bridges, "name", configuration.lan_bridge)
     if bridge and _optional_bool(bridge.get("vlan-filtering")):
         raise ConfigurationConflictError("Esta bridge usa VLANs. Mantenha a LAN atual e peça ao responsável pela rede para alterá-la no WinBox.")
@@ -93,11 +96,36 @@ def _validate_existing_lan(configuration, bridges, ports, addresses, servers, po
     if selected and configuration.enable_lan_dhcp:
         pool_name = selected[0].get("address-pool")
         pool = _find_row(pools, "name", pool_name)
-        if not pool or pool.get("next-pool") not in (None, "", "none") or sum(row.get("address-pool") == pool_name for row in servers) > 1:
+        if not pool or "," in pool.get("ranges", "") or pool.get("next-pool") not in (None, "", "none") or sum(row.get("address-pool") == pool_name for row in servers) > 1:
             raise ConfigurationConflictError("O pool DHCP desta LAN é especial ou compartilhado. Mantenha a LAN atual e ajuste o DHCP no WinBox.")
     for address in addresses:
         if address.get("address") == str(configuration.lan_address) and address.get("interface") != configuration.lan_bridge:
             raise ConfigurationConflictError("O IP da LAN já pertence a outra interface. Mantenha a LAN atual ou escolha um endereço livre.")
+
+
+def _nat_candidates(rows, interface, lan_address, memberships):
+    network = str(IPv4Interface(str(lan_address)).network) if lan_address else None
+    lists = {row.get("list") for row in memberships if row.get("interface") == interface and not _optional_bool(row.get("disabled"))}
+    return [row for row in rows if row.get("chain") == "srcnat" and row.get("action") == "masquerade"
+            and (row.get("out-interface") == interface or row.get("out-interface-list") in lists)
+            and row.get("src-address") in (None, "", network)]
+
+
+def _validate_nat_scope(configuration, rows, memberships, bridges):
+    if not configuration.configure_lan:
+        return
+    candidates = _nat_candidates(rows, configuration.wan_interface, configuration.lan_address, memberships)
+    if len(candidates) > 1:
+        raise ConfigurationConflictError("Há várias regras NAT para esta saída. Mantenha a LAN atual e revise o NAT no WinBox.")
+    if candidates:
+        row = candidates[0]
+        known = {".id", "chain", "action", "out-interface", "out-interface-list", "src-address", "comment", "disabled", "invalid", "dynamic", "log", "log-prefix", "bytes", "packets"}
+        if any(key not in known and value not in (None, "", "false", "no", "0") for key, value in row.items()):
+            raise ConfigurationConflictError("Esta regra NAT usa condições avançadas. Preserve a LAN e ajuste-a no WinBox.")
+        if not configuration.enable_nat and not row.get("src-address") and len(bridges) > 1:
+            raise ConfigurationConflictError("O NAT pode atender outras bridges. Mantenha-o ativo e peça ao responsável pela rede para revisar seu alcance.")
+    elif any(row.get("action") == "masquerade" and row.get("out-interface-list") and _active(row) for row in rows):
+        raise ConfigurationConflictError("Não foi possível determinar o alcance do NAT por lista de interfaces. Preserve a LAN e revise-a no WinBox.")
 
 
 def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNetworkPreview:
@@ -115,7 +143,9 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
     dhcp_server_rows = _rows(client.run("/ip/dhcp-server/print"))
     pool_rows = _rows(client.run("/ip/pool/print"))
     service_rows = _rows(client.run("/ip/service/print"))
+    memberships = _rows(client.run("/interface/list/member/print"))
     _validate_interfaces(interface_rows, ethernet_rows, configuration)
+    _validate_nat_scope(configuration, nat_rows, memberships, bridge_rows)
     _validate_existing_lan(configuration, bridge_rows, bridge_ports, ip_rows, dhcp_server_rows, pool_rows)
 
     bridge = (
@@ -185,7 +215,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         and row.get("bridge") != configuration.lan_bridge
         and not _optional_bool(row.get("disabled"))
     )
-    managed_nat = _find_row(nat_rows, "comment", "ORION Field - NAT")
+    managed_nat = next(iter(_nat_candidates(nat_rows, configuration.wan_interface, configuration.lan_address, memberships)), None)
     lan_dhcp = next(
         (
             row
@@ -219,7 +249,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             "WAN",
             "Gateway",
             current_gateway,
-            str(configuration.gateway) if configuration.gateway else "Automático por DHCP",
+            str(configuration.gateway) if configuration.gateway else ("Automático por DHCP" if configuration.wan_mode == "dhcp" else current_gateway or "Não configurar"),
         ),
         (
             "DNS",
@@ -252,8 +282,8 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
             (
                 "Internet",
                 "NAT",
-                "Ativo" if managed_nat and not _optional_bool(managed_nat.get("disabled")) else "Não gerenciado",
-                "Ativar masquerade" if configuration.enable_nat else "Não configurar",
+                "Ativo" if managed_nat and not _optional_bool(managed_nat.get("disabled")) else "Desativado",
+                "Ativo" if configuration.enable_nat else "Desativado",
             ),
             (
                 "LAN",
@@ -316,8 +346,18 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         for row in ip_rows
         if not _optional_bool(row.get("disabled"))
     )
-
-
+    removed_ports = [
+        row.get("interface") for row in bridge_ports
+        if configuration.configure_lan
+        and row.get("bridge") == configuration.lan_bridge
+        and row.get("interface") not in configuration.lan_ports
+        and any(item.get("name") == row.get("interface") for item in ethernet_rows)
+        and not _optional_bool(row.get("disabled"))
+    ]
+    if removed_ports:
+        warnings.append(f"Estas portas Ethernet deixarão a LAN: {', '.join(removed_ports)}. O acesso por elas poderá cair.")
+    if configuration.configure_wan:
+        warnings.append("O firewall existente será mantido. Uma conexão direta à internet exige revisão de segurança pelo responsável pela rede.")
     for item in bridge_rows:
         name = item.get("name")
         if not name:
@@ -507,9 +547,6 @@ def _read_basic_network_state(client: Any) -> BasicNetworkCurrentState:
         if active_default_route and active_default_route.get("gateway")
         else None
     )
-    static_wan_complete = bool(
-        static_wan_address and gateway and gateway not in interface_names
-    )
     active_bridge_names = [
         str(row.get("name"))
         for row in bridge_rows
@@ -596,9 +633,9 @@ def _read_basic_network_state(client: Any) -> BasicNetworkCurrentState:
         identity=str(identity.get("name") or "MikroTik"),
         wan_configured=bool(active_dhcp or static_wan_address or route_rows),
         wan_interface=wan_interface,
-        wan_mode="dhcp" if active_dhcp or not static_wan_complete else "static",
-        wan_address=static_wan_address if static_wan_complete else None,
-        gateway=gateway if static_wan_complete else None,
+        wan_mode="dhcp" if active_dhcp or not static_wan_address else "static",
+        wan_address=static_wan_address if not active_dhcp else None,
+        gateway=gateway if static_wan_address and gateway not in interface_names else None,
         configure_lan=configure_lan,
         lan_bridge=lan_bridge if configure_lan else None,
         lan_address=lan_address if configure_lan else None,
@@ -738,6 +775,8 @@ def _configure_static_wan(
         interface=configuration.wan_interface,
         comment="ORION Field - WAN",
     )
+    if configuration.gateway is None:
+        return  # A local/static uplink does not necessarily have a default route.
     managed_route = _find_row(
         context["routes"],
         "comment",
@@ -776,8 +815,15 @@ def _configure_nat(
     client: Any,
     rows: list[dict],
     configuration: BasicNetworkConfiguration,
+    memberships: list[dict] | None = None,
 ) -> None:
-    managed = _find_row(rows, "comment", "ORION Field - NAT")
+    candidates = _nat_candidates(rows, configuration.wan_interface, configuration.lan_address, memberships or [])
+    existing = candidates[0] if candidates else None
+    if existing and existing.get("comment") != "ORION Field - NAT":
+        if _active(existing) != configuration.enable_nat:
+            client.run("/ip/firewall/nat/set", f"=.id={_record_id(existing, 'NAT da LAN')}", f"=disabled={'no' if configuration.enable_nat else 'yes'}")
+        return
+    managed = existing or _find_row(rows, "comment", "ORION Field - NAT")
     if not configuration.enable_nat:
         if managed and not _optional_bool(managed.get("disabled")):
             client.run(
@@ -805,6 +851,7 @@ def _configure_nat(
             "=chain=srcnat",
             "=action=masquerade",
             f"=out-interface={configuration.wan_interface}",
+            f"=src-address={configuration.lan_address.network}",
             "=disabled=no",
         )
     elif matching is None:
@@ -813,6 +860,7 @@ def _configure_nat(
             "=chain=srcnat",
             "=action=masquerade",
             f"=out-interface={configuration.wan_interface}",
+            f"=src-address={configuration.lan_address.network}",
             "=comment=ORION Field - NAT",
         )
 
@@ -955,18 +1003,22 @@ def apply_basic_network(
         context = {
             "bridges": _rows(client.run("/interface/bridge/print")),
             "bridge_ports": _rows(client.run("/interface/bridge/port/print")),
+            "ethernet": _rows(client.run("/interface/ethernet/print")),
             "ip_addresses": _rows(client.run("/ip/address/print")),
             "routes": _rows(client.run("/ip/route/print")),
             "dhcp_clients": _rows(client.run("/ip/dhcp-client/print")),
             "nat": _rows(client.run("/ip/firewall/nat/print")),
+            "interface_lists": _rows(client.run("/interface/list/member/print")),
             "dhcp_pools": _rows(client.run("/ip/pool/print")),
             "dhcp_servers": _rows(client.run("/ip/dhcp-server/print")),
             "dhcp_networks": _rows(client.run("/ip/dhcp-server/network/print")),
             "services": _rows(client.run("/ip/service/print")),
         }
-        backup_name = f"orion-before-network-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
+        backup_name = f"orion-before-network-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S-%f')}"
 
-        client.run("/system/backup/save", f"=name={backup_name}")
+        writer = ConfigurationWriter(client, backup_name)
+        writer.create_backup()
+        client = writer.tracked_client("o envio da rede básica")
         client.run("/system/identity/set", f"=name={configuration.identity}")
         if configuration.configure_lan:
             _ensure_bridge(client, context, configuration.lan_bridge)
@@ -985,7 +1037,7 @@ def apply_basic_network(
             else:
                 _configure_static_wan(client, context, configuration)
         if configuration.configure_lan:
-            _configure_nat(client, context["nat"], configuration)
+            _configure_nat(client, context["nat"], configuration, context["interface_lists"])
             _configure_lan_dhcp(client, context, configuration)
         _configure_access_services(client, context["services"], configuration)
 
@@ -999,6 +1051,10 @@ def apply_basic_network(
                     interface,
                     configuration.lan_bridge,
                 )
+            ethernet_names = {row.get("name") or row.get("default-name") for row in context["ethernet"]}
+            for port in context["bridge_ports"]:
+                if port.get("bridge") == configuration.lan_bridge and port.get("interface") in ethernet_names and port.get("interface") not in configuration.lan_ports and not _optional_bool(port.get("disabled")):
+                    client.run("/interface/bridge/port/set", f"=.id={_record_id(port, 'porta LAN')}", "=disabled=yes")
 
         return BasicNetworkApplyResult(
             status="applied",

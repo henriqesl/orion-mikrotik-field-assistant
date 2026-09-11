@@ -211,6 +211,8 @@ def _read_wifi(client: Any) -> tuple[str | None, str, list[WiFiInterface]]:
         except DeviceError:
             continue
 
+        if not rows:
+            continue
         interfaces = [
             WiFiInterface(
                 name=row.get("name") or row.get("default-name"),

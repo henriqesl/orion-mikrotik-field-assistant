@@ -39,6 +39,15 @@ VALID_CONFIGURATION = {
 }
 
 
+def test_invalid_forms_never_echo_credentials():
+    response = client.post("/api/mikrotik/configuration/preview", json={"connection": VALID_CONNECTION, "configuration": {**VALID_CONFIGURATION, "unexpected_ui_field": "private-secret", "passphrase": "short"}})
+    assert response.status_code == 422
+    assert "private-secret" not in response.text
+    assert "field-secret" not in response.text
+    assert '"input"' not in response.text
+    assert response.json()["detail"]
+
+
 def test_lan_discovery_returns_mndp_devices(monkeypatch) -> None:
     monkeypatch.setattr(
         mikrotik.mndp_collector,
