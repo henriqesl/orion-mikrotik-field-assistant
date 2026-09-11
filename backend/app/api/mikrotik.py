@@ -56,8 +56,10 @@ from app.services.network_configuration import (
     preview_basic_network,
     read_basic_network_state,
 )
-from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
+from app.services.lora_configuration import apply_lora_protection, preview_lora_protection, read_lora_protection
+from app.models.configuration import LoraProtectionCurrentState
 from app.services.mutations import ConfigurationApplyError
+from app.services.operation_guard import exclusive_operation
 from app.models.radio import APLockStatus, RadioInterfaceRequest, RadioScanRequest, RadioScanResult
 from app.services.ap_lock import read_ap_lock, scan_access_points
 from app.services.lan_discovery import (
@@ -95,7 +97,8 @@ def radio_lock_state(request: RadioInterfaceRequest):
 @router.post("/radio/scan", response_model=RadioScanResult)
 def radio_scan(request: RadioScanRequest):
     try:
-        return scan_access_points(request)
+        with exclusive_operation(request.connection):
+            return scan_access_points(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
@@ -153,7 +156,8 @@ def apply_lora_configuration(
     request: LoraProtectionApplyRequest,
 ) -> LoraProtectionApplyResult:
     try:
-        return apply_lora_protection(request)
+        with exclusive_operation(request.connection):
+            return apply_lora_protection(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
@@ -244,6 +248,16 @@ def discover_mikrotik(connection: MikroTikConnection) -> DeviceSummary:
         raise _friendly_http_error(error) from error
 
 
+@router.post("/lora/current", response_model=LoraProtectionCurrentState)
+def current_lora_configuration(connection: MikroTikConnection):
+    try:
+        return read_lora_protection(connection)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
 @router.post("/network/current", response_model=BasicNetworkCurrentState)
 def current_basic_network(connection: MikroTikConnection) -> BasicNetworkCurrentState:
     try:
@@ -304,7 +318,8 @@ def apply_configuration(
 ) -> ConfigurationApplyResult:
     """Create a backup and apply a previously confirmed link configuration."""
     try:
-        return apply_link_configuration(request)
+        with exclusive_operation(request.connection):
+            return apply_link_configuration(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
@@ -330,7 +345,8 @@ def apply_network_configuration(
 ) -> BasicNetworkApplyResult:
     """Create a backup and apply a confirmed basic network profile."""
     try:
-        return apply_basic_network(request)
+        with exclusive_operation(request.connection):
+            return apply_basic_network(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:

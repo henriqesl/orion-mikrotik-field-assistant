@@ -10,12 +10,14 @@ from app.models.configuration import (
     LoraProtectionApplyRequest,
     LoraProtectionApplyResult,
     LoraProtectionConfiguration,
+    LoraProtectionCurrentState,
     LoraProtectionPreview,
     LoraProtectionPreviewRequest,
 )
 from app.services.configuration import ConfigurationConflictError, _find_row, _record_id
 from app.services.routeros import _first_row, _optional_bool, _rows, _with_connection
 from app.services.mutations import ConfigurationWriter
+from pydantic import ValidationError
 
 
 LORA_SCRIPT = "orion-lora-watchdog"
@@ -93,6 +95,7 @@ def _build_preview(
     wan_scheduler = _find_row(context["schedulers"], "name", WAN_SCHEDULER)
     lora_script = _find_row(context["scripts"], "name", LORA_SCRIPT)
     lora_source = lora_script.get("source", "") if lora_script else ""
+    lora_active = bool(lora_scheduler and not _optional_bool(lora_scheduler.get("disabled")))
     ping_target, failure_threshold = _wan_parameters(_find_row(context["scripts"], "name", WAN_SCRIPT))
 
     candidates: list[ConfigurationChange | None] = []
@@ -107,7 +110,7 @@ def _build_preview(
         candidates.append(_change(
             "LoRa",
             "Reagir à desconexão LNS",
-            ("Ativo" if 'message~"LNS.*disconnected"' in lora_source else "Inativo")
+            ("Ativo" if lora_active and 'message~"LNS.*disconnected"' in lora_source else "Inativo")
             if lora_script
             else None,
             "Ativo" if configuration.enable_lns_watchdog else "Inativo",
@@ -116,7 +119,7 @@ def _build_preview(
         candidates.append(_change(
             "LoRa",
             "Reativação automática",
-            ("Ativo" if "get $loraId disabled" in lora_source else "Inativo")
+            ("Ativo" if lora_active and "get $loraId disabled" in lora_source else "Inativo")
             if lora_script
             else None,
             "Ativo" if configuration.enable_lora_guard else "Inativo",
@@ -236,6 +239,32 @@ def preview_lora_protection(
     return _with_connection(
         request.connection, lambda client: _build_preview(client, request)[0]
     )
+
+
+def read_lora_protection(connection) -> LoraProtectionCurrentState:
+    def operation(client):
+        context = _context(client, LoraProtectionConfiguration())
+        script = _find_row(context["scripts"], "name", LORA_SCRIPT)
+        source = (script or {}).get("source", "")
+        lora_schedule = _find_row(context["schedulers"], "name", LORA_SCHEDULER)
+        wan_schedule = _find_row(context["schedulers"], "name", WAN_SCHEDULER)
+        enabled = bool(lora_schedule and not _optional_bool(lora_schedule.get("disabled")))
+        target, failures = _wan_parameters(_find_row(context["scripts"], "name", WAN_SCRIPT))
+        try:
+            config = LoraProtectionConfiguration(
+                enable_lns_watchdog=enabled and 'message~"LNS.*disconnected"' in source,
+                enable_lora_guard=enabled and "get $loraId disabled" in source,
+                enable_device_reboot=bool(wan_schedule and not _optional_bool(wan_schedule.get("disabled"))),
+                ping_target=target or "1.1.1.1",
+                failure_threshold=int(failures or 3),
+                lora_interval=_interval((lora_schedule or {}).get("interval")) or "30m",
+                connectivity_interval=_interval((wan_schedule or {}).get("interval")) or "10m",
+            )
+        except (ValidationError, ValueError) as error:
+            raise ConfigurationConflictError("As proteções ORION foram personalizadas fora do aplicativo. Confira os scripts e intervalos no WinBox antes de alterá-los aqui.") from error
+        preview, _ = _build_preview(client, LoraProtectionPreviewRequest(connection=connection, configuration=config))
+        return LoraProtectionCurrentState(configuration=config, existing=preview.existing)
+    return _with_connection(connection, operation)
 
 
 def _wan_watchdog_source(configuration: LoraProtectionConfiguration) -> str:

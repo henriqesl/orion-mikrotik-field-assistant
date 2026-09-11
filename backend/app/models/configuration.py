@@ -238,7 +238,7 @@ class LoraProtectionConfiguration(BaseModel):
 
     enable_lns_watchdog: bool = True
     enable_lora_guard: bool = True
-    enable_device_reboot: bool = True
+    enable_device_reboot: bool = False
     ping_target: IPv4Address = IPv4Address("1.1.1.1")
     failure_threshold: int = Field(default=3, ge=1, le=10)
     lora_interval: Literal["5m", "10m", "30m", "1h"] = "30m"
@@ -249,6 +249,11 @@ class LoraProtectionPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     connection: MikroTikConnection
     configuration: LoraProtectionConfiguration
+
+
+class LoraProtectionCurrentState(BaseModel):
+    configuration: LoraProtectionConfiguration
+    existing: list[ExistingConfiguration]
 
 
 class LoraProtectionApplyRequest(LoraProtectionPreviewRequest):

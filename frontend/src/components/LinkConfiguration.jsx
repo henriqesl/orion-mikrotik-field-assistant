@@ -76,6 +76,7 @@ function LinkConfiguration({
   fieldSession,
   onApplied,
   onApplyStart,
+  onApplyEnd,
   onFieldSessionChange,
   onFinishFieldSession,
   onPrepareNextDevice,
@@ -236,6 +237,7 @@ function LinkConfiguration({
       );
     } finally {
       setIsApplying(false);
+      onApplyEnd?.();
     }
   }
 
@@ -361,7 +363,7 @@ function LinkConfiguration({
             {device.wifi_interfaces.map((item) => <option key={item.name} value={item.name}>{item.name}{item.band ? ` · ${item.band}` : ""}</option>)}
           </select>
         </label>
-        {form.role === "station" && <AccessPointSelector connection={connection} wifiInterface={form.wifi_interface} action={form.ap_lock_action} bssid={form.ap_bssid} busy={isPreviewing || isApplying} onChange={updateField} onSelect={selectAccessPoint} onScanning={setIsScanning} refreshKey={result?.backup_file} />}
+        {form.role === "station" && <AccessPointSelector connection={connection} wifiInterface={form.wifi_interface} action={form.ap_lock_action} bssid={form.ap_bssid} busy={isPreviewing || isApplying} onChange={updateField} onSelect={selectAccessPoint} onScanning={(active) => { setIsScanning(active); if (active) onApplyStart(); else onApplyEnd?.(); }} refreshKey={result?.backup_file} />}
 
         {!isRadioDevice && (
           <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>

@@ -52,7 +52,7 @@ function wanInterfaces(device) {
   );
 }
 
-function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart }) {
+function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart, onApplyEnd }) {
   const defaults = useMemo(() => initialForm(device), [device.identity]);
   const [form, setForm] = useState(defaults);
   const [currentLoad, setCurrentLoad] = useState("loading");
@@ -175,6 +175,7 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       );
     } finally {
       setIsApplying(false);
+      onApplyEnd?.();
     }
   }
 

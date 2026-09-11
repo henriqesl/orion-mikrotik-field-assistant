@@ -69,7 +69,7 @@ def connection():
 
 
 def settings(**updates):
-    values = {}
+    values = {"enable_device_reboot": True}
     values.update(updates)
     return LoraProtectionConfiguration(**values)
 
@@ -210,3 +210,14 @@ def test_repeated_lora_preview_matches_saved_values_and_routeros_intervals(monke
         scheduler["interval"] = "00:30:00" if scheduler["name"] == service.LORA_SCHEDULER else "00:10:00"
     preview = service.preview_lora_protection(LoraProtectionPreviewRequest(connection=connection(), configuration=config))
     assert preview.changes == []
+    assert service.read_lora_protection(connection()).configuration == config
+
+
+def test_new_gateway_loads_without_enabling_reboot_or_other_schedules(monkeypatch):
+    client = lora_router()
+    monkeypatch.setattr(service, "_with_connection", lambda _connection, operation: operation(client))
+    current = service.read_lora_protection(connection())
+    assert current.configuration.enable_device_reboot is False
+    assert current.configuration.enable_lns_watchdog is False
+    assert current.configuration.enable_lora_guard is False
+    assert all(command[0].endswith("/print") for command in client.commands)
