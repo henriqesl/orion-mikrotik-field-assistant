@@ -278,8 +278,8 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
                 <input name="wan_address" onChange={updateField} placeholder="10.0.0.2/24" required value={form.wan_address} />
               </label>
               <label className="field">
-                <span>Gateway da WAN</span>
-                <input name="gateway" onChange={updateField} placeholder="10.0.0.1" required value={form.gateway} />
+                <span>Gateway da WAN (opcional)</span>
+                <input name="gateway" onChange={updateField} placeholder="Sem alteração de rota" value={form.gateway} />
               </label>
             </>
           )}

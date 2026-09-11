@@ -267,6 +267,7 @@ function App() {
   }
 
   function handleTabChange(tabId) {
+    if (isOperating) return;
     if (
       (tabId === "configuration" && !wifiAvailable) ||
       (tabId === "lora" && !loraAvailable) ||

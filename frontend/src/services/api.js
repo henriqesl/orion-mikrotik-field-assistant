@@ -7,6 +7,7 @@ import {
   isDemoConnection,
 } from "./demo.js";
 import { apiUrl, isDesktopRuntime } from "./runtime.js";
+import { requestErrorMessage } from "./requestErrors.js";
 
 async function postJson(path, body) {
   let response;
@@ -30,9 +31,7 @@ async function postJson(path, body) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = typeof data?.detail === "string"
-      ? data.detail.replace(/&#x20;|&nbsp;/gi, " ").trim()
-      : data?.detail;
+    const message = requestErrorMessage(data?.detail);
     throw new Error(
       message ||
         "Não foi possível concluir a comunicação com o backend do ORION.",

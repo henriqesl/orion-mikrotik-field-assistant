@@ -14,6 +14,7 @@ function nextManagementAddress(value) {
 
   const octets = match.slice(1, 5).map(Number);
   const prefix = Number(match[5]);
+  if (octets.some((octet) => octet > 255) || prefix >= 31) return "";
   const address = octets.reduce((result, octet) => ((result << 8) | octet) >>> 0, 0);
   const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
   const broadcast = ((address & mask) | (~mask >>> 0)) >>> 0;
@@ -59,7 +60,7 @@ function initialConfiguration(device, fieldSession, wifiInterface) {
     ap_lock_action: fieldSession?.next_role === "station" && fieldSession.ap_bssid && device.wifi_stack === "wireless" ? "lock" : "preserve",
     ap_bssid: fieldSession?.next_role === "station" && device.wifi_stack === "wireless" ? fieldSession.ap_bssid || "" : "",
     frequency_mhz: fieldSession?.frequency_mhz || frequency,
-    channel_width: fieldSession?.channel_width || (wifi?.channel_width?.startsWith("20/40")
+    channel_width: fieldSession?.channel_width || (wifi?.channel_width === "20/40mhz"
       ? "20/40mhz"
       : wifi?.channel_width === "20mhz" ? "20mhz" : ""),
     management_ip: fieldSession?.next_role === "station"
@@ -134,6 +135,7 @@ function LinkConfiguration({
   }
 
   function applyProfile(profile) {
+    if (isApplying || isPreviewing || isScanning) return;
     setSelectedProfile(profile.id);
     setForm((current) => ({
       ...current,
@@ -148,6 +150,7 @@ function LinkConfiguration({
   }
 
   function startPairConfiguration() {
+    if (isApplying || isPreviewing || isScanning) return;
     if (form.passphrase.length < 8) {
       setErrorMessage("Defina uma senha WPA2 com pelo menos oito caracteres antes de iniciar o par.");
       return;
@@ -157,7 +160,7 @@ function LinkConfiguration({
       profile_id: selectedProfile || "custom",
       ssid: form.ssid,
       passphrase: form.passphrase,
-      frequency_mhz: Number(form.frequency_mhz),
+      frequency_mhz: form.frequency_mhz === "" ? null : Number(form.frequency_mhz),
       channel_width: form.channel_width,
       bridge_name: form.bridge_name,
       station_management_ip: nextManagementAddress(form.management_ip),
@@ -170,6 +173,7 @@ function LinkConfiguration({
   }
 
   function clearPairConfiguration() {
+    if (isApplying || isPreviewing || isScanning) return;
     onFieldSessionChange(null);
   }
 
@@ -267,6 +271,7 @@ function LinkConfiguration({
               .map((profile) => (
               <button
                 className={selectedProfile === profile.id ? "field-profile field-profile--selected" : "field-profile"}
+                disabled={isApplying || isPreviewing || isScanning}
                 key={profile.id}
                 onClick={() => applyProfile(profile)}
                 type="button"
@@ -295,7 +300,7 @@ function LinkConfiguration({
             </small>
           </div>
           {fieldSession ? (
-            <button onClick={clearPairConfiguration} type="button">Encerrar sessão</button>
+            <button disabled={isApplying || isPreviewing || isScanning} onClick={clearPairConfiguration} type="button">Encerrar sessão</button>
           ) : (
             <button onClick={startPairConfiguration} type="button">Iniciar configuração do par</button>
           )}
