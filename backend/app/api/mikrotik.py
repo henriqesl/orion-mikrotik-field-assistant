@@ -57,6 +57,7 @@ from app.services.network_configuration import (
     read_basic_network_state,
 )
 from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
+from app.services.mutations import ConfigurationApplyError
 from app.services.lan_discovery import (
     InvalidWinBoxPathError,
     WinBoxNotFoundError,
@@ -171,6 +172,8 @@ def launch_winbox(request: WinBoxLaunchRequest) -> WinBoxLaunchResult:
 
 
 def _friendly_http_error(error: MikroTikError) -> HTTPException:
+    if isinstance(error, ConfigurationApplyError):
+        return HTTPException(status_code=502, detail=str(error))
     if isinstance(error, MikroTikAuthenticationError):
         return HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

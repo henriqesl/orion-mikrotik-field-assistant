@@ -102,6 +102,11 @@ class StatefulRouter:
             return _reply(self.rows(command))
 
         assignments = self._assignments(tuple(words[1:]))
+        if command in {"/system/script/add", "/system/script/set"}:
+            allowed = {".id", "name", "source", "policy", "comment", "dont-require-permissions"}
+            unknown = set(assignments) - allowed
+            if unknown:
+                raise AssertionError(f"Propriedade inválida em /system/script: {unknown}")
         if command == "/system/backup/save":
             name = assignments.get("name")
             if not name:
