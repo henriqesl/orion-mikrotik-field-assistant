@@ -140,9 +140,11 @@ function LinkConfiguration({
   }
 
   function adjustFrequency(delta) {
+    const selected = device.wifi_interfaces.find((item) => item.name === form.wifi_interface);
+    const fallback = selected?.band?.startsWith("2ghz") ? 2412 : selected?.band?.startsWith("6ghz") ? 5955 : 5180;
     setForm((current) => ({
       ...current,
-      frequency_mhz: Math.min(7100, Math.max(2000, Number(current.frequency_mhz) + delta)),
+      frequency_mhz: current.frequency_mhz === "" ? fallback : Math.min(7100, Math.max(2000, Number(current.frequency_mhz) + delta)),
     }));
     setPreview(null);
     setResult(null);

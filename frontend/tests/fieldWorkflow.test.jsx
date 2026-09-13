@@ -179,3 +179,18 @@ test("failed apply releases the operation guard and preserves the field draft", 
   expect(handlers.onApplied).not.toHaveBeenCalled();
   expect(screen.getByLabelText("SSID").value).not.toBe("");
 });
+
+test("reconnecting alone never hides a radio setting that was not saved", async () => {
+  const user = userEvent.setup();
+  const handlers = callbacks();
+  const device = routerDevice();
+  handlers.onApplied.mockResolvedValue({ connection, device });
+  render(<LinkConfiguration connection={connection} device={device} {...handlers} />);
+  await user.clear(screen.getByLabelText("SSID"));
+  await user.type(screen.getByLabelText("SSID"), "REDE-NOVA");
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
+  await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
+  await screen.findByText(/Acesso confirmado; confira estes campos: SSID/);
+  expect(handlers.onApplyEnd).toHaveBeenCalledTimes(1);
+});

@@ -258,6 +258,7 @@ def factory_router() -> StatefulRouter:
 
 def radio_router() -> StatefulRouter:
     router = wifi_station_router()
+    router.rows("/interface/wifi/print")[0].update({"channel.band": "5ghz-ax", "channel.frequency": "5500"})
     router.rows("/system/identity/print")[0]["name"] = "LHG-LAB"
     router.rows("/system/resource/print")[0]["board-name"] = "LHG 5 ax"
     router.tables["/interface/ethernet/print"] = router.rows("/interface/ethernet/print")[:1]

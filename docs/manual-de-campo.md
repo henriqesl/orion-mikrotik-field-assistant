@@ -22,6 +22,8 @@ Guia rápido para preparar routers e enlaces MikroTik.
 
 O IP temporário é editável. O MAC é usado somente nessa preparação; o gerenciamento continua pela API IPv4. Se falhar, use **Plano B: abrir o WinBox** e confira a API do RouterOS.
 
+Em API-SSL, mantenha a validação do certificado do **MikroTik**. O certificado BIONIC do instalador não serve para essa conexão. A exceção sem validação é somente para bancada controlada.
+
 ## Router novo
 
 Na aba **Rede básica**:
@@ -95,6 +97,8 @@ Valide gateway e internet somente quando fizerem parte da instalação.
 4. Confira cabo, PoE e interface conectada.
 5. Tente o WinBox pelo MAC.
 6. Não reaplique sem reler o equipamento.
+
+“Comandos enviados” não significa “enlace funcionando”. Após reconectar, confira eventuais diferenças apontadas pela releitura; depois valide associação e tráfego. Se o IP responder com outro MAC de equipamento, confira possíveis IPs duplicados antes de continuar.
 
 Se o enlace não associar, compare função, SSID, senha, frequência, largura e driver.
 

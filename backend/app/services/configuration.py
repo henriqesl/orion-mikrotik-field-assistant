@@ -80,6 +80,13 @@ def _context(client: Any, configuration: LinkConfiguration) -> dict[str, Any]:
             "As interfaces selecionadas não existem mais: "
             f"{', '.join(missing_interfaces)}."
         )
+
+    if configuration.frequency_mhz is not None:
+        # Coarse band check only. RouterOS still enforces hardware/country/DFS.
+        band = (wifi.band or "").lower()
+        limits = next((bounds for prefix, bounds in (("2ghz", (2400, 2500)), ("5ghz", (4900, 5925)), ("6ghz", (5925, 7125))) if band.startswith(prefix)), None)
+        if limits and not limits[0] <= configuration.frequency_mhz <= limits[1]:
+            raise ConfigurationConflictError("A frequência informada não corresponde à banda selecionada desta interface. Preserve a frequência atual ou escolha um canal da banda correta.")
     if wifi_row.get("configuration.manager") in {"capsman", "capsman-or-local"} or _optional_bool(wifi_row.get("dynamic")):
         raise ConfigurationConflictError("Esta interface é gerenciada centralmente. Peça ao responsável pela rede para ajustá-la no CAPsMAN.")
     if stack == "wireless" and wifi_row.get("wireless-protocol") in {"nv2", "nstreme", "nv2-nstreme", "nv2-nstreme-802.11"}:
@@ -231,7 +238,7 @@ def _build_preview(
             2,
             "Bridge, portas, IPs, gateway, DHCP, NAT e firewall serão preservados.",
         )
-    if context["stack"] == "wireless":
+    if context["stack"] == "wireless" and configuration.passphrase is not None:
         warnings.append(
             "O equipamento usa Wireless legado; o ORION aplicará o perfil WPA2 compatível."
         )
@@ -239,6 +246,8 @@ def _build_preview(
         warnings.append(
             "Station-bridge exige um AP MikroTik com a mesma família de driver Wi-Fi."
         )
+    if configuration.frequency_mhz is not None:
+        warnings.append("A frequência depende do país e dos canais permitidos pelo RouterOS; canais DFS podem demorar a iniciar. Confirme a associação antes de encerrar o serviço.")
     if configuration.ap_lock_action == "lock":
         warnings.append("A Station aceitará somente o MAC do AP escolhido; se ele estiver fora de alcance ou incorreto, o enlace não conectará. Lock não substitui a senha WPA2.")
     if configuration.passphrase is None:

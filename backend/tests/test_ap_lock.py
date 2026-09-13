@@ -117,6 +117,16 @@ def test_existing_ap_scenario_cannot_configure_ap():
         settings(role="ap", link_scenario="existing")
 
 
+@pytest.mark.parametrize("band,frequency", [("2ghz-ax", 5500), ("5ghz-ax", 2412), ("6ghz-ax", 5500)])
+def test_wrong_band_is_rejected_before_backup(monkeypatch, band, frequency):
+    router = radio_router()
+    router.rows("/interface/wifi/print")[0]["channel.band"] = band
+    wire(monkeypatch, router)
+    with pytest.raises(ConfigurationConflictError, match="banda"):
+        configuration.apply_link_configuration(ConfigurationApplyRequest(connection=connection(), configuration=settings(frequency_mhz=frequency), confirmation="APLICAR"))
+    assert router.backups == []
+
+
 @pytest.mark.parametrize("factory,argument", [(legacy_radio, "interface"), (radio_router, "number")])
 def test_scan_is_bounded_deduplicates_and_never_writes(monkeypatch, factory, argument):
     router = factory()

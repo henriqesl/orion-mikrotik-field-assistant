@@ -6,8 +6,8 @@ Scope: straightforward field configuration, preserving existing settings, with A
 
 | Check | Result |
 |---|---|
-| Backend | 161 passed; 2 opt-in physical tests skipped |
-| Frontend | 6 payload/error tests and 11 React interaction tests passed |
+| Backend | 166 passed; 2 opt-in physical tests skipped |
+| Frontend | 13 unit tests and 12 React interaction tests passed |
 | Native network metrics | CTest passed |
 | Frontend production build | Passed |
 | Dependency audit | npm reported no known vulnerabilities |

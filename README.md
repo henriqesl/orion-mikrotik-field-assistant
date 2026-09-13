@@ -105,6 +105,7 @@ The C++ Network Engine is restricted to advanced latency metrics. Configuration 
 ## Documentation
 
 - [Field manual](docs/manual-de-campo.md)
+- [Compatibility and physical acceptance](docs/COMPATIBILITY.md)
 - [Internal Windows installation](docs/instalacao-interna-windows.md)
 - [V7.2 lab validation](docs/TESTE-DE-BANCADA-V7.2.md)
 - [0.7.3 validation and release scope](docs/MVP-VALIDATION.md)
