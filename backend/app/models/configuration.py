@@ -11,6 +11,7 @@ class LinkConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role: Literal["ap", "station"]
+    link_scenario: Literal["pair", "multipoint", "existing"] = "pair"
     device_kind: Literal["radio", "generic"] = "radio"
     manage_topology: bool = True
     identity: str = Field(min_length=1, max_length=64)
@@ -29,6 +30,8 @@ class LinkConfiguration(BaseModel):
 
     @model_validator(mode="after")
     def validate_network(self):
+        if self.link_scenario == "existing" and self.role != "station":
+            raise ValueError("Para conectar a um AP existente, selecione Station.")
         if self.ap_lock_action == "lock" and (self.role != "station" or not self.ap_bssid):
             raise ValueError("Para fixar o AP, selecione Station e informe o MAC do AP.")
         if self.ap_lock_action != "lock" and self.ap_bssid is not None:

@@ -546,5 +546,5 @@ def _desired_wifi_mode(
     modern: bool,
 ) -> str:
     if configuration.role == "ap":
-        return "ap" if modern else ("bridge" if configuration.device_kind == "radio" else "ap-bridge")
+        return "ap" if modern else ("bridge" if configuration.device_kind == "radio" and configuration.link_scenario == "pair" else "ap-bridge")
     return "station-bridge" if configuration.device_kind == "radio" else "station"

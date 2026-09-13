@@ -103,6 +103,20 @@ def test_generic_legacy_ap_supports_multiple_clients(monkeypatch):
     assert router.rows("/interface/wireless/print")[0]["mode"] == "ap-bridge"
 
 
+@pytest.mark.parametrize("factory,scenario,mode", [(legacy_radio, "pair", "bridge"), (legacy_radio, "multipoint", "ap-bridge"), (radio_router, "multipoint", "ap")])
+def test_radio_scenario_selects_correct_ap_mode(monkeypatch, factory, scenario, mode):
+    router = factory()
+    wire(monkeypatch, router)
+    configuration.apply_link_configuration(ConfigurationApplyRequest(connection=connection(), configuration=settings(role="ap", link_scenario=scenario), confirmation="APLICAR"))
+    row = router.rows("/interface/wireless/print" if factory == legacy_radio else "/interface/wifi/print")[0]
+    assert row["mode" if factory == legacy_radio else "configuration.mode"] == mode
+
+
+def test_existing_ap_scenario_cannot_configure_ap():
+    with pytest.raises(ValidationError):
+        settings(role="ap", link_scenario="existing")
+
+
 @pytest.mark.parametrize("factory,argument", [(legacy_radio, "interface"), (radio_router, "number")])
 def test_scan_is_bounded_deduplicates_and_never_writes(monkeypatch, factory, argument):
     router = factory()

@@ -33,6 +33,65 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+test("radio scenarios default to a pair and existing AP selects only Station without writing", async () => {
+  const user = userEvent.setup();
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} {...callbacks()} />);
+  expect(screen.getByRole("radio", { name: /Par de rádios/ }).checked).toBe(true);
+  await user.click(screen.getByRole("radio", { name: /Conectar a AP existente/ }));
+  expect(screen.getAllByRole("radio").find((input) => input.name === "role" && input.value === "ap").disabled).toBe(true);
+  expect(screen.queryByText("Usar estes dados para configurar o par AP + Station")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await waitFor(() => expect(api.previewLinkConfiguration).toHaveBeenCalledTimes(1));
+  expect(api.previewLinkConfiguration.mock.calls[0][1]).toMatchObject({ link_scenario: "existing", role: "station" });
+  expect(api.applyLinkConfiguration).not.toHaveBeenCalled();
+});
+
+test.each(["pair", "multipoint"])("%s session completes a Station with the correct next step", async (scenario) => {
+  const user = userEvent.setup();
+  const handlers = callbacks();
+  const session = { link_scenario: scenario, stations: [], completed_roles: ["ap"], next_role: "station", ssid: "ENLACE", passphrase: "lab-password", station_management_ip: "192.0.2.20/24" };
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} fieldSession={session} {...handlers} />);
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
+  await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
+  await waitFor(() => expect(handlers.onFieldSessionChange).toHaveBeenCalledTimes(1));
+  expect(handlers.onFieldSessionChange.mock.calls[0][0]).toMatchObject({ next_role: scenario === "pair" ? "complete" : "station", station_management_ip: "" });
+  if (scenario === "multipoint") {
+    await user.click(screen.getByRole("button", { name: "Desconectar e configurar outra Station" }));
+    expect(handlers.onPrepareNextDevice).toHaveBeenCalledTimes(1);
+  } else {
+    expect(screen.queryByRole("button", { name: "Desconectar e configurar outra Station" })).toBeNull();
+  }
+});
+
+test("multipoint continuation requires a unique management IP and retains earlier Stations", async () => {
+  const user = userEvent.setup();
+  const handlers = callbacks();
+  const session = { link_scenario: "multipoint", stations: ["02:11:11:11:11:11"], station_addresses: { "02:11:11:11:11:11": "192.0.2.20/24" }, completed_roles: ["ap", "station"], next_role: "station", ssid: "ENLACE", passphrase: "lab-password", station_management_ip: "" };
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} fieldSession={session} {...handlers} />);
+  const ip = screen.getByLabelText("IP de gerenciamento");
+  expect(ip.value).toBe("");
+  await user.type(ip, "192.0.2.20/24");
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(api.previewLinkConfiguration).not.toHaveBeenCalled();
+  await user.clear(ip); await user.type(ip, "192.0.2.21/24");
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
+  await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
+  await waitFor(() => expect(handlers.onFieldSessionChange).toHaveBeenCalledTimes(1));
+  expect(handlers.onFieldSessionChange.mock.calls[0][0].stations).toHaveLength(2);
+});
+
+test("the AP cannot accidentally be configured as its own next Station", async () => {
+  const user = userEvent.setup();
+  const device = { ...demoDevice({ host: "demo" }), demo_mode: false };
+  render(<LinkConfiguration connection={connection} device={device} fieldSession={{ next_role: "station", completed_roles: ["ap"], ap_bssid: device.wifi_interfaces[0].mac_address, station_management_ip: "192.0.2.20/24" }} {...callbacks()} />);
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await screen.findByText(/Este é o AP da sessão/);
+  expect(api.previewLinkConfiguration).not.toHaveBeenCalled();
+});
+
 test("technician can toggle LAN resources, review and save without changing WAN", async () => {
   const user = userEvent.setup();
   const handlers = callbacks();

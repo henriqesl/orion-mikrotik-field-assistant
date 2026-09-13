@@ -44,7 +44,8 @@ function initialConfiguration(device, fieldSession, wifiInterface) {
   const detectedRole = wifi?.mode?.startsWith("station") ? "station" : "ap";
 
   return {
-    role: fieldSession?.next_role || detectedRole,
+    role: fieldSession?.next_role === "complete" ? detectedRole : fieldSession?.next_role || detectedRole,
+    link_scenario: fieldSession?.link_scenario || (wifi?.mode === "ap-bridge" ? "multipoint" : "pair"),
     device_kind: device.radio_device ? "radio" : "generic",
     manage_topology: Boolean(device.radio_device),
     identity: device.identity,
@@ -96,12 +97,16 @@ function LinkConfiguration({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const currentWifiMac = device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address;
+  const expectedAP = fieldSession?.ap_bssid;
+  const associatedPeer = device.wifi_peers?.find((item) => item.interface === form.wifi_interface);
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
     setForm((current) => ({
       ...current,
       ...(name === "wifi_interface" ? initialConfiguration(device, fieldSession, value) : {}),
+      ...(name === "wifi_interface" ? { link_scenario: current.link_scenario, ...(current.link_scenario === "existing" ? { role: "station" } : {}) } : {}),
       [name]: type === "checkbox" ? checked : value,
       ...(name === "ap_lock_action" && value !== "lock" ? { ap_bssid: "" } : {}),
       ...(name === "role" ? { ap_lock_action: "preserve", ap_bssid: "" } : {}),
@@ -109,6 +114,14 @@ function LinkConfiguration({
     setPreview(null);
     setResult(null);
     setConfirmation("");
+  }
+
+  function chooseScenario(value) {
+    if (fieldSession || isApplying || isPreviewing || isScanning) return;
+    setForm((current) => ({ ...current, link_scenario: value,
+      ...(value === "existing" ? { role: "station", ap_lock_action: "preserve", ap_bssid: "" } : {}),
+    }));
+    setPreview(null); setResult(null); setConfirmation(""); setErrorMessage("");
   }
 
   function toggleBridgeInterface(event) {
@@ -157,6 +170,8 @@ function LinkConfiguration({
     }
 
     const session = {
+      link_scenario: form.link_scenario,
+      stations: [],
       profile_id: selectedProfile || "custom",
       ssid: form.ssid,
       passphrase: form.passphrase,
@@ -168,7 +183,8 @@ function LinkConfiguration({
       next_role: "ap",
     };
     onFieldSessionChange(session);
-    setForm((current) => ({ ...current, role: "ap" }));
+    setForm((current) => ({ ...current, role: "ap", ap_lock_action: "preserve", ap_bssid: "" }));
+    setPreview(null); setResult(null); setConfirmation("");
     setErrorMessage("");
   }
 
@@ -198,6 +214,23 @@ function LinkConfiguration({
 
   async function handlePreview(event) {
     event.preventDefault();
+    if (fieldSession && form.role === "station") {
+      if (fieldSession.ap_wifi_stack && (fieldSession.ap_wifi_stack === "wireless") !== (device.wifi_stack === "wireless")) {
+        setErrorMessage("Este assistente usa Station-bridge: AP e Station precisam da mesma família de driver (WiFi com WiFi ou Wireless com Wireless).");
+        return;
+      }
+      if (expectedAP && currentWifiMac?.toUpperCase() === expectedAP.toUpperCase()) {
+        setErrorMessage("Este é o AP da sessão. Conecte o outro rádio para configurar a Station.");
+        return;
+      }
+      const address = form.management_ip.split("/")[0].trim();
+      const reused = fieldSession.ap_management_ip?.split("/")[0] === address
+        || Object.entries(fieldSession.station_addresses || {}).some(([mac, value]) => mac !== (currentWifiMac || connection.host) && value.split("/")[0] === address);
+      if (reused) {
+        setErrorMessage("Este IP já foi usado por outro rádio nesta sessão. Escolha um IP de gerenciamento exclusivo.");
+        return;
+      }
+    }
     setIsPreviewing(true);
     setErrorMessage("");
     setResult(null);
@@ -229,9 +262,21 @@ function LinkConfiguration({
         ]));
         onFieldSessionChange({
           ...fieldSession,
+          ...(form.role === "ap" ? {
+            ssid: form.ssid, passphrase: form.passphrase || fieldSession.passphrase,
+            frequency_mhz: form.frequency_mhz === "" ? null : Number(form.frequency_mhz),
+            channel_width: form.channel_width, bridge_name: form.bridge_name,
+            station_management_ip: nextManagementAddress(form.management_ip),
+            ap_management_ip: form.management_ip,
+            ap_wifi_stack: device.wifi_stack,
+          } : {
+            stations: Array.from(new Set([...(fieldSession.stations || []), device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address || connection.host])),
+            station_management_ip: "",
+            station_addresses: { ...fieldSession.station_addresses, [currentWifiMac || connection.host]: form.management_ip },
+          }),
           ...(form.role === "ap" ? { ap_bssid: device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address || null } : {}),
           completed_roles: completedRoles,
-          next_role: form.role === "ap" ? "station" : "complete",
+          next_role: form.role === "ap" || fieldSession.link_scenario === "multipoint" ? "station" : "complete",
         });
       }
       await onApplied(applyResult);
@@ -258,6 +303,21 @@ function LinkConfiguration({
       </div>
 
       {isRadioDevice && (
+        <fieldset className="link-scenario-selector" disabled={Boolean(fieldSession) || isApplying || isPreviewing || isScanning}>
+          <legend>O que você quer configurar?</legend>
+          <div className="field-profile-grid">
+            {[
+              ["pair", "Par de rádios", "Principal · um AP + uma Station"],
+              ["multipoint", "AP com várias Stations", "Reaproveite os dados para cada Station"],
+              ["existing", "Conectar a AP existente", "Configure somente esta Station"],
+            ].map(([value, title, description]) => <label key={value} className={`field-profile ${form.link_scenario === value ? "field-profile--selected" : ""}`}>
+              <input type="radio" name="link-scenario" value={value} checked={form.link_scenario === value} onChange={() => chooseScenario(value)} />
+              <strong>{title}</strong><span>{description}</span>
+            </label>)}
+          </div>
+        </fieldset>
+      )}
+      {isRadioDevice && form.link_scenario !== "existing" && !fieldSession && (
         <section className="field-profiles" aria-labelledby="field-profiles-title">
           <header>
             <div>
@@ -287,7 +347,7 @@ function LinkConfiguration({
       {isRadioDevice && fieldSession && (
         <section className={fieldSession ? "pair-session pair-session--active" : "pair-session"}>
           <div>
-            <span>AP + Station</span>
+            <span>{fieldSession.link_scenario === "multipoint" ? `AP + várias Stations · ${fieldSession.stations?.length || 0} configurada(s)` : "AP + Station"}</span>
             <strong>
               {fieldSession
                 ? `Etapa atual: ${fieldSession.next_role === "station" ? "Station" : fieldSession.next_role === "complete" ? "validação" : "AP"}`
@@ -314,6 +374,12 @@ function LinkConfiguration({
         </div>
         <b>Editável</b>
       </div>
+      {isRadioDevice && form.role === "station" && expectedAP && <p className="configuration-note" role="status">
+        AP esperado: {expectedAP}. {associatedPeer?.mac_address
+          ? `MAC na última leitura: ${associatedPeer.mac_address} — ${associatedPeer.mac_address.toUpperCase() === expectedAP.toUpperCase() ? "corresponde ao AP esperado" : "diferente do esperado; confira a associação"}.`
+          : "Associação ainda não confirmada na leitura do equipamento."}
+        {device.wifi_stack !== "wireless" && " Conferência de associação, não lock por MAC."}
+      </p>}
 
       <form className="configuration-form" onSubmit={handlePreview}>
         <fieldset className="form-scope" disabled={isPreviewing || isApplying || isScanning}>
@@ -325,6 +391,7 @@ function LinkConfiguration({
               <input
                 checked={form.role === "ap"}
                 name="role"
+                disabled={form.link_scenario === "existing"}
                 onChange={updateField}
                 type="radio"
                 value="ap"
@@ -491,7 +558,7 @@ function LinkConfiguration({
         >
           {isPreviewing ? "Analisando…" : "Revisar alterações"}
         </button>
-        {isRadioDevice && !fieldSession && <button className="secondary-button" onClick={startPairConfiguration} type="button">Usar estes dados para configurar o par AP + Station</button>}
+        {isRadioDevice && !fieldSession && form.link_scenario !== "existing" && <button className="secondary-button" onClick={startPairConfiguration} type="button">{form.link_scenario === "multipoint" ? "Usar estes dados para o AP e suas Stations" : "Usar estes dados para configurar o par AP + Station"}</button>}
         </fieldset>
       </form>
 
@@ -554,9 +621,12 @@ function LinkConfiguration({
             </button>
           )}
           {fieldSession && form.role === "station" && (
+            <>
+            {fieldSession.link_scenario === "multipoint" && <button onClick={onPrepareNextDevice} type="button">Desconectar e configurar outra Station</button>}
             <button onClick={onFinishFieldSession} type="button">
               Concluir sessão e abrir os testes
             </button>
+            </>
           )}
         </div>
       )}

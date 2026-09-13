@@ -47,6 +47,8 @@ A configuração atual é carregada; WAN, LAN e DNS começam protegidos.
 
 Planeje nomes e IPs exclusivos. SSID, senha WPA2, frequência e largura devem ser iguais nos dois lados.
 
+Na seleção **O que você quer configurar?**, mantenha **Par de rádios** para o fluxo principal abaixo. Para um AP atendendo vários clientes, selecione **AP com várias Stations**; após cada Station, use **Desconectar e configurar outra Station** e informe um IP exclusivo. Para ajustar apenas um cliente, escolha **Conectar a AP existente**: o ORION não configura o AP remoto.
+
 ### AP
 
 1. Conecte somente o AP e abra **Configuração do rádio**.
@@ -67,6 +69,8 @@ Planeje nomes e IPs exclusivos. SSID, senha WPA2, frequência e largura devem se
 Os dados do par ficam somente na memória enquanto o ORION estiver aberto. `station-bridge` exige MikroTiks compatíveis e a mesma família de driver nos dois lados.
 
 Drivers `wifi`/`wifiwave2` não têm lock por BSSID neste fluxo: use SSID e senha exclusivos. Regras de conexão personalizadas devem ser revisadas pelo responsável no WinBox.
+
+Na sessão guiada, confira o MAC do AP esperado e o MAC associado da última leitura. Essa conferência não impede outras associações. No multiponto, todos usam os dados do mesmo AP; a capacidade é compartilhada e as Stations precisam estar na cobertura da antena.
 
 ## LoRa
 

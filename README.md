@@ -9,6 +9,7 @@ ORION Field is a local Windows assistant for configuring, monitoring, and valida
 - LAN discovery through MNDP and temporary MAC preparation for devices without a usable IP;
 - current RouterOS configuration loaded before any proposal;
 - assisted setup for basic routing, LAN, Wi-Fi, AP/Station links, and supported LoRa protections;
+- selectable radio workflows: a dedicated pair (default), one AP with multiple Stations, or a Station joining an existing AP;
 - nearby AP discovery and verified Station BSSID locking on the classic `wireless` driver;
 - live RouterOS data, negotiated radio rates, RX/TX traffic, and structural diagnostics;
 - latency, loss, jitter, p95, p99, spike, and stability measurements;

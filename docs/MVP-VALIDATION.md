@@ -6,8 +6,8 @@ Scope: straightforward field configuration, preserving existing settings, with A
 
 | Check | Result |
 |---|---|
-| Backend | 157 passed; 2 opt-in physical tests skipped |
-| Frontend | 6 payload/error tests and 6 React interaction tests passed |
+| Backend | 161 passed; 2 opt-in physical tests skipped |
+| Frontend | 6 payload/error tests and 11 React interaction tests passed |
 | Native network metrics | CTest passed |
 | Frontend production build | Passed |
 | Dependency audit | npm reported no known vulnerabilities |
@@ -15,6 +15,8 @@ Scope: straightforward field configuration, preserving existing settings, with A
 Stateful RouterOS doubles cover new routers, Wi-Fi uplinks, static IP without a gateway, existing bridges/DHCP/NAT, LAN toggles, classic/modern Wi-Fi, AP lock/change/unlock, LoRa scripts/schedulers, backup failure, and interrupted writes. These are simulations, not RouterOS hardware or firmware emulation.
 
 React tests exercise loading existing values, changing interfaces, scan consent, AP selection, preview/apply, and recovery after failure. Native/browser automation was unavailable in this environment; an actual-window visual review remains pending.
+
+The subsequent radio-scenario extension adds pair (default), multipoint continuation and existing-AP workflows, with session-local IP reuse checks. These source changes require a new desktop build; the previously generated 0.7.3 installer does not include them.
 
 ## Final bench gate
 
