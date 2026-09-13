@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { applyLoraProtection, previewLoraProtection } from "../services/api.js";
+import { applyLoraProtection, previewLoraProtection, getLoraProtectionCurrent } from "../services/api.js";
 import CurrentConfiguration from "./CurrentConfiguration.jsx";
 
 function initialForm(device) {
   return {
     enable_lns_watchdog: true,
     enable_lora_guard: true,
-    enable_device_reboot: true,
+    enable_device_reboot: false,
     ping_target: "1.1.1.1",
     failure_threshold: 3,
     lora_interval: "30m",
@@ -25,7 +25,7 @@ function Toggle({ checked, description, label, name, onChange }) {
   );
 }
 
-function LoraProtection({ connection, device, onApplyStart, onApplied }) {
+function LoraProtection({ connection, device, onApplyStart, onApplyEnd, onApplied }) {
   const defaults = useMemo(() => initialForm(device), [device]);
   const [form, setForm] = useState(defaults);
   const [preview, setPreview] = useState(null);
@@ -33,6 +33,17 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [existing, setExisting] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    getLoraProtectionCurrent(connection).then((current) => {
+      if (cancelled) return;
+      setForm(current.configuration); setExisting(current.existing); setLoaded(true); setError("");
+    }).catch((caught) => { if (!cancelled) setError(caught.message); });
+    return () => { cancelled = true; };
+  }, [connection]);
 
   function clearReview() {
     setPreview(null);
@@ -77,6 +88,7 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
       setError(caught.message);
     } finally {
       setBusy(false);
+      onApplyEnd?.();
     }
   }
 
@@ -87,8 +99,12 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
         <span className={device.demo_mode ? "preview-badge" : "write-badge"}>{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
       <p className="section-description">Monitora a interface LoRa e a conexão WAN do gateway sem substituir a configuração do servidor LoRaWAN.</p>
+      <CurrentConfiguration items={existing} />
+      {!loaded && !error && <p role="status">Lendo as proteções atuais do gateway…</p>}
 
       <form className="configuration-form" onSubmit={review}>
+        <fieldset className="form-scope" disabled={!loaded || busy}>
+        <legend className="sr-only">Proteções do gateway</legend>
         <fieldset className="network-options">
           <legend>Proteções automáticas</legend>
           <div className="lora-toggle-grid">
@@ -108,6 +124,7 @@ function LoraProtection({ connection, device, onApplyStart, onApplied }) {
         </div>
 
         <button className="primary-button" disabled={busy} type="submit">{busy ? "Analisando…" : "Verificar compatibilidade e revisar"}</button>
+        </fieldset>
       </form>
 
       {error && <div className="inline-error">{error}</div>}

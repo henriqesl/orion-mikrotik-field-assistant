@@ -22,6 +22,8 @@ Guia rápido para preparar routers e enlaces MikroTik.
 
 O IP temporário é editável. O MAC é usado somente nessa preparação; o gerenciamento continua pela API IPv4. Se falhar, use **Plano B: abrir o WinBox** e confira a API do RouterOS.
 
+Em API-SSL, mantenha a validação do certificado do **MikroTik**. O certificado BIONIC do instalador não serve para essa conexão. A exceção sem validação é somente para bancada controlada.
+
 ## Router novo
 
 Na aba **Rede básica**:
@@ -36,7 +38,7 @@ O ORION cria um backup antes da escrita. Se a LAN mudar, conecte o computador a 
 
 ## Router configurado
 
-A configuração atual é carregada e a LAN começa protegida.
+A configuração atual é carregada; WAN, LAN e DNS começam protegidos.
 
 - mantenha **Manter rede LAN atual** quando não houver mudança de topologia;
 - altere somente o solicitado pela ordem de serviço;
@@ -47,22 +49,34 @@ A configuração atual é carregada e a LAN começa protegida.
 
 Planeje nomes e IPs exclusivos. SSID, senha WPA2, frequência e largura devem ser iguais nos dois lados.
 
+Na seleção **O que você quer configurar?**, mantenha **Par de rádios** para o fluxo principal abaixo. Para um AP atendendo vários clientes, selecione **AP com várias Stations**; após cada Station, use **Desconectar e configurar outra Station** e informe um IP exclusivo. Para ajustar apenas um cliente, escolha **Conectar a AP existente**: o ORION não configura o AP remoto.
+
 ### AP
 
 1. Conecte somente o AP e abra **Configuração do rádio**.
-2. Escolha o cenário e clique em **Iniciar configuração do par**.
+2. Preencha SSID e uma senha WPA2 de pelo menos oito caracteres; clique em **Usar estes dados para configurar o par AP + Station**.
 3. Confirme função, enlace, bridge e IP de gerenciamento.
 4. Revise, aplique e aguarde a reconexão.
 5. Clique em **Desconectar AP e configurar Station**.
 
 ### Station
 
-1. Retire o AP da bancada e conecte somente a Station.
+1. Mantenha o AP energizado, mas conecte o computador por cabo somente à Station, sem criar um segundo caminho Ethernet entre eles.
 2. Acesse-a pelo ORION e confirme os dados reaproveitados da sessão.
-3. Defina o IP exclusivo da Station.
-4. Revise e aplique.
+3. Confira o IP exclusivo da Station; a sugestão não garante que o endereço esteja livre.
+4. Para localizar o AP, confirme o acesso por cabo e clique em **Buscar APs**. A busca interrompe o Wi-Fi temporariamente.
+5. No driver `wireless`, use **Selecionar e fixar** e confira o MAC do AP na prévia. Para remover o vínculo, escolha remover o lock criado pelo ORION.
+6. Revise e aplique. Confirme a associação ao AP esperado após a reconexão.
 
 Os dados do par ficam somente na memória enquanto o ORION estiver aberto. `station-bridge` exige MikroTiks compatíveis e a mesma família de driver nos dois lados.
+
+Drivers `wifi`/`wifiwave2` não têm lock por BSSID neste fluxo: use SSID e senha exclusivos. Regras de conexão personalizadas devem ser revisadas pelo responsável no WinBox.
+
+Na sessão guiada, confira o MAC do AP esperado e o MAC associado da última leitura. Essa conferência não impede outras associações. No multiponto, todos usam os dados do mesmo AP; a capacidade é compartilhada e as Stations precisam estar na cobertura da antena.
+
+## LoRa
+
+Abra **LoRa**, aguarde a leitura das proteções salvas e marque somente as desejadas. **Reiniciar dispositivo** é opcional e não é ativado automaticamente. Revise e aplique; depois aguarde o intervalo escolhido e confira o funcionamento. A confirmação de gravação não substitui esse teste no gateway.
 
 ## Validar
 
@@ -83,6 +97,8 @@ Valide gateway e internet somente quando fizerem parte da instalação.
 4. Confira cabo, PoE e interface conectada.
 5. Tente o WinBox pelo MAC.
 6. Não reaplique sem reler o equipamento.
+
+“Comandos enviados” não significa “enlace funcionando”. Após reconectar, confira eventuais diferenças apontadas pela releitura; depois valide associação e tráfego. Se o IP responder com outro MAC de equipamento, confira possíveis IPs duplicados antes de continuar.
 
 Se o enlace não associar, compare função, SSID, senha, frequência, largura e driver.
 

@@ -10,11 +10,14 @@ from app.models.configuration import (
     LoraProtectionApplyRequest,
     LoraProtectionApplyResult,
     LoraProtectionConfiguration,
+    LoraProtectionCurrentState,
     LoraProtectionPreview,
     LoraProtectionPreviewRequest,
 )
 from app.services.configuration import ConfigurationConflictError, _find_row, _record_id
 from app.services.routeros import _first_row, _optional_bool, _rows, _with_connection
+from app.services.mutations import ConfigurationWriter
+from pydantic import ValidationError
 
 
 LORA_SCRIPT = "orion-lora-watchdog"
@@ -23,6 +26,19 @@ WAN_SCRIPT = "orion-wan-watchdog"
 WAN_SCHEDULER = "orion-wan-watchdog-schedule"
 SCRIPT_POLICY = "read,write,test"
 REBOOT_SCRIPT_POLICY = "reboot,read,write,test"
+
+
+def _interval(value: str | None) -> str | None:
+    """RouterOS may print 30m as 00:30:00."""
+    aliases = {"00:01:00": "1m", "00:05:00": "5m", "00:10:00": "10m", "00:30:00": "30m", "01:00:00": "1h"}
+    return aliases.get(value, value)
+
+
+def _wan_parameters(script: dict[str, str] | None) -> tuple[str | None, str | None]:
+    source = (script or {}).get("source", "")
+    target = re.search(r"/ping\s+([^\s\]]+)", source)
+    failures = re.search(r"orionWanFailures\s*>=\s*(\d+)", source)
+    return target.group(1) if target else None, failures.group(1) if failures else None
 
 
 def _context(client: Any, configuration: LoraProtectionConfiguration) -> dict[str, Any]:
@@ -79,6 +95,8 @@ def _build_preview(
     wan_scheduler = _find_row(context["schedulers"], "name", WAN_SCHEDULER)
     lora_script = _find_row(context["scripts"], "name", LORA_SCRIPT)
     lora_source = lora_script.get("source", "") if lora_script else ""
+    lora_active = bool(lora_scheduler and not _optional_bool(lora_scheduler.get("disabled")))
+    ping_target, failure_threshold = _wan_parameters(_find_row(context["scripts"], "name", WAN_SCRIPT))
 
     candidates: list[ConfigurationChange | None] = []
     if lora_enabled or lora_scheduler:
@@ -92,7 +110,7 @@ def _build_preview(
         candidates.append(_change(
             "LoRa",
             "Reagir à desconexão LNS",
-            ("Ativo" if 'message~"LNS.*disconnected"' in lora_source else "Inativo")
+            ("Ativo" if lora_active and 'message~"LNS.*disconnected"' in lora_source else "Inativo")
             if lora_script
             else None,
             "Ativo" if configuration.enable_lns_watchdog else "Inativo",
@@ -101,7 +119,7 @@ def _build_preview(
         candidates.append(_change(
             "LoRa",
             "Reativação automática",
-            ("Ativo" if "get $loraId disabled" in lora_source else "Inativo")
+            ("Ativo" if lora_active and "get $loraId disabled" in lora_source else "Inativo")
             if lora_script
             else None,
             "Ativo" if configuration.enable_lora_guard else "Inativo",
@@ -110,7 +128,7 @@ def _build_preview(
         candidates.append(_change(
             "LoRa",
             "Intervalo de verificação",
-            lora_scheduler.get("interval") if lora_scheduler else None,
+            _interval(lora_scheduler.get("interval")) if lora_scheduler else None,
             configuration.lora_interval,
         ))
     if configuration.enable_device_reboot or wan_scheduler:
@@ -126,19 +144,19 @@ def _build_preview(
                 _change(
                     "Dispositivo",
                     "Destino de teste",
-                    None,
+                    ping_target,
                     str(configuration.ping_target),
                 ),
                 _change(
                     "Dispositivo",
                     "Falhas antes do reinício",
-                    None,
+                    failure_threshold,
                     str(configuration.failure_threshold),
                 ),
                 _change(
                     "Dispositivo",
                     "Intervalo de verificação",
-                    wan_scheduler.get("interval") if wan_scheduler else None,
+                    _interval(wan_scheduler.get("interval")) if wan_scheduler else None,
                     configuration.connectivity_interval,
                 ),
             ]
@@ -163,7 +181,7 @@ def _build_preview(
             existing.append(ExistingConfiguration(area="LoRa", field=label, value=str(lora[key])))
     for script in context["scripts"]:
         name = script.get("name") or "Script sem nome"
-        state = "Inativo" if _optional_bool(script.get("disabled")) else "Ativo"
+        state = "Salvo"
         policy = script.get("policy")
         existing.append(ExistingConfiguration(
             area="Scripts",
@@ -223,6 +241,32 @@ def preview_lora_protection(
     )
 
 
+def read_lora_protection(connection) -> LoraProtectionCurrentState:
+    def operation(client):
+        context = _context(client, LoraProtectionConfiguration())
+        script = _find_row(context["scripts"], "name", LORA_SCRIPT)
+        source = (script or {}).get("source", "")
+        lora_schedule = _find_row(context["schedulers"], "name", LORA_SCHEDULER)
+        wan_schedule = _find_row(context["schedulers"], "name", WAN_SCHEDULER)
+        enabled = bool(lora_schedule and not _optional_bool(lora_schedule.get("disabled")))
+        target, failures = _wan_parameters(_find_row(context["scripts"], "name", WAN_SCRIPT))
+        try:
+            config = LoraProtectionConfiguration(
+                enable_lns_watchdog=enabled and 'message~"LNS.*disconnected"' in source,
+                enable_lora_guard=enabled and "get $loraId disabled" in source,
+                enable_device_reboot=bool(wan_schedule and not _optional_bool(wan_schedule.get("disabled"))),
+                ping_target=target or "1.1.1.1",
+                failure_threshold=int(failures or 3),
+                lora_interval=_interval((lora_schedule or {}).get("interval")) or "30m",
+                connectivity_interval=_interval((wan_schedule or {}).get("interval")) or "10m",
+            )
+        except (ValidationError, ValueError) as error:
+            raise ConfigurationConflictError("As proteções ORION foram personalizadas fora do aplicativo. Confira os scripts e intervalos no WinBox antes de alterá-los aqui.") from error
+        preview, _ = _build_preview(client, LoraProtectionPreviewRequest(connection=connection, configuration=config))
+        return LoraProtectionCurrentState(configuration=config, existing=preview.existing)
+    return _with_connection(connection, operation)
+
+
 def _wan_watchdog_source(configuration: LoraProtectionConfiguration) -> str:
     return (
         ":global orionWanFailures; "
@@ -261,7 +305,7 @@ def _lora_watchdog_source(configuration: LoraProtectionConfiguration) -> str:
             ":delay 30s; /iot lora enable $loraId; :delay 20s } }; }; "
         )
     source += (
-        '} on-error={ :log error ("ORION LORA: " . $message) }; '
+        '} on-error={ :log error "ORION LORA: falha ao verificar a interface; confira o pacote IoT e as permissoes" }; '
         ":set orionLoraWatchdogRunning false"
     )
     return source
@@ -276,7 +320,7 @@ def _upsert_script(
     policy: str = SCRIPT_POLICY,
 ) -> None:
     row = _find_row(rows, "name", name)
-    words = (f"=source={source}", f"=policy={policy}", "=disabled=no")
+    words = (f"=source={source}", f"=policy={policy}")
     if row:
         client.run("/system/script/set", f"=.id={_record_id(row, f'script {name}')}", *words)
     else:
@@ -322,21 +366,24 @@ def apply_lora_protection(
         )
         preview, context = _build_preview(client, preview_request)
         configuration = request.configuration
-        backup = f"orion-before-lora-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
-        client.run("/system/backup/save", f"=name={backup}")
+        backup = f"orion-before-lora-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S-%f')}"
+        writer = ConfigurationWriter(client, backup)
+        writer.create_backup()
+
+        write_client = writer.tracked_client("o salvamento das proteções LoRa")
 
         lora_enabled = (
             configuration.enable_lns_watchdog or configuration.enable_lora_guard
         )
         if lora_enabled:
             _upsert_script(
-                client,
+                write_client,
                 context["scripts"],
                 LORA_SCRIPT,
                 _lora_watchdog_source(configuration),
             )
         _set_scheduler(
-            client,
+            write_client,
             context["schedulers"],
             name=LORA_SCHEDULER,
             script=LORA_SCRIPT,
@@ -346,14 +393,14 @@ def apply_lora_protection(
 
         if configuration.enable_device_reboot:
             _upsert_script(
-                client,
+                write_client,
                 context["scripts"],
                 WAN_SCRIPT,
                 _wan_watchdog_source(configuration),
                 policy=REBOOT_SCRIPT_POLICY,
             )
         _set_scheduler(
-            client,
+            write_client,
             context["schedulers"],
             name=WAN_SCHEDULER,
             script=WAN_SCRIPT,
@@ -362,11 +409,26 @@ def apply_lora_protection(
             policy=REBOOT_SCRIPT_POLICY,
         )
 
+        scripts = _rows(writer.run("a leitura dos scripts salvos", "/system/script/print"))
+        schedulers = _rows(writer.run("a leitura dos agendamentos salvos", "/system/scheduler/print"))
+        for name, source, enabled, scheduler_name, interval, policy in (
+            (LORA_SCRIPT, _lora_watchdog_source(configuration), lora_enabled, LORA_SCHEDULER, configuration.lora_interval, SCRIPT_POLICY),
+            (WAN_SCRIPT, _wan_watchdog_source(configuration), configuration.enable_device_reboot, WAN_SCHEDULER, configuration.connectivity_interval, REBOOT_SCRIPT_POLICY),
+        ):
+            script = _find_row(scripts, "name", name)
+            scheduler = _find_row(schedulers, "name", scheduler_name)
+            if enabled and (not script or script.get("source") != source or set(script.get("policy", "").split(",")) != set(policy.split(","))):
+                writer.fail("o conteúdo do script salvo")
+            if enabled and (not scheduler or _optional_bool(scheduler.get("disabled")) or scheduler.get("on-event") != name or _interval(scheduler.get("interval")) != interval or set(scheduler.get("policy", "").split(",")) != set(policy.split(","))):
+                writer.fail("o agendamento das proteções")
+            if not enabled and scheduler and not _optional_bool(scheduler.get("disabled")):
+                writer.fail("a desativação do agendamento")
+
         return LoraProtectionApplyResult(
             status="applied",
             backup_file=f"{backup}.backup",
             changes_applied=len(preview.changes),
-            summary="As proteções LoRa foram configuradas.",
+            summary="Scripts e agendamentos salvos e conferidos. A execução será feita nos intervalos configurados.",
         )
 
     return _with_connection(request.connection, apply)

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models.support import SupportBundleRequest
 from app.services import support_bundle as service
+from app.version import APP_VERSION
 
 
 def test_support_bundle_redacts_secrets_and_contains_runtime(monkeypatch, tmp_path) -> None:
@@ -25,7 +26,7 @@ def test_support_bundle_redacts_secrets_and_contains_runtime(monkeypatch, tmp_pa
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
         report = json.loads(archive.read("orion-support-report.json"))
         log = archive.read("backend-sanitized.log").decode()
-    assert report["orion_version"] == "0.7.2"
+    assert report["orion_version"] == APP_VERSION
     assert "erro-privado" not in report["recent_error"]
     assert "nao-incluir" not in log
     assert "abc123" not in log

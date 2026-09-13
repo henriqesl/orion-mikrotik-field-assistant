@@ -9,6 +9,8 @@ from app.models.configuration import (
 )
 from app.models.mikrotik import MikroTikConnection
 from app.services import lora_configuration as service
+from tests.support.stateful_router import StatefulRouter, lora_router
+from app.services.mutations import ConfigurationApplyError
 
 
 class Client:
@@ -16,9 +18,12 @@ class Client:
         self.commands = []
         self.lora = lora
         self.managed = managed
+        self.router = None
 
     def run(self, *words):
         self.commands.append(words)
+        if self.router is not None:
+            return self.router.run(*words)
         schedulers = []
         scripts = []
         if self.managed:
@@ -40,7 +45,7 @@ class Client:
                 {".id": "*l", "name": service.LORA_SCRIPT, "disabled": "no"},
                 {".id": "*w", "name": service.WAN_SCRIPT, "disabled": "no"},
             ]
-        rows = {
+        tables = {
             "/iot/lora/print": (
                 [{".id": "*1", "name": "lora1", "status": "connected", "disabled": "no"}]
                 if self.lora
@@ -52,8 +57,9 @@ class Client:
             "/system/identity/print": [{"name": "ORION-LORA"}],
             "/system/script/print": scripts,
             "/system/scheduler/print": schedulers,
-        }.get(words[0], [])
-        return SimpleNamespace(re=[SimpleNamespace(map=row) for row in rows])
+        }
+        self.router = StatefulRouter(tables)
+        return self.router.run(*words)
 
 
 def connection():
@@ -63,7 +69,7 @@ def connection():
 
 
 def settings(**updates):
-    values = {}
+    values = {"enable_device_reboot": True}
     values.update(updates)
     return LoraProtectionConfiguration(**values)
 
@@ -146,6 +152,7 @@ def test_apply_backs_up_first_and_never_removes(monkeypatch):
     )
     assert "=policy=reboot,read,write,test" in scheduler
     assert result.backup_file.endswith(".backup")
+    assert all("=disabled=no" not in command for command in mutations if command[0].startswith("/system/script/"))
 
 
 def test_disabling_protections_disables_managed_schedulers(monkeypatch):
@@ -172,3 +179,45 @@ def test_disabling_protections_disables_managed_schedulers(monkeypatch):
     assert len(scheduler_sets) == 2
     assert all("=disabled=yes" in command for command in scheduler_sets)
     assert not any(command[0].endswith("/remove") for command in client.commands)
+
+
+@pytest.mark.parametrize("failure", ["backup", "script", "verification"])
+def test_apply_failure_reports_recovery_without_leaking_routeros_error(monkeypatch, failure):
+    from routeros.errors import DeviceError
+
+    client = lora_router()
+    original_run = client.run
+    def run(*words):
+        if (failure == "backup" and words[0] == "/system/backup/save") or (failure == "script" and words[0] == "/system/script/add"):
+                raise DeviceError(SimpleNamespace(map={"message": "private-command-with-secret"}))
+        if failure == "verification" and words[0] == "/system/script/print" and client.backups:
+            return SimpleNamespace(re=[])
+        return original_run(*words)
+    client.run = run
+    monkeypatch.setattr(service, "_with_connection", lambda _connection, operation: operation(client))
+    with pytest.raises(ConfigurationApplyError) as caught:
+        service.apply_lora_protection(LoraProtectionApplyRequest(connection=connection(), configuration=settings(), confirmation="APLICAR"))
+    assert "private-command-with-secret" not in str(caught.value)
+    assert ("Nenhuma configuração" if failure == "backup" else "alterações parciais") in str(caught.value)
+
+
+def test_repeated_lora_preview_matches_saved_values_and_routeros_intervals(monkeypatch):
+    client = lora_router()
+    monkeypatch.setattr(service, "_with_connection", lambda _connection, operation: operation(client))
+    config = settings()
+    service.apply_lora_protection(LoraProtectionApplyRequest(connection=connection(), configuration=config, confirmation="APLICAR"))
+    for scheduler in client.rows("/system/scheduler/print"):
+        scheduler["interval"] = "00:30:00" if scheduler["name"] == service.LORA_SCHEDULER else "00:10:00"
+    preview = service.preview_lora_protection(LoraProtectionPreviewRequest(connection=connection(), configuration=config))
+    assert preview.changes == []
+    assert service.read_lora_protection(connection()).configuration == config
+
+
+def test_new_gateway_loads_without_enabling_reboot_or_other_schedules(monkeypatch):
+    client = lora_router()
+    monkeypatch.setattr(service, "_with_connection", lambda _connection, operation: operation(client))
+    current = service.read_lora_protection(connection())
+    assert current.configuration.enable_device_reboot is False
+    assert current.configuration.enable_lns_watchdog is False
+    assert current.configuration.enable_lora_guard is False
+    assert all(command[0].endswith("/print") for command in client.commands)

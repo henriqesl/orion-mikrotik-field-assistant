@@ -7,6 +7,7 @@ import {
   isDemoConnection,
 } from "./demo.js";
 import { apiUrl, isDesktopRuntime } from "./runtime.js";
+import { requestErrorMessage } from "./requestErrors.js";
 
 async function postJson(path, body) {
   let response;
@@ -30,9 +31,7 @@ async function postJson(path, body) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = typeof data?.detail === "string"
-      ? data.detail.replace(/&#x20;|&nbsp;/gi, " ").trim()
-      : data?.detail;
+    const message = requestErrorMessage(data?.detail);
     throw new Error(
       message ||
         "Não foi possível concluir a comunicação com o backend do ORION.",
@@ -150,6 +149,24 @@ export function previewLoraProtection(connection, configuration) {
 export function applyLoraProtection(connection, configuration) {
   if (isDemoConnection(connection)) return Promise.reject(new Error("O modo demonstração não aplica configurações."));
   return postJson("/api/mikrotik/lora/apply", { connection, configuration, confirmation: "APLICAR" });
+}
+
+export function getLoraProtectionCurrent(connection) {
+  if (isDemoConnection(connection)) return Promise.resolve({ configuration: { enable_lns_watchdog: false, enable_lora_guard: false, enable_device_reboot: false, ping_target: "1.1.1.1", failure_threshold: 3, lora_interval: "30m", connectivity_interval: "10m" }, existing: [] });
+  return postJson("/api/mikrotik/lora/current", connection);
+}
+
+export function getAPLockState(connection, wifiInterface) {
+  if (isDemoConnection(connection)) return Promise.resolve({ supported: demoDevice(connection).wifi_stack === "wireless", managed: false, locked_bssid: null, external_rules: false, reason: "Este driver não oferece lock por BSSID. Use SSID e senha exclusivos no enlace." });
+  return postJson("/api/mikrotik/radio/lock-state", { connection, wifi_interface: wifiInterface });
+}
+
+export function scanAccessPoints(connection, wifiInterface) {
+  if (isDemoConnection(connection)) return Promise.resolve({ wifi_interface: wifiInterface, wifi_stack: demoDevice(connection).wifi_stack, access_points: [
+    { bssid: "02:11:22:33:44:50", ssid: "ENLACE-TORRE-01", frequency_mhz: 5500, signal_dbm: -54, security: "WPA2-PSK" },
+    { bssid: "02:11:22:33:44:60", ssid: "ENLACE-TORRE-02", frequency_mhz: 5745, signal_dbm: -72, security: "WPA2-PSK" },
+  ] });
+  return postJson("/api/mikrotik/radio/scan", { connection, wifi_interface: wifiInterface, confirmation: "BUSCAR" });
 }
 
 export function getBasicNetworkCurrent(connection) {

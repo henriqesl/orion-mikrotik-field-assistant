@@ -18,6 +18,7 @@ from app.services import lora_configuration as lora_service
 from app.services import network_configuration as network_service
 from app.services import routeros as routeros_service
 from app.services.configuration import ConfigurationConflictError
+from app.services.mutations import ConfigurationApplyError
 from tests.support.stateful_router import (
     ethernet_router,
     factory_router,
@@ -79,6 +80,74 @@ def test_distinct_simulated_devices_are_read_through_the_real_discovery_flow() -
 
     assert lora.identity == "KNOT-LORA-LAB"
     assert lora.lora_available is True
+
+
+def test_services_only_preserve_wifi_uplink_and_dns_exactly(monkeypatch):
+    router = wifi_station_router()
+    router.rows("/ip/dns/print")[0]["allow-remote-requests"] = "no"
+    menus = ("/ip/address/print", "/ip/route/print", "/ip/dns/print", "/ip/dhcp-client/print", "/ip/firewall/nat/print", "/interface/bridge/port/print")
+    before = router.snapshot(*menus)
+    monkeypatch.setattr(network_service, "_with_connection", lambda _connection, operation: operation(router))
+    config = network_settings(configure_wan=False, configure_dns=False, wan_interface="wifi1", configure_lan=False, lan_bridge=None, lan_address=None, lan_ports=[], enable_nat=False, enable_lan_dhcp=False, dhcp_pool_start=None, dhcp_pool_end=None)
+    preview = network_service.preview_basic_network(BasicNetworkPreviewRequest(connection=connection(), configuration=config))
+    assert not any(change.area in {"WAN", "DNS", "LAN"} for change in preview.changes)
+    network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=config, confirmation="APLICAR"))
+    assert router.snapshot(*menus) == before
+
+
+def test_existing_dhcp_is_updated_without_duplicate_server_or_pool(monkeypatch):
+    router = wifi_station_router()
+    monkeypatch.setattr(network_service, "_with_connection", lambda _connection, operation: operation(router))
+    config = network_settings(configure_wan=False, wan_interface="wifi1", lan_address="192.168.88.1/24", dhcp_pool_start="192.168.88.30", dhcp_pool_end="192.168.88.100")
+    network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=config, confirmation="APLICAR"))
+    assert len(router.rows("/ip/dhcp-server/print")) == 1
+    assert len(router.rows("/ip/pool/print")) == 1
+    assert len(router.rows("/ip/dhcp-server/network/print")) == 1
+    assert router.rows("/ip/pool/print")[0]["ranges"] == "192.168.88.30-192.168.88.100"
+    assert not any("=allow-remote-requests=yes" in command for command in router.commands)
+    disabled = config.model_copy(update={"enable_lan_dhcp": False, "dhcp_pool_start": None, "dhcp_pool_end": None})
+    network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=disabled, confirmation="APLICAR"))
+    assert router.rows("/ip/dhcp-server/print")[0]["disabled"] == "yes"
+
+
+def test_shared_dhcp_pool_rejected_before_backup(monkeypatch):
+    router = wifi_station_router()
+    router.rows("/ip/dhcp-server/print").append({".id": "*OTHER", "interface": "other-lan", "address-pool": "pool-lan"})
+    monkeypatch.setattr(network_service, "_with_connection", lambda _connection, operation: operation(router))
+    with pytest.raises(ConfigurationConflictError, match="compartilhado"):
+        network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=network_settings(), confirmation="APLICAR"))
+    assert router.backups == []
+
+
+def test_static_wifi_address_without_gateway_is_still_detected_and_preserved(monkeypatch):
+    router = wifi_station_router()
+    router.tables["/ip/route/print"] = []
+    monkeypatch.setattr(network_service, "_with_connection", lambda _connection, operation: operation(router))
+    current = network_service.read_basic_network_state(connection())
+    assert current.wan_configured is True
+    assert current.wan_interface == "wifi1"
+    assert current.wan_mode == "static"
+    assert current.wan_address == "10.88.99.1/24"
+    assert current.gateway is None
+    settings = network_settings(wan_interface="wifi1", wan_mode="static", wan_address="10.88.99.1/24", gateway=None, configure_lan=False, lan_bridge=None, lan_address=None, lan_ports=[], enable_nat=False, enable_lan_dhcp=False, dhcp_pool_start=None, dhcp_pool_end=None)
+    network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=settings, confirmation="APLICAR"))
+    assert router.rows("/ip/route/print") == []
+    assert router.rows("/ip/address/print")[0]["address"] == "10.88.99.1/24"
+
+
+def test_default_nat_interface_list_is_reused_and_unchecked_lan_port_is_disabled(monkeypatch):
+    router = wifi_station_router()
+    router.rows("/ip/firewall/nat/print")[0].pop("out-interface")
+    router.rows("/ip/firewall/nat/print")[0]["out-interface-list"] = "WAN"
+    router.tables["/interface/list/member/print"] = [{".id": "*WAN", "list": "WAN", "interface": "wifi1"}]
+    monkeypatch.setattr(network_service, "_with_connection", lambda _connection, operation: operation(router))
+    config = network_settings(configure_wan=False, wan_interface="wifi1", lan_address="192.168.88.1/24", lan_ports=["ether1", "ether2", "ether3"], dhcp_pool_start="192.168.88.30", dhcp_pool_end="192.168.88.100")
+    network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=config, confirmation="APLICAR"))
+    assert len(router.rows("/ip/firewall/nat/print")) == 1
+    assert next(row for row in router.rows("/interface/bridge/port/print") if row["interface"] == "ether4")["disabled"] == "yes"
+    disabled = config.model_copy(update={"enable_nat": False})
+    network_service.apply_basic_network(BasicNetworkApplyRequest(connection=connection(), configuration=disabled, confirmation="APLICAR"))
+    assert router.rows("/ip/firewall/nat/print")[0]["disabled"] == "yes"
 
 
 def test_first_time_technician_can_prepare_a_factory_router_and_then_preserve_it(
@@ -484,7 +553,7 @@ def test_external_connection_drop_during_last_port_move_never_reports_success(
         lambda _connection, operation: operation(router),
     )
 
-    with pytest.raises(ConnectionResetError, match="cabo removido"):
+    with pytest.raises(ConfigurationApplyError, match="alterações parciais"):
         network_service.apply_basic_network(BasicNetworkApplyRequest(
             connection=connection(),
             configuration=network_settings(),

@@ -3,7 +3,7 @@ const demoAssessment = (status, label, explanation) => ({ status, label, explana
 let demoTick = 0;
 
 export function isDemoConnection(connection) {
-  return ["teste", "test", "demo", "demo-router", "demo-novo", "192.0.2.1"].includes(
+  return ["teste", "test", "demo", "demo-wireless", "demo-router", "demo-novo", "192.0.2.1"].includes(
     connection.host.trim().toLowerCase(),
   );
 }
@@ -106,6 +106,12 @@ export function demoDevice(connection) {
   };
 
   const profile = demoProfile(connection);
+  if (connection?.host?.trim().toLowerCase() === "demo-wireless") {
+    radio.model = "LHG 5 (demonstração)";
+    radio.wifi_stack = "wireless";
+    radio.wifi_package = "wireless";
+    radio.wifi_interfaces[0].band = "5ghz-a/n";
+  }
   if (profile === "radio") return radio;
 
   const ethernetInterfaces = Array.from({ length: 5 }, (_, index) => ({

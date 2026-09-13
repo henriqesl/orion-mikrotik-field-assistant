@@ -4,12 +4,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.mikrotik import MikroTikConnection
+from app.models.radio import BSSID
 
 
 class LinkConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role: Literal["ap", "station"]
+    link_scenario: Literal["pair", "multipoint", "existing"] = "pair"
     device_kind: Literal["radio", "generic"] = "radio"
     manage_topology: bool = True
     identity: str = Field(min_length=1, max_length=64)
@@ -17,14 +19,23 @@ class LinkConfiguration(BaseModel):
     bridge_interfaces: list[str] = Field(default_factory=list, max_length=64)
     bridge_name: str = Field(default="bridge-field", min_length=1, max_length=64)
     ssid: str = Field(min_length=1, max_length=32)
-    passphrase: str = Field(min_length=8, max_length=63)
-    frequency_mhz: int = Field(ge=2000, le=7100)
-    channel_width: Literal["20mhz", "20/40mhz"] = "20mhz"
+    passphrase: str | None = Field(default=None, min_length=8, max_length=63)
+    country: Literal["Brazil"] | None = None
+    ap_lock_action: Literal["preserve", "lock", "unlock"] = "preserve"
+    ap_bssid: BSSID | None = None
+    frequency_mhz: int | None = Field(default=None, ge=2000, le=7100)
+    channel_width: Literal["20mhz", "20/40mhz"] | None = None
     management_ip: IPv4Interface
     gateway: IPv4Address | None = None
 
     @model_validator(mode="after")
     def validate_network(self):
+        if self.link_scenario == "existing" and self.role != "station":
+            raise ValueError("Para conectar a um AP existente, selecione Station.")
+        if self.ap_lock_action == "lock" and (self.role != "station" or not self.ap_bssid):
+            raise ValueError("Para fixar o AP, selecione Station e informe o MAC do AP.")
+        if self.ap_lock_action != "lock" and self.ap_bssid is not None:
+            raise ValueError("O MAC do AP só deve ser enviado ao ativar o lock.")
         if len(set(self.bridge_interfaces)) != len(self.bridge_interfaces):
             raise ValueError("As interfaces da bridge não podem ser repetidas.")
         if self.wifi_interface in self.bridge_interfaces:
@@ -91,6 +102,8 @@ class BasicNetworkConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     identity: str = Field(min_length=1, max_length=64)
+    configure_wan: bool = True
+    configure_dns: bool = True
     wan_interface: str = Field(min_length=1, max_length=64)
     wan_mode: Literal["dhcp", "static"] = "dhcp"
     wan_address: IPv4Interface | None = None
@@ -150,20 +163,22 @@ class BasicNetworkConfiguration(BaseModel):
             if self.dhcp_pool_start > self.dhcp_pool_end:
                 raise ValueError("O início do pool DHCP deve ser menor que o fim.")
 
+        if not self.configure_wan:
+            return self
         if self.wan_mode == "dhcp":
             if self.wan_address is not None or self.gateway is not None:
                 raise ValueError("WAN por DHCP não utiliza IP ou gateway fixos.")
             return self
 
-        if self.wan_address is None or self.gateway is None:
-            raise ValueError("WAN com IP fixo exige endereço e gateway.")
+        if self.wan_address is None:
+            raise ValueError("WAN com IP fixo exige um endereço.")
         wan_network = self.wan_address.network
         if self.wan_address.ip in {
             wan_network.network_address,
             wan_network.broadcast_address,
         }:
             raise ValueError("O IP da WAN não pode ser rede ou broadcast.")
-        if self.gateway not in wan_network:
+        if self.gateway is not None and self.gateway not in wan_network:
             raise ValueError("O gateway deve pertencer à rede da WAN.")
         if lan_network and wan_network.overlaps(lan_network):
             raise ValueError("As redes WAN e LAN não podem se sobrepor.")
@@ -172,6 +187,7 @@ class BasicNetworkConfiguration(BaseModel):
 
 class BasicNetworkCurrentState(BaseModel):
     identity: str
+    wan_configured: bool = False
     wan_interface: str
     wan_mode: Literal["dhcp", "static"]
     wan_address: str | None = None
@@ -225,7 +241,7 @@ class LoraProtectionConfiguration(BaseModel):
 
     enable_lns_watchdog: bool = True
     enable_lora_guard: bool = True
-    enable_device_reboot: bool = True
+    enable_device_reboot: bool = False
     ping_target: IPv4Address = IPv4Address("1.1.1.1")
     failure_threshold: int = Field(default=3, ge=1, le=10)
     lora_interval: Literal["5m", "10m", "30m", "1h"] = "30m"
@@ -236,6 +252,11 @@ class LoraProtectionPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     connection: MikroTikConnection
     configuration: LoraProtectionConfiguration
+
+
+class LoraProtectionCurrentState(BaseModel):
+    configuration: LoraProtectionConfiguration
+    existing: list[ExistingConfiguration]
 
 
 class LoraProtectionApplyRequest(LoraProtectionPreviewRequest):

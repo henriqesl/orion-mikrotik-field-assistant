@@ -56,7 +56,12 @@ from app.services.network_configuration import (
     preview_basic_network,
     read_basic_network_state,
 )
-from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
+from app.services.lora_configuration import apply_lora_protection, preview_lora_protection, read_lora_protection
+from app.models.configuration import LoraProtectionCurrentState
+from app.services.mutations import ConfigurationApplyError
+from app.services.operation_guard import exclusive_operation
+from app.models.radio import APLockStatus, RadioInterfaceRequest, RadioScanRequest, RadioScanResult
+from app.services.ap_lock import read_ap_lock, scan_access_points
 from app.services.lan_discovery import (
     InvalidWinBoxPathError,
     WinBoxNotFoundError,
@@ -77,6 +82,27 @@ from app.services.mac_telnet import (
 
 
 router = APIRouter(prefix="/api/mikrotik", tags=["mikrotik"])
+
+
+@router.post("/radio/lock-state", response_model=APLockStatus)
+def radio_lock_state(request: RadioInterfaceRequest):
+    try:
+        return read_ap_lock(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/radio/scan", response_model=RadioScanResult)
+def radio_scan(request: RadioScanRequest):
+    try:
+        with exclusive_operation(request.connection):
+            return scan_access_points(request)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
 
 
 def _mac_http_error(error: Exception) -> HTTPException:
@@ -130,7 +156,8 @@ def apply_lora_configuration(
     request: LoraProtectionApplyRequest,
 ) -> LoraProtectionApplyResult:
     try:
-        return apply_lora_protection(request)
+        with exclusive_operation(request.connection):
+            return apply_lora_protection(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
@@ -171,6 +198,8 @@ def launch_winbox(request: WinBoxLaunchRequest) -> WinBoxLaunchResult:
 
 
 def _friendly_http_error(error: MikroTikError) -> HTTPException:
+    if isinstance(error, ConfigurationApplyError):
+        return HTTPException(status_code=502, detail=str(error))
     if isinstance(error, MikroTikAuthenticationError):
         return HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -189,7 +218,8 @@ def _friendly_http_error(error: MikroTikError) -> HTTPException:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
                 "Não foi possível validar o certificado TLS do MikroTik. "
-                "Confira o certificado ou desative a validação somente em uma rede confiável."
+                "Confira a validade, a autoridade confiável neste computador e o IP presente no certificado. "
+                "O certificado do instalador BIONIC não valida a API-SSL do equipamento."
             ),
         )
     if isinstance(error, MikroTikResponseError):
@@ -215,6 +245,16 @@ def discover_mikrotik(connection: MikroTikConnection) -> DeviceSummary:
     """Connect to one MikroTik and return its basic identity."""
     try:
         return discover_device(connection)
+    except MikroTikError as error:
+        raise _friendly_http_error(error) from error
+
+
+@router.post("/lora/current", response_model=LoraProtectionCurrentState)
+def current_lora_configuration(connection: MikroTikConnection):
+    try:
+        return read_lora_protection(connection)
+    except ConfigurationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
         raise _friendly_http_error(error) from error
 
@@ -279,7 +319,8 @@ def apply_configuration(
 ) -> ConfigurationApplyResult:
     """Create a backup and apply a previously confirmed link configuration."""
     try:
-        return apply_link_configuration(request)
+        with exclusive_operation(request.connection):
+            return apply_link_configuration(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:
@@ -305,7 +346,8 @@ def apply_network_configuration(
 ) -> BasicNetworkApplyResult:
     """Create a backup and apply a confirmed basic network profile."""
     try:
-        return apply_basic_network(request)
+        with exclusive_operation(request.connection):
+            return apply_basic_network(request)
     except ConfigurationConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except MikroTikError as error:

@@ -211,6 +211,8 @@ def _read_wifi(client: Any) -> tuple[str | None, str, list[WiFiInterface]]:
         except DeviceError:
             continue
 
+        if not rows:
+            continue
         interfaces = [
             WiFiInterface(
                 name=row.get("name") or row.get("default-name"),
@@ -633,7 +635,7 @@ def _read_device_summary(client: Any) -> DeviceSummary:
     )
 
 
-def _open_client(connection: MikroTikConnection) -> Any:
+def _open_client(connection: MikroTikConnection, *, timeout: float = CONNECTION_TIMEOUT_SECONDS) -> Any:
     address = f"{connection.host}:{connection.port}"
     password = connection.password.get_secret_value()
 
@@ -642,7 +644,7 @@ def _open_client(connection: MikroTikConnection) -> Any:
             address,
             connection.username,
             password,
-            timeout=CONNECTION_TIMEOUT_SECONDS,
+            timeout=timeout,
             tls_context=_create_tls_context(connection.verify_tls),
         )
 
@@ -650,16 +652,18 @@ def _open_client(connection: MikroTikConnection) -> Any:
         address,
         connection.username,
         password,
-        timeout=CONNECTION_TIMEOUT_SECONDS,
+        timeout=timeout,
     )
 
 
 def _with_connection(
     connection: MikroTikConnection,
     operation: Callable[[Any], ResultType],
+    *,
+    timeout: float | None = None,
 ) -> ResultType:
     try:
-        client = _open_client(connection)
+        client = _open_client(connection) if timeout is None else _open_client(connection, timeout=timeout)
         with client:
             return operation(client)
     except MikroTikResponseError:

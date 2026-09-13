@@ -11,6 +11,7 @@ import UpdateNotice from "./components/UpdateNotice.jsx";
 import { discoverDevice } from "./services/api.js";
 import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
+import { sameDevice } from "./services/verification.js";
 
 const API_STATES = {
   checking: {
@@ -50,6 +51,7 @@ function App() {
   const [activeConnection, setActiveConnection] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isOperating, setIsOperating] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -203,6 +205,7 @@ function App() {
   }
 
   function handleDisconnect() {
+    if (isOperating) return;
     connectionGeneration.current += 1;
     setDevice(null);
     setActiveConnection(null);
@@ -251,6 +254,7 @@ function App() {
   }
 
   function handleConfigurationApplyStart() {
+    setIsOperating(true);
     connectionGeneration.current += 1;
     refreshInFlight.current = false;
     setIsMonitoring(false);
@@ -259,7 +263,12 @@ function App() {
     setMonitoringError("");
   }
 
+  function handleConfigurationApplyEnd() {
+    setIsOperating(false);
+  }
+
   function handleTabChange(tabId) {
+    if (isOperating) return;
     if (
       (tabId === "configuration" && !wifiAvailable) ||
       (tabId === "lora" && !loraAvailable) ||
@@ -284,6 +293,10 @@ function App() {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         const refreshedDevice = await discoverDevice(nextConnection);
+        if (!sameDevice(device, refreshedDevice)) {
+          setMonitoringError("O IP respondeu, mas não foi possível confirmar que é o mesmo MikroTik. Confira o equipamento e possíveis IPs duplicados antes de continuar.");
+          return null;
+        }
         connectionGeneration.current += 1;
         setDevice(refreshedDevice);
         setActiveConnection(nextConnection);
@@ -302,7 +315,7 @@ function App() {
     }
 
     setMonitoringError(
-      `A configuração foi aplicada, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
+      `Os comandos foram enviados, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
         "Conecte-se novamente nesse IP ou use o IP anterior, que foi preservado.",
     );
     return null;
@@ -337,7 +350,7 @@ function App() {
             {currentState.label}
           </div>
           {device && (
-            <button className="global-disconnect-button" onClick={handleDisconnect} type="button">
+            <button className="global-disconnect-button" disabled={isOperating} onClick={handleDisconnect} type="button">
               Desconectar
             </button>
           )}
@@ -345,6 +358,7 @@ function App() {
       </header>
 
       <section className="workspace">
+        {isOperating && <div className="network-post-check network-post-check--running" role="status"><strong>Operação em andamento</strong><span>Aguarde a conclusão antes de desconectar ou iniciar outro ajuste.</span></div>}
         <UpdateNotice />
         {!device && (
           <ConnectionForm
@@ -386,7 +400,7 @@ function App() {
                     activeTab === tab.id ? "workspace-tab--active" : "",
                     unavailable ? "workspace-tab--unavailable" : "",
                   ].filter(Boolean).join(" ")}
-                  disabled={unavailable}
+                  disabled={unavailable || isOperating}
                   id={`tab-${tab.id}`}
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
@@ -432,13 +446,13 @@ function App() {
           </section>
         )}
 
-        {device && activeConnection && (
+        {device && activeConnection && loraAvailable && (
           <section aria-labelledby="tab-lora" className="tab-panel" hidden={activeTab !== "lora"} id="panel-lora" role="tabpanel">
-            <LoraProtection connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplied={handleInPlaceConfigurationApplied} />
+            <LoraProtection connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplyEnd={handleConfigurationApplyEnd} onApplied={handleInPlaceConfigurationApplied} />
           </section>
         )}
 
-        {device && activeConnection && (
+        {device && activeConnection && wifiAvailable && (
           <section
             aria-labelledby="tab-configuration"
             className="tab-panel"
@@ -453,6 +467,7 @@ function App() {
               onFieldSessionChange={setLinkSession}
               onFinishFieldSession={handleFinishLinkSession}
               onApplyStart={handleConfigurationApplyStart}
+              onApplyEnd={handleConfigurationApplyEnd}
               onApplied={handleConfigurationApplied}
               onPrepareNextDevice={handlePrepareNextLinkDevice}
             />
@@ -492,6 +507,7 @@ function App() {
               connection={activeConnection}
               device={device}
               onApplyStart={handleConfigurationApplyStart}
+              onApplyEnd={handleConfigurationApplyEnd}
               onApplied={handleConfigurationApplied}
             />
           </section>

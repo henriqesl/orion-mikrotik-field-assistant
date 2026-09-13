@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.main import app, mount_frontend
+from app.version import APP_VERSION
 
 
 client = TestClient(app)
@@ -16,7 +17,7 @@ def test_health_check() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "orion-field-api",
-        "version": "0.7.2",
+        "version": APP_VERSION,
     }
 
 
