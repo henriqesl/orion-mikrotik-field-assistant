@@ -9,6 +9,7 @@ import {
   previewMacBootstrap,
 } from "../services/api.js";
 import { isDesktopRuntime } from "../services/runtime.js";
+import { withTls, needsCertificateAcknowledgement } from "../services/connectionSecurity.js";
 
 const INITIAL_FORM = {
   host: "192.168.88.1",
@@ -49,6 +50,7 @@ function suggestedManagementAddress(adapter) {
 }
 
 function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect }) {
+  const [insecureAccepted, setInsecureAccepted] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
   const [discoveryError, setDiscoveryError] = useState("");
@@ -100,6 +102,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
+    if (["host", "port", "verify_tls"].includes(name)) setInsecureAccepted(false);
     setForm((current) => ({
       ...current,
       [name]: type === "checkbox" ? checked : value,
@@ -111,15 +114,16 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
   function updateTls(event) {
     const useTls = event.target.checked;
-    setForm((current) => ({
-      ...current,
-      use_tls: useTls,
-      port: useTls ? 8729 : 8728,
-    }));
+    setInsecureAccepted(false);
+    setForm((current) => withTls(current, useTls));
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (needsCertificateAcknowledgement(form, insecureAccepted)) {
+      setEndpointMessage("Mantenha a validação do certificado ou confirme explicitamente a exceção de bancada.");
+      return;
+    }
 
     if (/^\s*\d{1,3}(?:\.\d{1,3}){3}:\d+\s*$/.test(form.host)) {
       setEndpointMessage(
@@ -593,12 +597,17 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                   onChange={updateField}
                   type="checkbox"
                 />
-                <span>Validar certificado</span>
+                <span>Validar certificado do MikroTik (recomendado)</span>
               </label>
             )}
           </div>
         </div>
 
+        {form.use_tls && <p className="security-note">O certificado é do MikroTik/API-SSL, não o BIONIC-ORION-Trust.cer do instalador. Ele precisa ser confiável neste computador e corresponder ao IP usado.</p>}
+        {form.use_tls && !form.verify_tls && <label className="check-field">
+          <input type="checkbox" checked={insecureAccepted} onChange={(event) => setInsecureAccepted(event.target.checked)} />
+          <span>Exceção de bancada: entendo que a identidade do MikroTik não será validada.</span>
+        </label>}
         {!form.use_tls && (
           <p className="security-note">
             A API padrão deve ser usada somente na rede local da instalação.

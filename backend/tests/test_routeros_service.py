@@ -281,6 +281,23 @@ def test_discover_device_uses_tls_connector(monkeypatch) -> None:
     assert captured["kwargs"]["tls_context"].verify_mode == service.ssl.CERT_NONE
 
 
+def test_verified_tls_checks_trust_and_peer_identity():
+    context = service._create_tls_context(True)
+    assert context.verify_mode == service.ssl.CERT_REQUIRED
+    assert context.check_hostname is True
+
+
+def test_certificate_failure_never_falls_back_to_plain_api(monkeypatch):
+    calls = []
+    def fail_tls(*args, **kwargs):
+        raise service.ssl.SSLCertVerificationError("untrusted test certificate")
+    monkeypatch.setattr(service.routeros, "dial_tls", fail_tls)
+    monkeypatch.setattr(service.routeros, "dial", lambda *args, **kwargs: calls.append("plain"))
+    with pytest.raises(service.MikroTikTLSVerificationError):
+        service.discover_device(MikroTikConnection(host="192.0.2.1", username="lab", password="test", port=8729, use_tls=True))
+    assert calls == []
+
+
 def test_discover_device_falls_back_to_legacy_wireless_menu(monkeypatch) -> None:
     class LegacyClient(FakeClient):
         def run(self, command: str):

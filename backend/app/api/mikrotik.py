@@ -218,7 +218,8 @@ def _friendly_http_error(error: MikroTikError) -> HTTPException:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
                 "Não foi possível validar o certificado TLS do MikroTik. "
-                "Confira o certificado ou desative a validação somente em uma rede confiável."
+                "Confira a validade, a autoridade confiável neste computador e o IP presente no certificado. "
+                "O certificado do instalador BIONIC não valida a API-SSL do equipamento."
             ),
         )
     if isinstance(error, MikroTikResponseError):
