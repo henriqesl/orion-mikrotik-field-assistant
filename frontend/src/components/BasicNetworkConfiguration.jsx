@@ -8,6 +8,7 @@ import {
 } from "../services/api.js";
 import CurrentConfiguration from "./CurrentConfiguration.jsx";
 import { networkFormFromCurrent, networkPayload } from "../services/networkForm.js";
+import { verifyNetwork } from "../services/verification.js";
 
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
@@ -143,9 +144,10 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
     setIsApplying(true);
     setErrorMessage("");
     onApplyStart();
+    const requested = payload();
     try {
-      const applyResult = await applyBasicNetwork(connection, payload());
-      setResult(applyResult);
+      const applyResult = await applyBasicNetwork(connection, requested);
+      setResult({ ...applyResult, requestedLan: requested.configure_lan, requestedDhcp: requested.enable_lan_dhcp });
       setPreview(null);
       setConfirmation("");
       setPostApply({ status: "reconnecting" });
@@ -159,6 +161,12 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       }
 
       try {
+        const current = await getBasicNetworkCurrent(reconnected.connection);
+        const differences = verifyNetwork(requested, current);
+        if (differences.length) {
+          setPostApply({ status: "validation-error", message: `Acesso confirmado; confira estes campos: ${differences.join(", ")}. Não reaplique sem revisar.` });
+          return;
+        }
         const connectivity = await validateConnectivity(reconnected.connection);
         setPostApply({ status: "validated", connectivity });
       } catch (error) {
@@ -438,12 +446,12 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
         <div className="configuration-success" role="status">
           <strong>Rede básica enviada</strong>
           <span>{result.summary}</span>
-          <small>Backup: {result.backup_file} · {form.configure_lan ? "novo IP" : "acesso"}: {result.reconnect_ip}</small>
+          <small>Backup: {result.backup_file} · {result.requestedLan ? "novo IP" : "acesso"}: {result.reconnect_ip}</small>
         </div>
       )}
       {postApply?.status === "reconnecting" && (
         <div className="network-post-check network-post-check--running" role="status">
-          <strong>{form.configure_lan ? "Reconectando no novo IP…" : "Confirmando o acesso…"}</strong>
+          <strong>{result?.requestedLan ? "Reconectando no novo IP…" : "Confirmando o acesso…"}</strong>
           <span>O ORION está aguardando o MikroTik responder novamente.</span>
         </div>
       )}
@@ -474,12 +482,12 @@ function BasicNetworkConfiguration({ connection, device, onApplied, onApplyStart
       )}
       {postApply?.status === "recovery" && (
         <div className="network-recovery" role="alert">
-          <strong>{form.configure_lan ? "O novo IP ainda não respondeu" : "O acesso ainda não respondeu"}</strong>
-          {form.configure_lan ? (
+          <strong>{result?.requestedLan ? "O novo IP ainda não respondeu" : "O acesso ainda não respondeu"}</strong>
+          {result?.requestedLan ? (
             <ol>
               <li>Conecte o computador a uma das portas LAN selecionadas.</li>
               <li>
-                {form.enable_lan_dhcp
+                {result.requestedDhcp
                   ? "Deixe o adaptador de rede configurado para obter IP automaticamente."
                   : "Configure manualmente no computador um IP compatível com a nova rede LAN."}
               </li>

@@ -7,6 +7,7 @@ import {
 import CurrentConfiguration from "./CurrentConfiguration.jsx";
 import AccessPointSelector from "./AccessPointSelector.jsx";
 import fieldProfiles from "../data/field-profiles.json";
+import { verifyRadio } from "../services/verification.js";
 
 function nextManagementAddress(value) {
   const match = value?.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d|[12]\d|3[0-2])$/);
@@ -97,6 +98,7 @@ function LinkConfiguration({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [verification, setVerification] = useState(null);
   const currentWifiMac = device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address;
   const expectedAP = fieldSession?.ap_bssid;
   const associatedPeer = device.wifi_peers?.find((item) => item.interface === form.wifi_interface);
@@ -248,9 +250,11 @@ function LinkConfiguration({
     setIsApplying(true);
     setErrorMessage("");
     onApplyStart();
+    const requested = payload();
+    setVerification({ message: "Confirmando o acesso e relendo a configuração…" });
 
     try {
-      const applyResult = await applyLinkConfiguration(connection, payload());
+      const applyResult = await applyLinkConfiguration(connection, requested);
       setResult(applyResult);
       setPreview(null);
       setConfirmation("");
@@ -279,7 +283,12 @@ function LinkConfiguration({
           next_role: form.role === "ap" || fieldSession.link_scenario === "multipoint" ? "station" : "complete",
         });
       }
-      await onApplied(applyResult);
+      const reconnected = await onApplied(applyResult);
+      const differences = reconnected ? verifyRadio(requested, reconnected.device) : [];
+      setVerification({ message: !reconnected
+        ? "Acesso ainda não confirmado. Confira o IP e o backup antes de repetir a aplicação."
+        : differences.length ? `Acesso confirmado; confira estes campos: ${differences.join(", ")}.`
+        : "Campos de identidade, Wi-Fi e topologia conferidos. Associação e tráfego ainda precisam ser testados." });
     } catch (error) {
       setErrorMessage(
         `${error.message} Se a conexão caiu durante a aplicação, tente acessar o novo IP antes de repetir.`,
@@ -563,6 +572,7 @@ function LinkConfiguration({
       </form>
 
       {errorMessage && <div className="inline-error" role="alert">{errorMessage}</div>}
+      {result && verification && <div className="network-post-check" role="status">{verification.message}</div>}
 
       {preview && (
         <section className="configuration-preview" aria-labelledby="preview-title">

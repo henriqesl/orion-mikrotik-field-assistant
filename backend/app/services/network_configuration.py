@@ -254,7 +254,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
         (
             "DNS",
             "Servidores",
-            dns.get("servers"),
+            ", ".join(item.strip() for item in str(dns.get("servers") or "").split(",") if item.strip()),
             ", ".join(str(server) for server in configuration.dns_servers),
         ),
         *(
@@ -289,7 +289,7 @@ def _build_preview(client: Any, request: BasicNetworkPreviewRequest) -> BasicNet
                 "LAN",
                 "DHCP Server",
                 "Ativo" if lan_dhcp else "Inativo",
-                "Ativar automaticamente" if configuration.enable_lan_dhcp else "Não configurar",
+                "Ativo" if configuration.enable_lan_dhcp else "Inativo",
             ),
         ]
     if configuration.enable_lan_dhcp:

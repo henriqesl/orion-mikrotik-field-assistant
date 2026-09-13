@@ -11,6 +11,7 @@ import UpdateNotice from "./components/UpdateNotice.jsx";
 import { discoverDevice } from "./services/api.js";
 import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
+import { sameDevice } from "./services/verification.js";
 
 const API_STATES = {
   checking: {
@@ -292,6 +293,10 @@ function App() {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         const refreshedDevice = await discoverDevice(nextConnection);
+        if (!sameDevice(device, refreshedDevice)) {
+          setMonitoringError("O IP respondeu, mas não foi possível confirmar que é o mesmo MikroTik. Confira o equipamento e possíveis IPs duplicados antes de continuar.");
+          return null;
+        }
         connectionGeneration.current += 1;
         setDevice(refreshedDevice);
         setActiveConnection(nextConnection);
@@ -310,7 +315,7 @@ function App() {
     }
 
     setMonitoringError(
-      `A configuração foi aplicada, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
+      `Os comandos foram enviados, mas o ORION ainda não conseguiu acessar ${result.reconnect_ip}. ` +
         "Conecte-se novamente nesse IP ou use o IP anterior, que foi preservado.",
     );
     return null;
