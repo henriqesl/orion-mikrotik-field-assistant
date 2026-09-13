@@ -1,123 +1,77 @@
 # ORION Field
 
-ORION Field is a local Windows assistant for configuring, monitoring, and validating MikroTik devices in the field.
+A local Windows assistant for MikroTik field configuration and diagnostics. Built for technicians, with **a pair of radios as the primary workflow**.
 
-> Configure. Monitor. Validate.
+Independent project; not affiliated with or certified by MikroTik.
 
-## Features
+## What it does
 
-- LAN discovery through MNDP and temporary MAC preparation for devices without a usable IP;
-- current RouterOS configuration loaded before any proposal;
-- assisted setup for basic routing, LAN, Wi-Fi, AP/Station links, and supported LoRa protections;
-- selectable radio workflows: a dedicated pair (default), one AP with multiple Stations, or a Station joining an existing AP;
-- nearby AP discovery and verified Station BSSID locking on the classic `wireless` driver;
-- live RouterOS data, negotiated radio rates, RX/TX traffic, and structural diagnostics;
-- latency, loss, jitter, p95, p99, spike, and stability measurements;
-- preview, explicit confirmation, and RouterOS backup before writes;
-- sanitized diagnostic export with a technician-selected destination;
-- offline demo profiles for training and interface validation.
+- Configure a radio pair, one AP with multiple Stations, or a Station joining an existing AP.
+- Discover local devices and prepare temporary IPv4 API access through MAC when needed.
+- Load existing Wi-Fi, basic network and supported LoRa protection settings before editing.
+- Preview changes, create a RouterOS backup, and compare readable radio/network settings after reconnecting.
+- Display RouterOS signals, negotiated rates, actual RX/TX traffic and latency metrics.
+- Export sanitized diagnostics to a chosen destination; use offline demo profiles without hardware.
 
-ORION stores no technician accounts, inventory, installation history, or cloud data.
+`React + Vite → Tauri → FastAPI → RouterOS API`
 
-## Safety
+The C++ sidecar calculates latency statistics only. No cloud, inventory or technician accounts.
 
-- existing addresses and unrelated RouterOS rules are preserved whenever possible;
-- existing WAN, LAN topology, and DNS stay protected until explicitly enabled for editing;
-- API services are preserved so ORION does not disable its own access;
-- MAC access is temporary and only prepares IPv4 API access;
-- credentials remain in memory and are excluded from diagnostic exports.
+## Use and limitations
 
-Validate changes on recoverable lab equipment before production use.
+Target: **Windows 10/11 x64** with RouterOS API access. Local Ethernet is required for LAN discovery and MAC preparation; internet is not required for local configuration.
 
-## Requirements
+- Existing WAN, LAN and DNS stay protected until selected for editing. Backups are stored on the MikroTik; restoration is manual.
+- AP scanning temporarily interrupts Wi-Fi. Use Ethernet and confirm before scanning.
+- BSSID lock is implemented for classic `wireless`. With modern `wifi`, use dedicated link credentials and verify the associated AP MAC; this is not a lock.
+- Prefer a VPN for remote access and validated API-SSL. The MikroTik API certificate is separate from the BIONIC installer certificate.
+- Advanced topology, shared pools and custom rules remain administrator work. Saved settings do not prove RF association or traffic flow.
 
-- Windows 10 or Windows 11 x64;
-- RouterOS API access with suitable permissions;
-- local Ethernet access for discovery and MAC preparation.
+See [compatibility and physical acceptance](docs/COMPATIBILITY.md) before production use. The previously generated **0.7.3 installer predates the latest source refinements**; merging or pulling main does not update an installed copy.
 
-RouterOS 7 is recommended. WinBox is optional and used only as a fallback. For remote management, prefer a VPN instead of exposing the standard RouterOS API.
+## Demo
 
-## Demo mode
-
-Enter a profile name in the IP field:
-
-| Profile | Device |
-|---|---|
-| `demo` or `teste` | MikroTik radio |
-| `demo-router` | configured generic router |
-| `demo-novo` | router without a prepared network |
-| `demo-wireless` | classic wireless Station with AP discovery/lock demo |
-
-Demo mode never writes to real hardware.
+Enter `demo` or `teste` for a radio, `demo-router` for a configured router, `demo-novo` for an unprepared router, or `demo-wireless` for classic-wireless scan/lock demonstrations. Demo mode never writes to hardware.
 
 ## Development
 
-Requirements: Node.js, Python 3.11+, Rust, and Visual Studio Build Tools 2022 with **Desktop development with C++**.
+Use Node.js compatible with the locked Vite version and Python 3.11+. Desktop builds also require Rust, Visual Studio Build Tools 2022 (**Desktop development with C++**) and CMake.
 
 ```powershell
-# Backend
+# From the repository root: backend
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 uvicorn app.main:app --reload
 
-# Frontend, in another terminal
+# From the repository root, in another terminal: frontend
 cd frontend
 npm ci
 npm run dev
 ```
 
-The frontend uses `http://localhost:5174` and proxies FastAPI at `http://127.0.0.1:8000`.
+Frontend: `http://localhost:5174`; API proxy: `http://127.0.0.1:8000`. From `frontend`, run `npm run desktop:dev` for the desktop application.
 
-Run the complete desktop application with:
-
-```powershell
-cd frontend
-npm run desktop:dev
-```
-
-## Build and test
+## Test and build
 
 ```powershell
-# Backend tests
+# From the repository root
 cd backend
 .\.venv\Scripts\python.exe -m pytest
-
-# Frontend validation
 cd ..\frontend
 npm test
 npm run build
 npm audit --audit-level=high
-
-# Windows installer
 npm run desktop:build
 ```
 
-The NSIS installer is generated under `frontend/src-tauri/target/release/bundle/nsis`. Internal signed builds use `npm run desktop:build:signed`; see the installation guide before handling certificates.
+Installers are generated under `frontend/src-tauri/target/release/bundle/nsis`. Internal signed builds use `npm run desktop:build:signed` and require the company's private signing material, which is not included in this repository. Internal signing does not guarantee public trust or antivirus acceptance.
 
-## Architecture
-
-`React + Vite → Tauri → FastAPI → RouterOS API`
-
-The C++ Network Engine is restricted to advanced latency metrics. Configuration and RouterOS operations remain in JavaScript and Python.
-
-## Documentation
+## Guides
 
 - [Field manual](docs/manual-de-campo.md)
-- [Compatibility and physical acceptance](docs/COMPATIBILITY.md)
+- [Compatibility and acceptance](docs/COMPATIBILITY.md)
+- [Validation status](docs/MVP-VALIDATION.md)
 - [Internal Windows installation](docs/instalacao-interna-windows.md)
-- [V7.2 lab validation](docs/TESTE-DE-BANCADA-V7.2.md)
-- [0.7.3 validation and release scope](docs/MVP-VALIDATION.md)
-- [Network Engine](native/network-engine/README.md)
-
-## Limitations
-
-- direct management requires IPv4 API access after MAC preparation;
-- backup restoration is manual;
-- wireless frequencies depend on hardware, RouterOS, and local regulations;
-- AP scans temporarily interrupt Wi-Fi; use Ethernet and confirm before scanning;
-- BSSID lock uses the classic [wireless connect-list](https://manual.mikrotik.com/docs/cli-reference/interface/wireless/connect-list/); modern `wifi`/`wifiwave2` drivers are not offered an equivalent lock;
-- VLAN-aware bridges, shared DHCP pools, and complex routing/NAT require the network administrator;
-- LoRa features require RouterOS 7, the IoT package, and a compatible interface;
-- physical validation remains required for target hardware.
+- [Native metrics engine](native/network-engine/README.md)
