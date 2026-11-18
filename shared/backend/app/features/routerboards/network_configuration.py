@@ -12,7 +12,7 @@ from app.models.configuration import (
     ConfigurationChange,
     ExistingConfiguration,
 )
-from app.services.configuration import (
+from app.services.topology import (
     ConfigurationConflictError,
     _ensure_bridge,
     _ensure_bridge_port,

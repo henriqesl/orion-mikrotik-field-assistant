@@ -13,11 +13,11 @@ from app.models.configuration import (
     LoraProtectionPreviewRequest,
 )
 from app.models.mikrotik import MikroTikConnection
-from app.services import configuration as wifi_service
-from app.services import lora_configuration as lora_service
-from app.services import network_configuration as network_service
+from app.features.wireless import configuration as wifi_service
+from app.features.routerboards import lora_configuration as lora_service
+from app.features.routerboards import network_configuration as network_service
 from app.services import routeros as routeros_service
-from app.services.configuration import ConfigurationConflictError
+from app.services.topology import ConfigurationConflictError
 from app.services.mutations import ConfigurationApplyError
 from tests.support.stateful_router import (
     ethernet_router,

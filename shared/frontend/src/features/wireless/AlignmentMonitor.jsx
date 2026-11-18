@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import AssessmentBadge from "./AssessmentBadge.jsx";
+import AssessmentBadge from "../../components/AssessmentBadge.jsx";
 
 const MAX_HISTORY_POINTS = 120;
 const CHART_MIN_SIGNAL = -95;

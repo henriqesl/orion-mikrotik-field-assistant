@@ -8,7 +8,7 @@ from app.models.configuration import (
     LoraProtectionPreviewRequest,
 )
 from app.models.mikrotik import MikroTikConnection
-from app.services import lora_configuration as service
+from app.features.routerboards import lora_configuration as service
 from tests.support.stateful_router import StatefulRouter, lora_router
 from app.services.mutations import ConfigurationApplyError
 

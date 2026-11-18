@@ -5,8 +5,8 @@ from pydantic import ValidationError
 
 from app.models.configuration import ConfigurationApplyRequest, ConfigurationPreviewRequest
 from app.models.radio import RadioInterfaceRequest, RadioScanRequest, normalize_bssid
-from app.services import ap_lock, configuration
-from app.services.configuration import ConfigurationConflictError
+from app.features.wireless import ap_lock, configuration
+from app.services.topology import ConfigurationConflictError
 from tests.test_configuration_service import connection, settings
 from tests.support.stateful_router import radio_router
 

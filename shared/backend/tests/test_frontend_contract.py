@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from app.models.configuration import BasicNetworkConfiguration
-from app.services.network_configuration import _read_basic_network_state
+from app.features.routerboards.network_configuration import _read_basic_network_state
 from tests.support.stateful_router import factory_router, ethernet_router, wifi_station_router
 from tests.test_stateful_field_scenarios import network_settings
 
@@ -18,7 +18,7 @@ def test_real_network_form_payload_matches_backend_schema(factory):
     node = shutil.which("node")
     if not node:
         pytest.skip("Node.js is required for the frontend/backend contract check")
-    module = Path(__file__).resolve().parents[2] / "frontend/src/services/networkForm.js"
+    module = Path(__file__).resolve().parents[3] / "routerboards/frontend/networkForm.js"
     current = _read_basic_network_state(factory()).model_dump(mode="json")
     fallback = network_settings().model_dump(mode="json")
     fallback["dns_servers"] = ", ".join(fallback["dns_servers"])

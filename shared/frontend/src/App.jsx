@@ -2,17 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import ConnectionForm from "./components/ConnectionForm.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
-import AlignmentMonitor from "./components/AlignmentMonitor.jsx";
-import BasicNetworkConfiguration from "./components/BasicNetworkConfiguration.jsx";
-import LinkConfiguration from "./components/LinkConfiguration.jsx";
-import LoraProtection from "./components/LoraProtection.jsx";
 import PingTest from "./components/PingTest.jsx";
 import UpdateNotice from "./components/UpdateNotice.jsx";
 import { discoverDevice } from "./services/api.js";
 import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
-import { sameDevice } from "./services/verification.js";
-import radioWorkspace from "../../../radios/workspace.mjs";
+import { sameDevice } from "./services/deviceIdentity.js";
 
 const API_STATES = {
   checking: {
@@ -33,13 +28,14 @@ const MONITOR_INTERVAL_MS = 15_000;
 const ALIGNMENT_INTERVAL_MS = 3_000;
 
 function resetWorkspaceScroll() {
-  window.requestAnimationFrame(() => {
+  return window.requestAnimationFrame(() => {
     document.querySelector(".app-viewport")?.scrollTo({ top: 0, left: 0 });
     window.scrollTo({ top: 0, left: 0 });
   });
 }
 
-function App({ workspace = radioWorkspace }) {
+function App({ workspace }) {
+  const { AlignmentMonitor, LinkConfiguration, BasicNetworkConfiguration, LoraProtection } = workspace.components;
   const hasPanel = (id) => workspace.tabs.some((tab) => tab.id === id);
   const [apiState, setApiState] = useState("checking");
   const [device, setDevice] = useState(null);
@@ -171,7 +167,8 @@ function App({ workspace = radioWorkspace }) {
   }, [activeTab, device, loraAvailable, radioDevice, wifiAvailable]);
 
   useEffect(() => {
-    resetWorkspaceScroll();
+    const frame = resetWorkspaceScroll();
+    return () => window.cancelAnimationFrame(frame);
   }, [activeTab, device?.identity]);
 
   async function handleConnect(connection) {
@@ -407,8 +404,8 @@ function App({ workspace = radioWorkspace }) {
                   type="button"
                 >
                   <span>
-                    {workspace.id === "routerboards" && tab.id === "configuration" && !radioDevice
-                      ? "Configuração Wi-Fi"
+                    {tab.wifiLabel && !radioDevice
+                      ? tab.wifiLabel
                       : tab.label}
                   </span>
                   {unavailable && <small>Indisponível</small>}

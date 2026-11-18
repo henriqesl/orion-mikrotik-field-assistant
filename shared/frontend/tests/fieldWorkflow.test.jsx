@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import BasicNetworkConfiguration from "../src/components/BasicNetworkConfiguration.jsx";
-import LinkConfiguration from "../src/components/LinkConfiguration.jsx";
-import LoraProtection from "../src/components/LoraProtection.jsx";
+import BasicNetworkConfiguration from "../../../routerboards/frontend/BasicNetworkConfiguration.jsx";
+import LinkConfiguration from "../src/features/wireless/LinkConfiguration.jsx";
+import LoraProtection from "../../../routerboards/frontend/LoraProtection.jsx";
 import { demoDevice, demoBasicNetworkCurrent } from "../src/services/demo.js";
 import * as api from "../src/services/api.js";
 

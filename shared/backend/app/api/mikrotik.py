@@ -46,22 +46,22 @@ from app.services.routeros import (
     read_interface_traffic,
     validate_connectivity,
 )
-from app.services.configuration import (
-    ConfigurationConflictError,
+from app.features.wireless.configuration import (
     apply_link_configuration,
     preview_link_configuration,
 )
-from app.services.network_configuration import (
+from app.services.topology import ConfigurationConflictError
+from app.features.routerboards.network_configuration import (
     apply_basic_network,
     preview_basic_network,
     read_basic_network_state,
 )
-from app.services.lora_configuration import apply_lora_protection, preview_lora_protection, read_lora_protection
+from app.features.routerboards.lora_configuration import apply_lora_protection, preview_lora_protection, read_lora_protection
 from app.models.configuration import LoraProtectionCurrentState
 from app.services.mutations import ConfigurationApplyError
 from app.services.operation_guard import exclusive_operation
 from app.models.radio import APLockStatus, RadioInterfaceRequest, RadioScanRequest, RadioScanResult
-from app.services.ap_lock import read_ap_lock, scan_access_points
+from app.features.wireless.ap_lock import read_ap_lock, scan_access_points
 from app.services.lan_discovery import (
     InvalidWinBoxPathError,
     WinBoxNotFoundError,

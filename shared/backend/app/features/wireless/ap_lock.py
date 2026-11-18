@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from routeros.errors import DeviceError
+from app.services.topology import ConfigurationConflictError
 
 from app.models.radio import APLockStatus, AccessPoint, RadioInterfaceRequest, RadioScanRequest, RadioScanResult, normalize_bssid
 from app.services.routeros import WIFI_MENUS, _optional_bool, _read_wifi, _rows, _with_connection
@@ -13,8 +14,6 @@ PREFIX = "ORION Field - AP lock:"
 
 
 def conflict(message):
-    # Configuration uses this module too; import only after module initialization.
-    from app.services.configuration import ConfigurationConflictError
     raise ConfigurationConflictError(message)
 
 

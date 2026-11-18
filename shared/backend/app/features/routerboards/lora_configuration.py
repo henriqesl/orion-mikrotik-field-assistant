@@ -14,7 +14,7 @@ from app.models.configuration import (
     LoraProtectionPreview,
     LoraProtectionPreviewRequest,
 )
-from app.services.configuration import ConfigurationConflictError, _find_row, _record_id
+from app.services.topology import ConfigurationConflictError, _find_row, _record_id
 from app.services.routeros import _first_row, _optional_bool, _rows, _with_connection
 from app.services.mutations import ConfigurationWriter
 from pydantic import ValidationError

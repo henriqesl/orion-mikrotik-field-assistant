@@ -9,7 +9,7 @@ from app.models.configuration import (
     BasicNetworkPreviewRequest,
 )
 from app.models.mikrotik import MikroTikConnection
-from app.services import network_configuration as service
+from app.features.routerboards import network_configuration as service
 
 
 def configuration(**updates) -> BasicNetworkConfiguration:

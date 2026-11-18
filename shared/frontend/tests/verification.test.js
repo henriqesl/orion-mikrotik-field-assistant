@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sameDevice, verifyRadio, verifyNetwork } from "../src/services/verification.js";
+import { sameDevice } from "../src/services/deviceIdentity.js";
+import { verifyRadio } from "../src/features/wireless/verification.js";
+import { verifyNetwork } from "../../../routerboards/frontend/verification.js";
 
 test("reconnection requires a matching hardware MAC, not just an identity or IP", () => {
   const first = { identity: "MikroTik", ethernet_interfaces: [{ mac_address: "AA:BB:CC:00:00:01" }] };

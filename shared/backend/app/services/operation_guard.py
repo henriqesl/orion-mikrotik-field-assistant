@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from threading import Lock
 from weakref import WeakValueDictionary
+from app.services.topology import ConfigurationConflictError
 
 _registry_lock = Lock()
 _devices = WeakValueDictionary()
@@ -13,7 +14,6 @@ def exclusive_operation(connection):
         key = str(connection.host)
         lock = _devices.setdefault(key, Lock())
     if not lock.acquire(blocking=False):
-        from app.services.configuration import ConfigurationConflictError
         raise ConfigurationConflictError("Já há uma operação em andamento neste MikroTik. Aguarde a conclusão antes de tentar novamente.")
     try:
         yield

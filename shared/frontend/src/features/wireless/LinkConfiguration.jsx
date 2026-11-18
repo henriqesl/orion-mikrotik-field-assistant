@@ -3,11 +3,11 @@ import { useMemo, useState } from "react";
 import {
   applyLinkConfiguration,
   previewLinkConfiguration,
-} from "../services/api.js";
-import CurrentConfiguration from "./CurrentConfiguration.jsx";
+} from "../../services/api.js";
+import CurrentConfiguration from "../../components/CurrentConfiguration.jsx";
 import AccessPointSelector from "./AccessPointSelector.jsx";
-import fieldProfiles from "../data/field-profiles.json";
-import { verifyRadio } from "../services/verification.js";
+import fieldProfiles from "./field-profiles.json";
+import { verifyRadio } from "./verification.js";
 
 function nextManagementAddress(value) {
   const match = value?.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d|[12]\d|3[0-2])$/);

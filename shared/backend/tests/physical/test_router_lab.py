@@ -20,9 +20,9 @@ from app.models.configuration import (
     LoraProtectionPreviewRequest,
 )
 from app.models.mikrotik import ConnectivityRequest, MikroTikConnection, PingRequest
-from app.services.configuration import apply_link_configuration, preview_link_configuration
-from app.services.lora_configuration import apply_lora_protection, preview_lora_protection
-from app.services.network_configuration import (
+from app.features.wireless.configuration import apply_link_configuration, preview_link_configuration
+from app.features.routerboards.lora_configuration import apply_lora_protection, preview_lora_protection
+from app.features.routerboards.network_configuration import (
     apply_basic_network,
     preview_basic_network,
     read_basic_network_state,

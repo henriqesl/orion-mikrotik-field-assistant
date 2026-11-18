@@ -1,6 +1,6 @@
 import pytest
 from app.models.mikrotik import MikroTikConnection
-from app.services.configuration import ConfigurationConflictError
+from app.services.topology import ConfigurationConflictError
 from app.services.operation_guard import exclusive_operation
 
 

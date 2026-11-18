@@ -6,6 +6,7 @@ const resolvePath = (path) => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig(({ mode }) => ({
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       "@workspace": resolvePath(
         mode === "routerboards" ? "../../routerboards/workspace.mjs" : "../../radios/workspace.mjs",

@@ -9,7 +9,7 @@ from app.models.configuration import (
     LinkConfiguration,
 )
 from app.models.mikrotik import MikroTikConnection
-from app.services import configuration as service
+from app.features.wireless import configuration as service
 
 
 def connection() -> MikroTikConnection:

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { networkFormFromCurrent, networkPayload } from "../src/services/networkForm.js";
+import { networkFormFromCurrent, networkPayload } from "../../../routerboards/frontend/networkForm.js";
 
 const fallback = { identity: "MikroTik", wan_interface: "ether1", wan_mode: "dhcp", lan_bridge: "bridge-lan", lan_address: "192.168.50.1/24", lan_ports: ["ether2", "ether3"], dns_servers: "1.1.1.1, 8.8.8.8", enable_nat: true, enable_lan_dhcp: true };
 const current = { ...fallback, wan_interface: "wifi1", wan_configured: true, configure_lan: true, dns_servers: ["9.9.9.9"], wan_address: null, gateway: null };

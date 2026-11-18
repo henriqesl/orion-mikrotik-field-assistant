@@ -12,10 +12,10 @@ vi.mock("../src/components/ConnectionForm.jsx", () => ({
   default: ({ onConnect }) => <button onClick={() => onConnect({ host: "demo-router" })}>Conectar teste</button>,
 }));
 vi.mock("../src/components/DeviceSummary.jsx", () => ({ default: () => <div>Resumo de teste</div> }));
-vi.mock("../src/components/BasicNetworkConfiguration.jsx", () => ({ default: () => <div>Editor de rede de teste</div> }));
-vi.mock("../src/components/LoraProtection.jsx", () => ({ default: () => <div>Editor LoRa de teste</div> }));
-vi.mock("../src/components/LinkConfiguration.jsx", () => ({ default: () => <div>Editor de enlace de teste</div> }));
-vi.mock("../src/components/AlignmentMonitor.jsx", () => ({ default: () => null }));
+vi.mock("../../../routerboards/frontend/BasicNetworkConfiguration.jsx", () => ({ default: () => <div>Editor de rede de teste</div> }));
+vi.mock("../../../routerboards/frontend/LoraProtection.jsx", () => ({ default: () => <div>Editor LoRa de teste</div> }));
+vi.mock("../src/features/wireless/LinkConfiguration.jsx", () => ({ default: () => <div>Editor de enlace de teste</div> }));
+vi.mock("../src/features/wireless/AlignmentMonitor.jsx", () => ({ default: () => null }));
 vi.mock("../src/components/PingTest.jsx", () => ({ default: () => null }));
 vi.mock("../src/components/UpdateNotice.jsx", () => ({ default: () => null }));
 

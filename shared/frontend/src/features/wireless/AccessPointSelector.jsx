@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAPLockState, scanAccessPoints } from "../services/api.js";
+import { getAPLockState, scanAccessPoints } from "../../services/api.js";
 
 export default function AccessPointSelector({ connection, wifiInterface, action, bssid, busy, onChange, onSelect, onScanning, refreshKey }) {
   const [status, setStatus] = useState(null);

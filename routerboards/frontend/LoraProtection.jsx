@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { applyLoraProtection, previewLoraProtection, getLoraProtectionCurrent } from "../services/api.js";
-import CurrentConfiguration from "./CurrentConfiguration.jsx";
+import { applyLoraProtection, previewLoraProtection, getLoraProtectionCurrent } from "../../shared/frontend/src/services/api.js";
+import CurrentConfiguration from "../../shared/frontend/src/components/CurrentConfiguration.jsx";
 
 function initialForm(device) {
   return {

@@ -5,10 +5,10 @@ import {
   getBasicNetworkCurrent,
   previewBasicNetwork,
   validateConnectivity,
-} from "../services/api.js";
-import CurrentConfiguration from "./CurrentConfiguration.jsx";
-import { networkFormFromCurrent, networkPayload } from "../services/networkForm.js";
-import { verifyNetwork } from "../services/verification.js";
+} from "../../shared/frontend/src/services/api.js";
+import CurrentConfiguration from "../../shared/frontend/src/components/CurrentConfiguration.jsx";
+import { networkFormFromCurrent, networkPayload } from "./networkForm.js";
+import { verifyNetwork } from "./verification.js";
 
 function initialForm(device) {
   const interfaces = device.ethernet_interfaces.filter((item) => !item.disabled);
