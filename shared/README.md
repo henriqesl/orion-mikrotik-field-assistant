@@ -1,7 +1,7 @@
 # Shared implementation
 
-`frontend/` contains reusable React components, services, tests and the retained Tauri shell. Vite selects the radio or RouterBoard workspace at startup. `backend/` contains the FastAPI service, RouterOS integration and Python tests. `native/` contains the existing C++ statistics component.
+`frontend/` holds the React interface and Tauri shell, `backend/` the FastAPI service and RouterOS integration, and `native/` the C++ latency statistics component.
 
-Keep device access, configuration safeguards and reusable UI here. Product navigation belongs in `radios/` or `routerboards/`. These are separate frontend entry modes, not separate backends or security boundaries; hiding a panel does not disable its API endpoint.
+Both products share this code and API. Navigation belongs in `radios/` or `routerboards/`; hiding a panel does not disable its API endpoint.
 
-Use the setup and test commands in the [root README](../README.md). The browser workflow is the current development target; no new desktop installer is produced by the separation.
+See the [root README](../README.md) for setup, tests and packaging. Current development targets the local web application.

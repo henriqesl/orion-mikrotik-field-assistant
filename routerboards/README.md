@@ -1,7 +1,7 @@
 # ORION RouterBoards
 
-This entry preserves the previous device, basic network, Wi-Fi, LoRa and test workflows. New RouterBoard features are deferred while the radio product is developed.
+Basic network, Wi-Fi, LoRa and device diagnostics. This interface is maintained while development focuses on radios.
 
-Start the shared API using the [root README](../README.md). From `shared/frontend`, run `npm run dev:routerboards` and open `http://localhost:5174`. Stop the radio frontend first: both entries deliberately use the same development port. Use `demo-router` to explore without hardware.
+Start the API using the [root README](../README.md). From `shared/frontend`, run `npm run dev:routerboards` and open `http://localhost:5174`. Stop the radio frontend first; both use the same port. Use `demo-router` to explore without hardware.
 
-`workspace.mjs` defines this workspace. The implementation remains in `shared/` so fixes do not need to be copied between products. For a separate web artifact, run `npm run build:routerboards`; its output is `shared/frontend/dist-routerboards`. The regular build and desktop launcher continue to select radios.
+Navigation is defined in `workspace.mjs`; the implementation lives in `shared/`. `npm run build:routerboards` writes to `shared/frontend/dist-routerboards`. The default build and desktop launcher use the radio interface.

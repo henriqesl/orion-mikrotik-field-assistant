@@ -334,8 +334,7 @@ function App({ workspace = radioWorkspace }) {
               <h1>ORION</h1>
               <span>{workspace.name}</span>
             </div>
-            <p className="eyebrow">MikroTik Field Assistant</p>
-            <p className="tagline">Configure. Monitore. Valide.</p>
+            <p className="tagline">Configuração e diagnóstico MikroTik</p>
           </div>
         </section>
 

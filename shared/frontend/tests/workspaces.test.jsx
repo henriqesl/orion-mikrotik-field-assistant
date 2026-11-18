@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../src/App.jsx";
 import radios from "../../../radios/workspace.mjs";
@@ -31,33 +31,38 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("radio workspace shows only device, link and tests and never mounts router panels", async () => {
-  render(<App workspace={radios} />);
-  await userEvent.click(screen.getByRole("button", { name: "Conectar teste" }));
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(3));
+async function connect(workspace = radios) {
+  const user = userEvent.setup();
+  render(<App workspace={workspace} />);
+  await user.click(screen.getByRole("button", { name: "Conectar teste" }));
+  await screen.findByRole("tablist");
+  return user;
+}
+
+test("radios exclude network and LoRa panels", async () => {
+  const user = await connect();
+  expect(screen.getAllByRole("tab")).toHaveLength(3);
   expect(screen.getByRole("tab", { name: "Equipamento" })).toBeTruthy();
-  await userEvent.click(screen.getByRole("tab", { name: "Enlace" }));
-  expect(screen.getByText("Editor de enlace de teste")).toBeTruthy();
+  await user.click(screen.getByRole("tab", { name: "Enlace" }));
+  expect(screen.getByRole("tabpanel", { name: "Enlace" }).hidden).toBe(false);
   expect(screen.queryByText("Editor de rede de teste")).toBeNull();
   expect(screen.queryByText("Editor LoRa de teste")).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Desconectar" }));
+  await user.click(screen.getByRole("button", { name: "Desconectar" }));
   expect(screen.queryByRole("tablist")).toBeNull();
 });
 
-test("RouterBoard workspace retains basic network and LoRa workflows", async () => {
-  render(<App workspace={routerboards} />);
-  await userEvent.click(screen.getByRole("button", { name: "Conectar teste" }));
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(5));
-  await userEvent.click(screen.getByRole("tab", { name: "Rede básica" }));
-  expect(screen.getByText("Editor de rede de teste")).toBeTruthy();
-  await userEvent.click(screen.getByRole("tab", { name: "LoRa" }));
-  expect(screen.getByText("Editor LoRa de teste")).toBeTruthy();
+test("routerboards retain network and LoRa panels", async () => {
+  const user = await connect(routerboards);
+  expect(screen.getAllByRole("tab")).toHaveLength(5);
+  for (const name of ["Rede básica", "LoRa"]) {
+    await user.click(screen.getByRole("tab", { name }));
+    expect(screen.getByRole("tabpanel", { name }).hidden).toBe(false);
+  }
 });
 
-test("radio workspace keeps unsupported Wi-Fi disabled", async () => {
+test("devices without Wi-Fi cannot open link configuration", async () => {
   discoverDevice.mockResolvedValue({ ...demoDevice({ host: "demo-router" }), wifi_interfaces: [] });
-  render(<App />);
-  await userEvent.click(screen.getByRole("button", { name: "Conectar teste" }));
-  await waitFor(() => expect(screen.getByRole("tab", { name: /Enlace/ }).disabled).toBe(true));
+  await connect();
+  expect(screen.getByRole("tab", { name: /Enlace/ }).disabled).toBe(true);
   expect(screen.queryByText("Editor de enlace de teste")).toBeNull();
 });

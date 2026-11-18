@@ -1,7 +1,7 @@
 # ORION Radios
 
-The default workspace for field technicians preparing a radio pair or an AP with multiple Stations. Its navigation is limited to the device, link configuration and tests. RouterBoard network and LoRa panels are not mounted here.
+Radio setup: one AP with one or more Stations. The interface has three tabs: Equipment, Link and Tests.
 
 Run the API as described in the [root README](../README.md), then run `npm ci` and `npm run dev` from `shared/frontend`. Open `http://localhost:5174`. Use `demo` to explore without hardware.
 
-`workspace.mjs` owns the radio navigation. Components and RouterOS communication are reused from `shared/`; this first stage does not change device access or configuration commands. Simplified discovery, guided preparation and radio-specific usability are the next stages, not completed features.
+Navigation is defined in `workspace.mjs`; the implementation lives in `shared/`. Device access still uses the existing connection flow. Guided preparation is planned for the next stage.

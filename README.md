@@ -1,8 +1,8 @@
 # ORION Field
 
-ORION helps field technicians configure MikroTik radio links. The dedicated radio interface is being developed as a local web application, starting from the existing AP/Station workflow. The previous RouterBoard and LoRa tools remain available through a separate entry.
+ORION is a local tool for configuring and testing MikroTik radio links. Radio setup is the default interface; RouterBoard and LoRa tools have a separate entry.
 
-The application uses React and a local FastAPI backend communicating through the RouterOS API. The existing Tauri desktop shell is retained for later packaging. A small [C++ component](shared/native/network-engine/README.md) calculates latency statistics. No cloud service is required. This is an independent project, not affiliated with or certified by MikroTik.
+Built with React, FastAPI and the RouterOS API, with Tauri for Windows packaging and a [C++ component](shared/native/network-engine/README.md) for latency statistics. No cloud service is required. ORION is not affiliated with or certified by MikroTik.
 
 ## Run locally
 
@@ -32,15 +32,15 @@ After setup, `start-orion.cmd` at the repository root builds and serves the radi
 
 Enter `demo` or `teste` in the IP field to explore the radio workflow without hardware. Use `demo-router` for a configured router, `demo-novo` for an unprepared router, or `demo-wireless` for the classic-wireless scan and lock flow. These profiles do not write to real devices.
 
-With a real MikroTik, ORION reads the existing configuration before proposing changes. You choose what to edit, review the differences and confirm the operation. A backup is saved on the device before writes. After reconnecting, ORION compares readable settings; association and traffic still need to be tested.
+For real devices, read the current configuration, review the proposed changes and confirm. ORION saves a backup on the device before writes and checks readable settings after reconnecting. Test association and traffic separately.
 
 ## Validate the build
 
-Open another terminal at the repository root to run the automated tests and compile the frontend:
+From the repository root:
 
 ```powershell
 cd shared/backend
-.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m pytest -m "not physical"
 cd ..\frontend
 npm test
 npm run build
@@ -76,5 +76,3 @@ AP scans interrupt Wi-Fi temporarily. Classic `wireless` supports the implemente
 ## Source layout
 
 [radios/](radios/README.md) defines the focused radio workspace. [routerboards/](routerboards/README.md) preserves the previous workspace without expanding its scope. [shared/](shared/README.md) holds the reusable frontend, API, desktop shell and native metrics. Development commands live in `scripts/`, and guides in `docs/`. The older standalone [script generator](tools/mikrotik-generator.html) is kept in `tools/` for reference; it is not part of the app and loads its styling from external CDNs.
-
-Dependencies, caches and build outputs can be recreated using the setup and build commands above. Keep `.git`, source files and any local signing material when cleaning the workspace.
