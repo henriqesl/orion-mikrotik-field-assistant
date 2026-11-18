@@ -4,8 +4,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$TauriConfigurationPath = Join-Path $OrionRoot "frontend\src-tauri\tauri.conf.json"
-$BundleDirectory = Join-Path $OrionRoot "frontend\src-tauri\target\release\bundle\nsis"
+$TauriConfigurationPath = Join-Path $OrionRoot "shared\frontend\src-tauri\tauri.conf.json"
+$BundleDirectory = Join-Path $OrionRoot "shared\frontend\src-tauri\target\release\bundle\nsis"
 $Configuration = Get-Content -LiteralPath $TauriConfigurationPath -Raw |
     ConvertFrom-Json
 $Version = $Configuration.version

@@ -6,8 +6,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$BackendDirectory = Join-Path $OrionRoot "backend"
-$FrontendDirectory = Join-Path $OrionRoot "frontend"
+$BackendDirectory = Join-Path $OrionRoot "shared\backend"
+$FrontendDirectory = Join-Path $OrionRoot "shared\frontend"
 $VirtualEnvironmentPython = Join-Path $BackendDirectory ".venv\Scripts\python.exe"
 $OrionUrl = "http://127.0.0.1:$Port"
 

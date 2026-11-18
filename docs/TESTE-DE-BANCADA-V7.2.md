@@ -23,7 +23,7 @@ Nunca habilite gravações em equipamento de cliente ou produção.
 Executar somente essas simulações:
 
 ```powershell
-cd backend
+cd shared/backend
 .\.venv\Scripts\python.exe -m pytest tests\test_stateful_field_scenarios.py -vv
 ```
 

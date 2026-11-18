@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$FrontendDirectory = Join-Path $OrionRoot "frontend"
+$FrontendDirectory = Join-Path $OrionRoot "shared\frontend"
 $TauriCommand = Join-Path $FrontendDirectory "node_modules\.bin\tauri.cmd"
 $UpdaterSigningDirectory = Join-Path (
     [Environment]::GetFolderPath("LocalApplicationData")

@@ -12,6 +12,7 @@ import { discoverDevice } from "./services/api.js";
 import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
 import { sameDevice } from "./services/verification.js";
+import radioWorkspace from "../../../radios/workspace.mjs";
 
 const API_STATES = {
   checking: {
@@ -30,13 +31,6 @@ const API_STATES = {
 
 const MONITOR_INTERVAL_MS = 15_000;
 const ALIGNMENT_INTERVAL_MS = 3_000;
-const WORKSPACE_TABS = [
-  { id: "routeros", label: "Dados reais do RouterOS" },
-  { id: "network", label: "Rede básica", capability: "router" },
-  { id: "configuration", label: "Configuração do rádio", capability: "wifi" },
-  { id: "lora", label: "LoRa", capability: "lora" },
-  { id: "tests", label: "Testes" },
-];
 
 function resetWorkspaceScroll() {
   window.requestAnimationFrame(() => {
@@ -45,7 +39,8 @@ function resetWorkspaceScroll() {
   });
 }
 
-function App() {
+function App({ workspace = radioWorkspace }) {
+  const hasPanel = (id) => workspace.tabs.some((tab) => tab.id === id);
   const [apiState, setApiState] = useState("checking");
   const [device, setDevice] = useState(null);
   const [activeConnection, setActiveConnection] = useState(null);
@@ -337,7 +332,7 @@ function App() {
           <div>
             <div className="brand-name">
               <h1>ORION</h1>
-              <span>FIELD</span>
+              <span>{workspace.name}</span>
             </div>
             <p className="eyebrow">MikroTik Field Assistant</p>
             <p className="tagline">Configure. Monitore. Valide.</p>
@@ -385,7 +380,7 @@ function App() {
 
         {device && (
           <nav className="workspace-tabs" aria-label="Áreas do equipamento" role="tablist">
-            {WORKSPACE_TABS.map((tab) => {
+            {workspace.tabs.map((tab) => {
               const unavailable =
                 (tab.capability === "wifi" && !wifiAvailable) ||
                 (tab.capability === "lora" && !loraAvailable) ||
@@ -413,7 +408,7 @@ function App() {
                   type="button"
                 >
                   <span>
-                    {tab.id === "configuration" && !radioDevice
+                    {workspace.id === "routerboards" && tab.id === "configuration" && !radioDevice
                       ? "Configuração Wi-Fi"
                       : tab.label}
                   </span>
@@ -446,7 +441,7 @@ function App() {
           </section>
         )}
 
-        {device && activeConnection && loraAvailable && (
+        {hasPanel("lora") && device && activeConnection && loraAvailable && (
           <section aria-labelledby="tab-lora" className="tab-panel" hidden={activeTab !== "lora"} id="panel-lora" role="tabpanel">
             <LoraProtection connection={activeConnection} device={device} onApplyStart={handleConfigurationApplyStart} onApplyEnd={handleConfigurationApplyEnd} onApplied={handleInPlaceConfigurationApplied} />
           </section>
@@ -495,7 +490,7 @@ function App() {
           </section>
         )}
 
-        {device && activeConnection && !radioDevice && (
+        {hasPanel("network") && device && activeConnection && !radioDevice && (
           <section
             aria-labelledby="tab-network"
             className="tab-panel"

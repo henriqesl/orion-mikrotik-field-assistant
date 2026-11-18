@@ -81,7 +81,7 @@ def mount_frontend(application: FastAPI, frontend_directory: Path) -> None:
     def frontend_not_built() -> dict[str, str]:
         return {
             "status": "frontend_not_built",
-            "message": "Execute npm run build na pasta frontend.",
+            "message": "Execute npm run build na pasta shared/frontend.",
         }
 
 

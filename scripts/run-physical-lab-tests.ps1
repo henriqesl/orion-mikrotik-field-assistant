@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$BackendDirectory = Join-Path $OrionRoot "backend"
+$BackendDirectory = Join-Path $OrionRoot "shared\backend"
 $PythonExecutable = Join-Path $BackendDirectory ".venv\Scripts\python.exe"
 $ResolvedConfig = (Resolve-Path -LiteralPath $ConfigPath).Path
 

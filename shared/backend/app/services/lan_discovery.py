@@ -207,7 +207,7 @@ class MndpCollector:
 
 
 def _winbox_candidates() -> list[Path]:
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = Path(__file__).resolve().parents[4]
     candidates = [
         project_root / "winbox.exe",
         project_root / "tools" / "winbox.exe",

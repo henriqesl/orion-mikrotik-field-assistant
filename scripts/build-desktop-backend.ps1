@@ -4,9 +4,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$BackendDirectory = Join-Path $OrionRoot "backend"
+$BackendDirectory = Join-Path $OrionRoot "shared\backend"
 $PythonExecutable = Join-Path $BackendDirectory ".venv\Scripts\python.exe"
-$OutputDirectory = Join-Path $OrionRoot "frontend\src-tauri\binaries"
+$OutputDirectory = Join-Path $OrionRoot "shared\frontend\src-tauri\binaries"
 $BuildDirectory = Join-Path $BackendDirectory "build\desktop"
 $BinaryName = "orion-backend-$TargetTriple"
 $DistributionDirectory = Join-Path $BuildDirectory "distribution"

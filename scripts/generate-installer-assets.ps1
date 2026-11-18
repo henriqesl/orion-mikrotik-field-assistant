@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$IconPath = Join-Path $OrionRoot "frontend\src-tauri\icons\icon.png"
-$OutputDirectory = Join-Path $OrionRoot "frontend\src-tauri\installer"
+$IconPath = Join-Path $OrionRoot "shared\frontend\src-tauri\icons\icon.png"
+$OutputDirectory = Join-Path $OrionRoot "shared\frontend\src-tauri\installer"
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
 function New-OrionCanvas {

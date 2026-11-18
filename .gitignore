@@ -7,16 +7,17 @@ __pycache__/
 
 # Node
 node_modules/
-frontend/dist/
+shared/frontend/dist/
+shared/frontend/dist-routerboards/
 
 # Build outputs and installers
-backend/build/
+shared/backend/build/
 *.exe
 *.msi
-frontend/src-tauri/binaries/orion-backend-runtime/
-frontend/src-tauri/target/
-frontend/src-tauri/gen/schemas/
-native/network-engine/build/
+shared/frontend/src-tauri/binaries/orion-backend-runtime/
+shared/frontend/src-tauri/target/
+shared/frontend/src-tauri/gen/schemas/
+shared/native/network-engine/build/
 
 # Editors and operating systems
 .vscode/

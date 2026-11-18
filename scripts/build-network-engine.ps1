@@ -5,9 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $OrionRoot = Split-Path -Parent $PSScriptRoot
-$SourceDirectory = Join-Path $OrionRoot "native\network-engine"
+$SourceDirectory = Join-Path $OrionRoot "shared\native\network-engine"
 $BuildDirectory = Join-Path $SourceDirectory "build"
-$OutputDirectory = Join-Path $OrionRoot "frontend\src-tauri\binaries"
+$OutputDirectory = Join-Path $OrionRoot "shared\frontend\src-tauri\binaries"
 $OutputName = "orion-network-engine-x86_64-pc-windows-msvc.exe"
 $CMakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
 
