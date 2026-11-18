@@ -8,8 +8,11 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
+
+# Build outputs and installers
 backend/build/
-frontend/src-tauri/binaries/*.exe
+*.exe
+*.msi
 frontend/src-tauri/binaries/orion-backend-runtime/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/schemas/

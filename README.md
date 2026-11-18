@@ -1,77 +1,76 @@
 # ORION Field
 
-A local Windows assistant for MikroTik field configuration and diagnostics. Built for technicians, with **a pair of radios as the primary workflow**.
+ORION Field is a local Windows application for technicians configuring MikroTik equipment. Its main workflow prepares a pair of radios, one AP and one Station. The same interface supports multiple Stations, existing networks and LoRa protections.
 
-Independent project; not affiliated with or certified by MikroTik.
+The application uses React inside Tauri, with a FastAPI backend communicating through the RouterOS API. A small [C++ component](native/network-engine/README.md) calculates latency statistics. No cloud service is required. This is an independent project, not affiliated with or certified by MikroTik.
 
-## What it does
+## Run locally
 
-- Configure a radio pair, one AP with multiple Stations, or a Station joining an existing AP.
-- Discover local devices and prepare temporary IPv4 API access through MAC when needed.
-- Load existing Wi-Fi, basic network and supported LoRa protection settings before editing.
-- Preview changes, create a RouterOS backup, and compare readable radio/network settings after reconnecting.
-- Display RouterOS signals, negotiated rates, actual RX/TX traffic and latency metrics.
-- Export sanitized diagnostics to a chosen destination; use offline demo profiles without hardware.
-
-`React + Vite → Tauri → FastAPI → RouterOS API`
-
-The C++ sidecar calculates latency statistics only. No cloud, inventory or technician accounts.
-
-## Use and limitations
-
-Target: **Windows 10/11 x64** with RouterOS API access. Local Ethernet is required for LAN discovery and MAC preparation; internet is not required for local configuration.
-
-- Existing WAN, LAN and DNS stay protected until selected for editing. Backups are stored on the MikroTik; restoration is manual.
-- AP scanning temporarily interrupts Wi-Fi. Use Ethernet and confirm before scanning.
-- BSSID lock is implemented for classic `wireless`. With modern `wifi`, use dedicated link credentials and verify the associated AP MAC; this is not a lock.
-- Prefer a VPN for remote access and validated API-SSL. The MikroTik API certificate is separate from the BIONIC installer certificate.
-- Advanced topology, shared pools and custom rules remain administrator work. Saved settings do not prove RF association or traffic flow.
-
-See [compatibility and physical acceptance](docs/COMPATIBILITY.md) before production use. The previously generated **0.7.3 installer predates the latest source refinements**; merging or pulling main does not update an installed copy.
-
-## Demo
-
-Enter `demo` or `teste` for a radio, `demo-router` for a configured router, `demo-novo` for an unprepared router, or `demo-wireless` for classic-wireless scan/lock demonstrations. Demo mode never writes to hardware.
-
-## Development
-
-Use Node.js compatible with the locked Vite version and Python 3.11+. Desktop builds also require Rust, Visual Studio Build Tools 2022 (**Desktop development with C++**) and CMake.
+Install Python 3.11+ and a Node.js version compatible with the project's locked Vite version. From the repository root, prepare and start the backend:
 
 ```powershell
-# From the repository root: backend
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 uvicorn app.main:app --reload
+```
 
-# From the repository root, in another terminal: frontend
+Leave that terminal running. Open a second terminal at the repository root and start the frontend:
+
+```powershell
 cd frontend
 npm ci
 npm run dev
 ```
 
-Frontend: `http://localhost:5174`; API proxy: `http://127.0.0.1:8000`. From `frontend`, run `npm run desktop:dev` for the desktop application.
+Open `http://localhost:5174`. The frontend forwards API requests to `http://127.0.0.1:8000`.
 
-## Test and build
+## Try the workflow
+
+Enter `demo` or `teste` in the IP field to explore the radio workflow without hardware. Use `demo-router` for a configured router, `demo-novo` for an unprepared router, or `demo-wireless` for the classic-wireless scan and lock flow. These profiles do not write to real devices.
+
+With a real MikroTik, ORION reads the existing configuration before proposing changes. You choose what to edit, review the differences and confirm the operation. A backup is saved on the device before writes. After reconnecting, ORION compares readable settings; association and traffic still need to be tested.
+
+## Validate the build
+
+Open another terminal at the repository root to run the automated tests and compile the frontend:
 
 ```powershell
-# From the repository root
 cd backend
 .\.venv\Scripts\python.exe -m pytest
 cd ..\frontend
 npm test
 npm run build
 npm audit --audit-level=high
+```
+
+Automated tests do not replace a hardware trial. Consult the [validation status](docs/MVP-VALIDATION.md) and [compatibility record](docs/COMPATIBILITY.md) for the remaining physical checks.
+
+## Package for Windows
+
+The desktop target is Windows 10/11 x64. Install Rust, Visual Studio Build Tools 2022 with **Desktop development with C++**, and CMake. From the `frontend` directory used above, run:
+
+```powershell
 npm run desktop:build
 ```
 
-Installers are generated under `frontend/src-tauri/target/release/bundle/nsis`. Internal signed builds use `npm run desktop:build:signed` and require the company's private signing material, which is not included in this repository. Internal signing does not guarantee public trust or antivirus acceptance.
+The installer is written to `frontend/src-tauri/target/release/bundle/nsis`. To run the desktop application during development instead, use `npm run desktop:dev`.
 
-## Guides
+Company builds use `npm run desktop:build:signed` with private signing material kept outside this repository. Follow the [internal installation guide](docs/instalacao-interna-windows.md) when distributing them. Internal signing does not guarantee public trust or antivirus acceptance.
 
-- [Field manual](docs/manual-de-campo.md)
-- [Compatibility and acceptance](docs/COMPATIBILITY.md)
-- [Validation status](docs/MVP-VALIDATION.md)
-- [Internal Windows installation](docs/instalacao-interna-windows.md)
-- [Native metrics engine](native/network-engine/README.md)
+Installers and build outputs are generated locally, not stored in Git. Pulling main does not update an installed copy; rebuild and reinstall it.
+
+## Use in the field
+
+Connect by Ethernet and follow the [field manual](docs/manual-de-campo.md). Local configuration does not require internet. Discovery can help prepare temporary IPv4 access through MAC, but subsequent management uses the RouterOS API. Prefer a VPN for remote access and validated API-SSL; the MikroTik's API certificate is separate from the installer certificate.
+
+Existing WAN, LAN and DNS remain protected until selected for editing. Leave advanced topology and custom rules to the network administrator. If an operation is interrupted, reconnect and read the device before repeating it; backup restoration is manual.
+
+AP scans interrupt Wi-Fi temporarily. Classic `wireless` supports the implemented BSSID lock. Modern `wifi` uses link credentials and an associated-MAC check, not a lock. Confirm the intended AP and test communication before completing the job.
+
+## Source layout
+
+`frontend/` contains the interface and Tauri desktop shell; `backend/` contains the API and RouterOS integration. Native metrics live in `native/`, development commands in `scripts/`, and guides in `docs/`. The older standalone [script generator](tools/mikrotik-generator.html) is kept in `tools/` for reference; it is not part of the app and loads its styling from external CDNs.
+
+Dependencies, caches and build outputs can be recreated using the setup and build commands above. Keep `.git`, source files and any local signing material when cleaning the workspace.
