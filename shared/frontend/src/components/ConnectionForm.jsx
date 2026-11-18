@@ -49,9 +49,9 @@ function suggestedManagementAddress(adapter) {
   return `${octets[0]}.${octets[1]}.${octets[2]}.${routerHost}/24`;
 }
 
-function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect }) {
+function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect, initialHost = INITIAL_FORM.host, title = "Dados de acesso", children }) {
   const [insecureAccepted, setInsecureAccepted] = useState(false);
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm] = useState(() => ({ ...INITIAL_FORM, host: initialHost }));
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
   const [discoveryError, setDiscoveryError] = useState("");
   const [openingMac, setOpeningMac] = useState("");
@@ -302,9 +302,11 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       <div className="section-heading">
         <div>
           <p className="card-kicker">Conectar ao equipamento</p>
-          <h2>Dados de acesso</h2>
+          <h2>{title}</h2>
         </div>
       </div>
+
+      {children}
 
       {fieldSession && (
         <aside className="field-session-banner" role="status">
@@ -526,7 +528,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             inputMode="decimal"
             name="host"
             onChange={updateField}
-            placeholder="192.168.88.1"
+            placeholder="Ex.: 192.168.88.1"
             required
             value={form.host}
           />

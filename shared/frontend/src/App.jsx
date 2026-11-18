@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import ConnectionForm from "./components/ConnectionForm.jsx";
+import DefaultConnectionForm from "./components/ConnectionForm.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import PingTest from "./components/PingTest.jsx";
 import UpdateNotice from "./components/UpdateNotice.jsx";
@@ -36,6 +36,7 @@ function resetWorkspaceScroll() {
 
 function App({ workspace }) {
   const { AlignmentMonitor, LinkConfiguration, BasicNetworkConfiguration, LoraProtection } = workspace.components;
+  const ConnectionForm = workspace.components.ConnectionForm || DefaultConnectionForm;
   const hasPanel = (id) => workspace.tabs.some((tab) => tab.id === id);
   const [apiState, setApiState] = useState("checking");
   const [device, setDevice] = useState(null);
