@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import {
@@ -49,9 +49,9 @@ function suggestedManagementAddress(adapter) {
   return `${octets[0]}.${octets[1]}.${octets[2]}.${routerHost}/24`;
 }
 
-function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect }) {
+function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnect, initialHost = INITIAL_FORM.host, title = "Dados de acesso", children }) {
   const [insecureAccepted, setInsecureAccepted] = useState(false);
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm] = useState(() => ({ ...INITIAL_FORM, host: initialHost }));
   const [lanDiscovery, setLanDiscovery] = useState({ status: "listening", devices: [] });
   const [discoveryError, setDiscoveryError] = useState("");
   const [openingMac, setOpeningMac] = useState("");
@@ -66,16 +66,30 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   const [bootstrapPreview, setBootstrapPreview] = useState(null);
   const [bootstrapStatus, setBootstrapStatus] = useState("");
   const [bootstrapBusy, setBootstrapBusy] = useState(false);
+  const [bootstrapApplying, setBootstrapApplying] = useState(false);
+  const [bootstrapConfirmed, setBootstrapConfirmed] = useState(false);
+  const bootstrapRequest = useRef(null);
+  const bootstrapRevision = useRef(0);
   const [endpointMessage, setEndpointMessage] = useState("");
-  const [selectedDeviceMac, setSelectedDeviceMac] = useState("");
+  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [isDiscovering, setIsDiscovering] = useState(true);
+  const discoveryInFlight = useRef(false);
+  const adapterGeneration = useRef(0);
+  const [adaptersLoading, setAdaptersLoading] = useState(false);
 
   const refreshLanDevices = useCallback(async () => {
+    if (discoveryInFlight.current) return;
+    discoveryInFlight.current = true;
+    setIsDiscovering(true);
     try {
       const result = await discoverLanDevices();
       setLanDiscovery(result);
-      setDiscoveryError(result.message || "");
+      setDiscoveryError(result.message || (result.status === "unavailable" ? "A descoberta local está indisponível." : ""));
     } catch (error) {
       setDiscoveryError(error.message);
+    } finally {
+      discoveryInFlight.current = false;
+      setIsDiscovering(false);
     }
   }, []);
 
@@ -94,11 +108,17 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       preparedDevice?.ip_address
       && preparedDevice.ip_address !== "0.0.0.0"
     ) {
-      setForm((current) => ({ ...current, host: preparedDevice.ip_address }));
       setWinboxMessageKind("success");
-      setWinboxMessage(`Novo IP detectado: ${preparedDevice.ip_address}.`);
+      setWinboxMessage(`IP anunciado: ${preparedDevice.ip_address}. Selecione Usar no ORION para acessar.`);
     }
   }, [macPreparation, lanDiscovery.devices]);
+
+  function invalidateBootstrap() {
+    bootstrapRevision.current += 1;
+    bootstrapRequest.current = null;
+    setBootstrapPreview(null);
+    setBootstrapConfirmed(false);
+  }
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
@@ -107,8 +127,18 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       ...current,
       [name]: type === "checkbox" ? checked : value,
     }));
+    if (name === "username" || name === "password") invalidateBootstrap();
     if (name === "host" || name === "port") {
       setEndpointMessage("");
+    }
+    if (name === "host") {
+      adapterGeneration.current += 1;
+      setAdaptersLoading(false);
+      if (selectedDevice) setForm((current) => ({ ...current, password: "" }));
+      setSelectedDevice(null);
+      setMacPreparation("");
+      invalidateBootstrap();
+      setWinboxMessage("");
     }
   }
 
@@ -149,11 +179,21 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   }
 
   function useDeviceIp(device) {
-    setForm((current) => ({ ...current, host: device.ip_address }));
-    setSelectedDeviceMac(device.mac_address);
+    adapterGeneration.current += 1;
+    setAdaptersLoading(false);
+    setForm((current) => ({
+      ...current,
+      host: device.ip_address,
+      password: selectedDevice?.mac_address === device.mac_address ? current.password : "",
+    }));
+    setSelectedDevice({ ...device });
+    setMacPreparation("");
+    invalidateBootstrap();
+    setEndpointMessage("");
+    setInsecureAccepted(false);
     setWinboxMessage("");
     window.requestAnimationFrame(() => {
-      document.querySelector("#connection-credentials")?.scrollIntoView({
+      document.querySelector("#connection-credentials")?.scrollIntoView?.({
         behavior: "smooth",
         block: "center",
       });
@@ -163,25 +203,36 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
   async function selectMacDevice(device) {
     if (!device.ip_address || device.ip_address === "0.0.0.0") {
+      setSelectedDevice(null);
+      setForm((current) => ({ ...current, host: "", password: "" }));
+      setInsecureAccepted(false);
+      setEndpointMessage("");
+      setWinboxMessage("");
       setMacPreparation(device.mac_address);
       setBootstrapInterface(device.interface || "ether1");
-      setBootstrapPreview(null);
+      invalidateBootstrap();
       setBootstrapStatus("");
+      const generation = ++adapterGeneration.current;
+      setNetworkAdapters([]);
+      setAdapterIndex("");
+      setBootstrapAddress("");
+      setAdaptersLoading(true);
       try {
         const adapters = await getMacBootstrapAdapters();
+        if (generation !== adapterGeneration.current) return;
         setNetworkAdapters(adapters);
-        setAdapterIndex((current) => {
-          const nextIndex = current || String(adapters[0]?.interface_index || "");
-          const selectedAdapter = adapters.find(
-            (adapter) => String(adapter.interface_index) === nextIndex,
-          );
-          if (!bootstrapAddress && selectedAdapter) {
-            setBootstrapAddress(suggestedManagementAddress(selectedAdapter));
-          }
-          return nextIndex;
-        });
+        if (adapters.length === 1) {
+          setAdapterIndex(String(adapters[0].interface_index));
+          setBootstrapAddress(suggestedManagementAddress(adapters[0]));
+        } else {
+          setBootstrapStatus(adapters.length
+            ? "Escolha a placa de rede conectada ao rádio."
+            : "Nenhuma placa IPv4 disponível. Confira a conexão do computador e tente novamente.");
+        }
       } catch (error) {
-        setBootstrapStatus(error.message);
+        if (generation === adapterGeneration.current) setBootstrapStatus(error.message);
+      } finally {
+        if (generation === adapterGeneration.current) setAdaptersLoading(false);
       }
       return;
     }
@@ -250,9 +301,17 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     }
     setBootstrapBusy(true);
     setBootstrapStatus("");
-    setBootstrapPreview(null);
+    invalidateBootstrap();
     try {
-      setBootstrapPreview(await previewMacBootstrap(bootstrapPayload(device)));
+      const payload = bootstrapPayload(device);
+      const revision = bootstrapRevision.current;
+      const preview = await previewMacBootstrap(payload);
+      if (revision !== bootstrapRevision.current) return;
+      if (preview.target_mac.toUpperCase() !== payload.mac_address.toUpperCase()) {
+        throw new Error("A prévia não corresponde ao equipamento selecionado. Verifique novamente.");
+      }
+      bootstrapRequest.current = payload;
+      setBootstrapPreview(preview);
     } catch (error) {
       setBootstrapStatus(error.message);
     } finally {
@@ -261,10 +320,19 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   }
 
   async function confirmMacBootstrap(device) {
+    const payload = bootstrapRequest.current;
+    if (bootstrapBusy || !bootstrapConfirmed || !payload ||
+        JSON.stringify(payload) !== JSON.stringify(bootstrapPayload(device))) {
+      invalidateBootstrap();
+      setBootstrapStatus("Os dados mudaram. Verifique a configuração novamente antes de aplicar.");
+      return;
+    }
+    setBootstrapApplying(true);
+    bootstrapRequest.current = null;
     setBootstrapBusy(true);
     setBootstrapStatus("");
     try {
-      const result = await applyMacBootstrap(bootstrapPayload(device));
+      const result = await applyMacBootstrap(payload);
       const connection = {
         ...form,
         host: result.host,
@@ -284,6 +352,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     } catch (error) {
       setBootstrapStatus(error.message);
     } finally {
+      invalidateBootstrap();
+      setBootstrapApplying(false);
       setBootstrapBusy(false);
     }
   }
@@ -295,16 +365,45 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     : null;
   const bootstrapReady = isValidIpv4Cidr(bootstrapAddress)
     && isValidInterfaceName(bootstrapInterface)
-    && Boolean(adapterIndex);
+    && Boolean(adapterIndex)
+    && Boolean(form.username.trim())
+    && !adaptersLoading;
+
+  const credentials = <>
+        <label className="field">
+          <span>Usuário</span>
+          <input
+            autoComplete="off"
+            name="username"
+            onChange={updateField}
+            required
+            value={form.username}
+          />
+        </label>
+
+        <label className="field">
+          <span>Senha</span>
+          <input
+            autoComplete="off"
+            name="password"
+            onChange={updateField}
+            type="password"
+            value={form.password}
+          />
+        </label>
+  </>;
 
   return (
     <form className="connection-form" onSubmit={handleSubmit}>
+      <fieldset className="connection-fields" disabled={bootstrapApplying}>
       <div className="section-heading">
         <div>
           <p className="card-kicker">Conectar ao equipamento</p>
-          <h2>Dados de acesso</h2>
+          <h2>{title}</h2>
         </div>
       </div>
+
+      {children}
 
       {fieldSession && (
         <aside className="field-session-banner" role="status">
@@ -327,8 +426,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             <strong id="lan-discovery-title">MikroTiks na rede</strong>
             <span>Equipamentos encontrados na rede local</span>
           </div>
-          <button disabled={isLoading} onClick={refreshLanDevices} type="button">
-            Atualizar
+          <button disabled={isLoading || isDiscovering} onClick={refreshLanDevices} type="button">
+            {isDiscovering ? "Buscando…" : "Atualizar"}
           </button>
         </header>
 
@@ -338,7 +437,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
               const hasUsableIp = device.ip_address && device.ip_address !== "0.0.0.0";
               return (
                 <article
-                  className={selectedDeviceMac === device.mac_address
+                  className={selectedDevice?.mac_address === device.mac_address && selectedDevice.ip_address === device.ip_address
                     ? "lan-device lan-device--selected"
                     : "lan-device"}
                   key={device.mac_address}
@@ -348,22 +447,24 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                     <span>{device.board || device.platform || "Modelo não informado"}</span>
                   </div>
                   <div className="lan-device__addresses">
-                    <span>{hasUsableIp ? device.ip_address : "Sem IP"}</span>
+                    <span>{hasUsableIp ? device.ip_address : "IP não anunciado"}</span>
                     <small>{device.mac_address}</small>
                   </div>
                   <div className="lan-device__actions">
                     {hasUsableIp && (
                       <button
                         className="lan-device__primary-action"
+                        disabled={isLoading || bootstrapBusy}
+                        aria-pressed={selectedDevice?.mac_address === device.mac_address && selectedDevice.ip_address === device.ip_address}
                         onClick={() => useDeviceIp(device)}
                         type="button"
                       >
-                        {selectedDeviceMac === device.mac_address ? "Selecionado" : "Usar no ORION"}
+                        {selectedDevice?.mac_address === device.mac_address && selectedDevice.ip_address === device.ip_address ? "Selecionado" : "Usar no ORION"}
                       </button>
                     )}
                     <button
                       className={!hasUsableIp ? "lan-device__primary-action" : "lan-device__secondary-action"}
-                      disabled={openingMac === device.mac_address}
+                      disabled={isLoading || bootstrapBusy || openingMac === device.mac_address}
                       onClick={() => selectMacDevice(device)}
                       type="button"
                     >
@@ -377,7 +478,11 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             })}
           </div>
         ) : (
-          <p className="lan-discovery__empty">Procurando equipamentos conectados à mesma rede local…</p>
+          <p className="lan-discovery__empty" role="status">
+            {isDiscovering ? "Buscando equipamentos na rede local…"
+              : discoveryError ? "Descoberta indisponível. Você ainda pode informar o IP."
+                : "Nenhum equipamento anunciado até agora. A busca continua; se souber o IP, informe abaixo."}
+          </p>
         )}
 
         {preparedDevice && (
@@ -389,22 +494,23 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                     {preparedDevice.identity || preparedDevice.mac_address}
                   </strong>
                 </div>
-                <button onClick={() => setMacPreparation("")} type="button">Fechar</button>
+                <button onClick={() => { setMacPreparation(""); adapterGeneration.current += 1; setAdaptersLoading(false); invalidateBootstrap(); }} type="button">Fechar</button>
               </header>
 
+              <div className="form-grid">{credentials}</div>
               <div className="mac-access-panel__terminal">
                   <div>
-                    <strong>Preparar acesso temporário</strong>
-                    <span>O ORION usará o MAC apenas para atribuir o IP e habilitar a API.</span>
+                    <strong>Preparar acesso por IP</strong>
+                    <span>Primeiro, informe as credenciais e verifique a configuração. Nada será aplicado nessa verificação.</span>
                   </div>
                   <div className="mac-access-panel__network-fields">
                     <label className="field">
-                        <span>IP temporário do MikroTik</span>
+                        <span>IP de acesso do MikroTik</span>
                       <input
                         inputMode="decimal"
                         onChange={(event) => {
                           setBootstrapAddress(event.target.value);
-                          setBootstrapPreview(null);
+                          invalidateBootstrap();
                           setBootstrapStatus("");
                         }}
                         placeholder="Selecione a placa de rede para sugerir"
@@ -416,7 +522,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                       <input
                         onChange={(event) => {
                           setBootstrapInterface(event.target.value);
-                          setBootstrapPreview(null);
+                          invalidateBootstrap();
                           setBootstrapStatus("");
                         }}
                         placeholder="Ex.: ether1"
@@ -428,7 +534,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                       <select
                         onChange={(event) => {
                           setAdapterIndex(event.target.value);
-                          setBootstrapPreview(null);
+                          invalidateBootstrap();
                           const adapter = networkAdapters.find(
                             (item) => String(item.interface_index) === event.target.value,
                           );
@@ -437,7 +543,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                         }}
                         value={adapterIndex}
                       >
-                        <option value="">Selecione a conexão por cabo</option>
+                        <option value="">{adaptersLoading ? "Lendo placas de rede…" : "Selecione a conexão por cabo"}</option>
                         {networkAdapters.map((adapter) => (
                           <option key={`${adapter.interface_index}-${adapter.ipv4_address}`} value={adapter.interface_index}>
                             {adapter.name} · {adapter.ipv4_address}
@@ -465,17 +571,23 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                       {bootstrapPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}
                     </ul>
                   )}
+                  {bootstrapPreview && (
+                    <label className="check-field">
+                      <input type="checkbox" checked={bootstrapConfirmed} onChange={(event) => setBootstrapConfirmed(event.target.checked)} />
+                      <span>Conferi o equipamento, o IP e as alterações acima.</span>
+                    </label>
+                  )}
                   <div className="mac-access-panel__command-actions">
                     {!bootstrapPreview ? (
                       <button disabled={!bootstrapReady || bootstrapBusy} onClick={() => inspectMacBootstrap(preparedDevice)} type="button">
                         {bootstrapBusy ? "Verificando…" : "Verificar configuração atual"}
                       </button>
                     ) : (
-                      <button disabled={bootstrapBusy} onClick={() => confirmMacBootstrap(preparedDevice)} type="button">
+                      <button disabled={bootstrapBusy || !bootstrapConfirmed} onClick={() => confirmMacBootstrap(preparedDevice)} type="button">
                         {bootstrapBusy ? "Preparando…" : "Aplicar IP e conectar"}
                       </button>
                     )}
-                    <span>Depois disso, todo o gerenciamento continua pela API normal do RouterOS.</span>
+                    <span>A sessão MAC é temporária; o IP adicionado permanece no equipamento após desconectar.</span>
                   </div>
                   {bootstrapStatus && <small>{bootstrapStatus}</small>}
                 </div>
@@ -509,14 +621,21 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
         )}
       </section>
 
-      <div className="connection-selection-hint" role="status">
+      {selectedDevice ? (
+        <aside className="connection-target" aria-label="Equipamento selecionado" role="status">
+          <strong>{selectedDevice.identity || "MikroTik"}</strong>
+          <span>{selectedDevice.board || selectedDevice.platform || "Modelo não informado"} · {selectedDevice.ip_address}</span>
+          <span>MAC {selectedDevice.mac_address}</span>
+          <small>Selecionado para acesso. Informe as credenciais deste equipamento.</small>
+        </aside>
+      ) : <div className="connection-selection-hint">
         <span>1</span>
-        <strong>Escolha o MikroTik acima</strong>
+        <strong>Escolha acima ou informe o IP</strong>
         <b>2</b>
         <strong>Informe o acesso abaixo</strong>
         <b>3</b>
         <strong>Conecte e revise antes de alterar</strong>
-      </div>
+      </div>}
 
       <div className="form-grid" id="connection-credentials">
         <label className="field field--wide">
@@ -526,33 +645,13 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             inputMode="decimal"
             name="host"
             onChange={updateField}
-            placeholder="192.168.88.1"
+            placeholder="Ex.: 192.168.88.1"
             required
             value={form.host}
           />
         </label>
 
-        <label className="field">
-          <span>Usuário</span>
-          <input
-            autoComplete="off"
-            name="username"
-            onChange={updateField}
-            required
-            value={form.username}
-          />
-        </label>
-
-        <label className="field">
-          <span>Senha</span>
-          <input
-            autoComplete="off"
-            name="password"
-            onChange={updateField}
-            type="password"
-            value={form.password}
-          />
-        </label>
+        {!preparedDevice && credentials}
 
       </div>
 
@@ -623,6 +722,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       <button className="primary-button" disabled={isLoading} type="submit">
         {isLoading ? "Conectando…" : "Conectar e identificar"}
       </button>
+      </fieldset>
     </form>
   );
 }

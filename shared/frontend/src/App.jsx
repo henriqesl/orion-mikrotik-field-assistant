@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import ConnectionForm from "./components/ConnectionForm.jsx";
+import DefaultConnectionForm from "./components/ConnectionForm.jsx";
 import DeviceSummary from "./components/DeviceSummary.jsx";
 import PingTest from "./components/PingTest.jsx";
 import UpdateNotice from "./components/UpdateNotice.jsx";
@@ -36,11 +36,14 @@ function resetWorkspaceScroll() {
 
 function App({ workspace }) {
   const { AlignmentMonitor, LinkConfiguration, BasicNetworkConfiguration, LoraProtection } = workspace.components;
+  const ConnectionForm = workspace.components.ConnectionForm || DefaultConnectionForm;
+  const { Overview, ConnectionHelp } = workspace.components;
   const hasPanel = (id) => workspace.tabs.some((tab) => tab.id === id);
   const [apiState, setApiState] = useState("checking");
   const [device, setDevice] = useState(null);
   const [activeConnection, setActiveConnection] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [connectionFailure, setConnectionFailure] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -172,6 +175,7 @@ function App({ workspace }) {
   }, [activeTab, device?.identity]);
 
   async function handleConnect(connection) {
+    setConnectionFailure(null);
     setIsLoading(true);
     setErrorMessage("");
     setDevice(null);
@@ -190,6 +194,7 @@ function App({ workspace }) {
       return true;
     } catch (error) {
       setErrorMessage(error.message);
+      setConnectionFailure({ status: error.status, code: error.code });
       return false;
     } finally {
       setIsLoading(false);
@@ -364,7 +369,13 @@ function App({ workspace }) {
           <div className="error-message" role="alert">
             <strong>Conexão não concluída</strong>
             <span>{errorMessage}</span>
+            {ConnectionHelp && <ConnectionHelp {...connectionFailure} />}
           </div>
+        )}
+
+        {device && Overview && activeTab === "routeros" && (
+          <Overview device={device} monitoringError={monitoringError} disabled={isOperating}
+            onConfigure={() => handleTabChange("configuration")} onTests={() => handleTabChange("tests")} />
         )}
 
         {device?.demo_mode && (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   applyLinkConfiguration,
@@ -67,7 +67,7 @@ function initialConfiguration(device, fieldSession, wifiInterface) {
       : wifi?.channel_width === "20mhz" ? "20mhz" : ""),
     management_ip: fieldSession?.next_role === "station"
       ? fieldSession.station_management_ip
-      : managementAddress?.address || "192.168.88.2/24",
+      : managementAddress?.address || (device.radio_device ? "" : "192.168.88.2/24"),
     gateway: defaultRoute?.gateway || "",
     bridge_name: fieldSession?.bridge_name || wifiPort?.bridge || device.bridges[0]?.name || "bridge-field",
   };
@@ -83,8 +83,12 @@ function LinkConfiguration({
   onFieldSessionChange,
   onFinishFieldSession,
   onPrepareNextDevice,
+  guided = false,
 }) {
   const isRadioDevice = Boolean(device.radio_device);
+  const [step, setStep] = useState(1);
+  const [startSessionOnReview, setStartSessionOnReview] = useState(false);
+  const previewRequest = useRef(null);
   const defaults = useMemo(
     () => initialConfiguration(device, fieldSession),
     [device, fieldSession],
@@ -99,12 +103,14 @@ function LinkConfiguration({
   const [isApplying, setIsApplying] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [verification, setVerification] = useState(null);
+  const verificationRequest = useRef(null);
   const currentWifiMac = device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address;
   const expectedAP = fieldSession?.ap_bssid;
   const associatedPeer = device.wifi_peers?.find((item) => item.interface === form.wifi_interface);
 
   function updateField(event) {
     const { checked, name, type, value } = event.target;
+    if (name === "role" || name === "wifi_interface") setStartSessionOnReview(false);
     setForm((current) => ({
       ...current,
       ...(name === "wifi_interface" ? initialConfiguration(device, fieldSession, value) : {}),
@@ -113,13 +119,14 @@ function LinkConfiguration({
       ...(name === "ap_lock_action" && value !== "lock" ? { ap_bssid: "" } : {}),
       ...(name === "role" ? { ap_lock_action: "preserve", ap_bssid: "" } : {}),
     }));
-    setPreview(null);
+    setPreview(null); previewRequest.current = null;
     setResult(null);
     setConfirmation("");
   }
 
   function chooseScenario(value) {
     if (fieldSession || isApplying || isPreviewing || isScanning) return;
+    setStartSessionOnReview(false);
     setForm((current) => ({ ...current, link_scenario: value,
       ...(value === "existing" ? { role: "station", ap_lock_action: "preserve", ap_bssid: "" } : {}),
     }));
@@ -190,11 +197,13 @@ function LinkConfiguration({
     setForm((current) => ({ ...current, role: "ap", ap_lock_action: "preserve", ap_bssid: "" }));
     setPreview(null); setResult(null); setConfirmation("");
     setErrorMessage("");
+    return true;
   }
 
   function clearPairConfiguration() {
     if (isApplying || isPreviewing || isScanning) return;
     onFieldSessionChange(null);
+    setStartSessionOnReview(false);
   }
 
   function payload() {
@@ -218,7 +227,23 @@ function LinkConfiguration({
 
   async function handlePreview(event) {
     event.preventDefault();
+    if (guided && step !== 2) return;
+    if (fieldSession && fieldSession.next_role !== form.role) {
+      setErrorMessage(fieldSession.next_role === "complete"
+        ? "A configuração da sessão foi conferida. Abra os testes ou encerre a sessão antes de fazer novos ajustes."
+        : "Esta etapa já foi conferida. Conecte o próximo equipamento da sessão para continuar.");
+      return;
+    }
+    if (startSessionOnReview && !fieldSession && !startPairConfiguration()) return;
+    if (fieldSession && form.role === "ap" && !form.passphrase) {
+      setErrorMessage("Informe a senha do enlace para que ela possa ser usada nas Stations desta sessão.");
+      return;
+    }
     if (fieldSession && form.role === "station") {
+      if (fieldSession.passphrase && (form.passphrase !== fieldSession.passphrase || form.ssid !== fieldSession.ssid)) {
+        setErrorMessage("Use o SSID e a senha do AP desta sessão. Para configurar outro enlace, encerre a sessão atual.");
+        return;
+      }
       if (fieldSession.ap_wifi_stack && (fieldSession.ap_wifi_stack === "wireless") !== (device.wifi_stack === "wireless")) {
         setErrorMessage("Este assistente usa Station-bridge: AP e Station precisam da mesma família de driver (WiFi com WiFi ou Wireless com Wireless).");
         return;
@@ -240,7 +265,14 @@ function LinkConfiguration({
     setResult(null);
 
     try {
-      setPreview(await previewLinkConfiguration(connection, payload()));
+      const requested = payload();
+      previewRequest.current = null;
+      setPreview(null);
+      setConfirmation("");
+      const response = await previewLinkConfiguration(connection, requested);
+      previewRequest.current = requested;
+      setPreview(response);
+      if (guided) setStep(3);
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -248,11 +280,64 @@ function LinkConfiguration({
     }
   }
 
-  async function handleApply() {
+  async function verifyApplied(applyResult, requested) {
+    const reconnected = await onApplied(applyResult);
+    const differences = reconnected ? verifyRadio(requested, reconnected.device) : [];
+    const confirmed = Boolean(reconnected) && differences.length === 0;
+    if (fieldSession && confirmed) {
+      const completedRoles = Array.from(new Set([
+        ...fieldSession.completed_roles,
+        requested.role,
+      ]));
+      onFieldSessionChange({
+        ...fieldSession,
+        ...(requested.role === "ap" ? {
+          ssid: requested.ssid, passphrase: requested.passphrase || fieldSession.passphrase,
+          frequency_mhz: requested.frequency_mhz === "" ? null : Number(requested.frequency_mhz),
+          channel_width: requested.channel_width, bridge_name: requested.bridge_name,
+          station_management_ip: nextManagementAddress(requested.management_ip),
+          ap_management_ip: requested.management_ip,
+          ap_wifi_stack: device.wifi_stack,
+        } : {
+          stations: Array.from(new Set([...(fieldSession.stations || []), device.wifi_interfaces.find((item) => item.name === requested.wifi_interface)?.mac_address || connection.host])),
+          station_management_ip: "",
+          station_addresses: { ...fieldSession.station_addresses, [currentWifiMac || connection.host]: requested.management_ip },
+        }),
+        ...(requested.role === "ap" ? { ap_bssid: device.wifi_interfaces.find((item) => item.name === requested.wifi_interface)?.mac_address || null } : {}),
+        completed_roles: completedRoles,
+        next_role: requested.role === "ap" || fieldSession.link_scenario === "multipoint" ? "station" : "complete",
+      });
+    }
+    setVerification({ confirmed, message: !reconnected
+      ? "Acesso ainda não confirmado. Confira o IP e o backup antes de repetir a aplicação."
+      : differences.length ? `Acesso confirmado; confira estes campos: ${differences.join(", ")}.`
+      : "Campos de identidade, Wi-Fi e topologia conferidos. Associação e tráfego ainda precisam ser testados." });
+    if (confirmed) verificationRequest.current = null;
+  }
+
+  async function retryVerification() {
+    if (!result || !verificationRequest.current || isApplying) return;
     setIsApplying(true);
     setErrorMessage("");
     onApplyStart();
-    const requested = payload();
+    try {
+      await verifyApplied(result, verificationRequest.current);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsApplying(false);
+      onApplyEnd?.();
+    }
+  }
+
+  async function handleApply() {
+    const requested = previewRequest.current;
+    if (isApplying || confirmation !== "APLICAR" || !requested || JSON.stringify(requested) !== JSON.stringify(payload())) return;
+    previewRequest.current = null;
+    verificationRequest.current = requested;
+    setIsApplying(true);
+    setErrorMessage("");
+    onApplyStart();
     setVerification({ message: "Confirmando o acesso e relendo a configuração…" });
 
     try {
@@ -261,41 +346,14 @@ function LinkConfiguration({
       setPreview(null);
       setConfirmation("");
       setForm((current) => ({ ...current, passphrase: "" }));
-      if (fieldSession) {
-        const completedRoles = Array.from(new Set([
-          ...fieldSession.completed_roles,
-          form.role,
-        ]));
-        onFieldSessionChange({
-          ...fieldSession,
-          ...(form.role === "ap" ? {
-            ssid: form.ssid, passphrase: form.passphrase || fieldSession.passphrase,
-            frequency_mhz: form.frequency_mhz === "" ? null : Number(form.frequency_mhz),
-            channel_width: form.channel_width, bridge_name: form.bridge_name,
-            station_management_ip: nextManagementAddress(form.management_ip),
-            ap_management_ip: form.management_ip,
-            ap_wifi_stack: device.wifi_stack,
-          } : {
-            stations: Array.from(new Set([...(fieldSession.stations || []), device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address || connection.host])),
-            station_management_ip: "",
-            station_addresses: { ...fieldSession.station_addresses, [currentWifiMac || connection.host]: form.management_ip },
-          }),
-          ...(form.role === "ap" ? { ap_bssid: device.wifi_interfaces.find((item) => item.name === form.wifi_interface)?.mac_address || null } : {}),
-          completed_roles: completedRoles,
-          next_role: form.role === "ap" || fieldSession.link_scenario === "multipoint" ? "station" : "complete",
-        });
-      }
-      const reconnected = await onApplied(applyResult);
-      const differences = reconnected ? verifyRadio(requested, reconnected.device) : [];
-      setVerification({ message: !reconnected
-        ? "Acesso ainda não confirmado. Confira o IP e o backup antes de repetir a aplicação."
-        : differences.length ? `Acesso confirmado; confira estes campos: ${differences.join(", ")}.`
-        : "Campos de identidade, Wi-Fi e topologia conferidos. Associação e tráfego ainda precisam ser testados." });
+      await verifyApplied(applyResult, requested);
     } catch (error) {
       setErrorMessage(
         `${error.message} Se a conexão caiu durante a aplicação, tente acessar o novo IP antes de repetir.`,
       );
+      setVerification({ confirmed: false, message: "Não foi possível concluir a conferência. Reconecte e leia o equipamento antes de repetir a aplicação." });
     } finally {
+      setPreview(null); previewRequest.current = null; setConfirmation("");
       setIsApplying(false);
       onApplyEnd?.();
     }
@@ -313,7 +371,7 @@ function LinkConfiguration({
         <span className="write-badge">{device.demo_mode ? "Simulação" : "Altera o equipamento"}</span>
       </div>
 
-      {isRadioDevice && (
+      {isRadioDevice && (!guided || step === 1) && (
         <fieldset className="link-scenario-selector" disabled={Boolean(fieldSession) || isApplying || isPreviewing || isScanning}>
           <legend>O que você quer configurar?</legend>
           <div className="field-profile-grid">
@@ -328,7 +386,7 @@ function LinkConfiguration({
           </div>
         </fieldset>
       )}
-      {isRadioDevice && form.link_scenario !== "existing" && !fieldSession && (
+      {!guided && isRadioDevice && form.link_scenario !== "existing" && !fieldSession && (
         <section className="field-profiles" aria-labelledby="field-profiles-title">
           <header>
             <div>
@@ -392,9 +450,17 @@ function LinkConfiguration({
         {device.wifi_stack !== "wireless" && " Conferência de associação, não lock por MAC."}
       </p>}
 
-      <form className="configuration-form" onSubmit={handlePreview}>
+      {guided && <nav className="radio-steps" aria-label="Etapas da configuração">
+        {["Função do rádio", "Dados do enlace", "Revisão"].map((label, index) => <button key={label} type="button"
+          aria-current={step === index + 1 ? "step" : undefined} disabled={isApplying || isPreviewing || isScanning || (index === 2 && !preview)}
+          onClick={() => { setStep(index + 1); if (index < 2) { setPreview(null); previewRequest.current = null; setConfirmation(""); } }}>
+          {index + 1}. {label}
+        </button>)}
+      </nav>}
+      <form className="configuration-form" onSubmit={handlePreview} hidden={guided && step === 3}>
         <fieldset className="form-scope" disabled={isPreviewing || isApplying || isScanning}>
         <legend className="sr-only">Configuração Wi-Fi</legend>
+        <div hidden={guided && step !== 1}>
         <fieldset disabled={isPreviewing || isApplying}>
           <legend>{isRadioDevice ? "Função do rádio" : "Modo de operação"}</legend>
           <div className="role-selector">
@@ -402,7 +468,7 @@ function LinkConfiguration({
               <input
                 checked={form.role === "ap"}
                 name="role"
-                disabled={form.link_scenario === "existing"}
+                disabled={form.link_scenario === "existing" || Boolean(fieldSession)}
                 onChange={updateField}
                 type="radio"
                 value="ap"
@@ -422,6 +488,7 @@ function LinkConfiguration({
               <input
                 checked={form.role === "station"}
                 name="role"
+                disabled={Boolean(fieldSession)}
                 onChange={updateField}
                 type="radio"
                 value="station"
@@ -448,6 +515,8 @@ function LinkConfiguration({
         </label>
         {form.role === "station" && <AccessPointSelector connection={connection} wifiInterface={form.wifi_interface} action={form.ap_lock_action} bssid={form.ap_bssid} busy={isPreviewing || isApplying} onChange={updateField} onSelect={selectAccessPoint} onScanning={(active) => { setIsScanning(active); if (active) onApplyStart(); else onApplyEnd?.(); }} refreshKey={result?.backup_file} />}
 
+        </div>
+        <div hidden={guided && step !== 2}>
         {!isRadioDevice && (
           <fieldset className="network-options network-toggle-section" disabled={isPreviewing || isApplying}>
             <legend>Topologia do router</legend>
@@ -477,10 +546,12 @@ function LinkConfiguration({
             <input maxLength="32" name="ssid" onChange={updateField} required value={form.ssid} />
           </label>
           <label className="field">
-            <span>Nova senha WPA2 (opcional)</span>
+            <span>{startSessionOnReview && !fieldSession ? "Senha do enlace" : "Nova senha WPA2 (opcional)"}</span>
             <input
               autoComplete="new-password"
               minLength="8"
+              maxLength="63"
+              required={startSessionOnReview && !fieldSession}
               name="passphrase"
               onChange={updateField}
               placeholder="Vazio mantém a segurança atual"
@@ -520,7 +591,7 @@ function LinkConfiguration({
                 <input
                   name="management_ip"
                   onChange={updateField}
-                  placeholder="192.168.88.2/24"
+                  placeholder="Ex.: 192.168.88.2/24"
                   required
                   value={form.management_ip}
                 />
@@ -570,6 +641,17 @@ function LinkConfiguration({
           {isPreviewing ? "Analisando…" : "Revisar alterações"}
         </button>
         {isRadioDevice && !fieldSession && form.link_scenario !== "existing" && <button className="secondary-button" onClick={startPairConfiguration} type="button">{form.link_scenario === "multipoint" ? "Usar estes dados para o AP e suas Stations" : "Usar estes dados para configurar o par AP + Station"}</button>}
+        </div>
+        {guided && step === 1 && <>
+          <button className="primary-button" type="button" onClick={() => {
+            if (isRadioDevice && !fieldSession && form.link_scenario !== "existing") {
+              setStartSessionOnReview(true);
+              setForm((current) => ({ ...current, role: "ap", ap_lock_action: "preserve", ap_bssid: "" }));
+            }
+            setStep(2);
+          }}>{isRadioDevice && !fieldSession && form.link_scenario !== "existing" ? "Configurar o AP primeiro" : "Continuar para os dados do enlace"}</button>
+          {isRadioDevice && !fieldSession && form.link_scenario !== "existing" && <button type="button" onClick={() => { setStartSessionOnReview(false); setStep(2); }}>Ajustar somente este rádio</button>}
+        </>}
         </fieldset>
       </form>
 
@@ -623,16 +705,19 @@ function LinkConfiguration({
       {result && (
         <div className="configuration-success" role="status">
           <strong>Configuração enviada</strong>
+          {verification && !verification.confirmed && <button type="button" disabled={isApplying} onClick={retryVerification}>
+            {isApplying ? "Conferindo…" : "Conferir novamente sem reaplicar"}
+          </button>}
           <span>{result.summary}</span>
           <small>
             Backup: {result.backup_file} · {isRadioDevice || form.manage_topology ? "IP de acesso" : "rede preservada"}: {result.reconnect_ip}
           </small>
-          {fieldSession && form.role === "ap" && (
+          {fieldSession && verification?.confirmed && form.role === "ap" && (
             <button onClick={onPrepareNextDevice} type="button">
               Desconectar AP e configurar Station
             </button>
           )}
-          {fieldSession && form.role === "station" && (
+          {fieldSession && verification?.confirmed && form.role === "station" && (
             <>
             {fieldSession.link_scenario === "multipoint" && <button onClick={onPrepareNextDevice} type="button">Desconectar e configurar outra Station</button>}
             <button onClick={onFinishFieldSession} type="button">

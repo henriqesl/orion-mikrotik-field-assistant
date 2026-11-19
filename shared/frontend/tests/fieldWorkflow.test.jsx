@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import BasicNetworkConfiguration from "../../../routerboards/frontend/BasicNetworkConfiguration.jsx";
 import LinkConfiguration from "../src/features/wireless/LinkConfiguration.jsx";
+import RadioLink from "../../../radios/frontend/RadioLink.jsx";
 import LoraProtection from "../../../routerboards/frontend/LoraProtection.jsx";
 import { demoDevice, demoBasicNetworkCurrent } from "../src/services/demo.js";
 import * as api from "../src/services/api.js";
@@ -33,6 +34,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+function verifiedStation(address) {
+  const device = demoDevice({ host: "demo" });
+  return { device: { ...device, wifi_interfaces: device.wifi_interfaces.map((wifi) => ({ ...wifi, ssid: "ENLACE" })),
+    ip_addresses: [{ address, disabled: false, invalid: false }] } };
+}
+
 test("radio scenarios default to a pair and existing AP selects only Station without writing", async () => {
   const user = userEvent.setup();
   render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} {...callbacks()} />);
@@ -49,6 +56,7 @@ test("radio scenarios default to a pair and existing AP selects only Station wit
 test.each(["pair", "multipoint"])("%s session completes a Station with the correct next step", async (scenario) => {
   const user = userEvent.setup();
   const handlers = callbacks();
+  handlers.onApplied.mockResolvedValue(verifiedStation("192.0.2.20/24"));
   const session = { link_scenario: scenario, stations: [], completed_roles: ["ap"], next_role: "station", ssid: "ENLACE", passphrase: "lab-password", station_management_ip: "192.0.2.20/24" };
   render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} fieldSession={session} {...handlers} />);
   await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
@@ -67,6 +75,7 @@ test.each(["pair", "multipoint"])("%s session completes a Station with the corre
 test("multipoint continuation requires a unique management IP and retains earlier Stations", async () => {
   const user = userEvent.setup();
   const handlers = callbacks();
+  handlers.onApplied.mockResolvedValue(verifiedStation("192.0.2.21/24"));
   const session = { link_scenario: "multipoint", stations: ["02:11:11:11:11:11"], station_addresses: { "02:11:11:11:11:11": "192.0.2.20/24" }, completed_roles: ["ap", "station"], next_role: "station", ssid: "ENLACE", passphrase: "lab-password", station_management_ip: "" };
   render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} fieldSession={session} {...handlers} />);
   const ip = screen.getByLabelText("IP de gerenciamento");
@@ -89,6 +98,58 @@ test("the AP cannot accidentally be configured as its own next Station", async (
   render(<LinkConfiguration connection={connection} device={device} fieldSession={{ next_role: "station", completed_roles: ["ap"], ap_bssid: device.wifi_interfaces[0].mac_address, station_management_ip: "192.0.2.20/24" }} {...callbacks()} />);
   await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
   await screen.findByText(/Este é o AP da sessão/);
+  expect(api.previewLinkConfiguration).not.toHaveBeenCalled();
+});
+
+test("guided pair setup starts at the AP and reviews before any write", async () => {
+  const user = userEvent.setup();
+  const handlers = callbacks();
+  render(<RadioLink connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} {...handlers} />);
+  expect(screen.queryByRole("textbox", { name: "SSID" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Configurar o AP primeiro" }));
+  expect(screen.getByLabelText("SSID").value).toBe("ORION-DEMO-LINK");
+  await user.type(screen.getByLabelText("Senha do enlace"), "enlace-campo");
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await screen.findByRole("heading", { name: "Revise antes de confirmar" });
+  expect(api.previewLinkConfiguration.mock.calls[0][1]).toMatchObject({ role: "ap", link_scenario: "pair" });
+  expect(handlers.onFieldSessionChange.mock.calls[0][0]).toMatchObject({ next_role: "ap", completed_roles: [] });
+  expect(api.applyLinkConfiguration).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "2. Dados do enlace" }));
+  expect(screen.queryByRole("button", { name: "Criar backup e aplicar" })).toBeNull();
+});
+
+test.each([null, { device: demoDevice({ host: "demo" }) }])("a session cannot advance without a matching readback", async (readback) => {
+  const user = userEvent.setup();
+  const handlers = callbacks();
+  handlers.onApplied.mockResolvedValue(readback);
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }}
+    fieldSession={{ next_role: "station", completed_roles: ["ap"], ssid: "ENLACE", station_management_ip: "192.0.2.20/24" }} {...handlers} />);
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
+  await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
+  await waitFor(() => expect(handlers.onApplyEnd).toHaveBeenCalled());
+  expect(handlers.onFieldSessionChange).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Concluir sessão e abrir os testes" })).toBeNull();
+  handlers.onApplied.mockResolvedValue(verifiedStation("192.0.2.20/24"));
+  await user.click(screen.getByRole("button", { name: "Conferir novamente sem reaplicar" }));
+  await waitFor(() => expect(handlers.onFieldSessionChange).toHaveBeenCalledOnce());
+  expect(api.applyLinkConfiguration).toHaveBeenCalledOnce();
+});
+
+test("a radio without a management address does not receive a made-up default", async () => {
+  const user = userEvent.setup();
+  render(<RadioLink connection={connection} device={{ ...demoDevice({ host: "demo" }), ip_addresses: [] }} {...callbacks()} />);
+  await user.click(screen.getByRole("button", { name: "Ajustar somente este rádio" }));
+  expect(screen.getByLabelText("IP de gerenciamento").value).toBe("");
+});
+
+test.each(["SSID", "Nova senha WPA2 (opcional)"])("Station sessions reject changes to the AP's %s", async (field) => {
+  const user = userEvent.setup();
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }}
+    fieldSession={{ next_role: "station", completed_roles: ["ap"], ssid: "ENLACE", passphrase: "senha-do-ap", station_management_ip: "192.0.2.20/24" }} {...callbacks()} />);
+  await user.type(screen.getByLabelText(field), "outro");
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await screen.findByText(/Use o SSID e a senha do AP desta sessão/);
   expect(api.previewLinkConfiguration).not.toHaveBeenCalled();
 });
 
