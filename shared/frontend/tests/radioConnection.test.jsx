@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RadioConnection from "../../../radios/frontend/RadioConnection.jsx";
 import ConnectionForm from "../src/components/ConnectionForm.jsx";
-import { discoverLanDevices, getMacBootstrapAdapters } from "../src/services/api.js";
+import { applyMacBootstrap, discoverLanDevices, getMacBootstrapAdapters, previewMacBootstrap } from "../src/services/api.js";
 
 vi.mock("../src/services/api.js", () => ({
   discoverLanDevices: vi.fn(), applyMacBootstrap: vi.fn(), getMacBootstrapAdapters: vi.fn(),
@@ -87,4 +87,58 @@ test("discovery failure leaves direct IP access available", async () => {
   await screen.findByText("Descoberta indisponível. Você ainda pode informar o IP.");
   expect(screen.getByLabelText("Endereço IP").disabled).toBe(false);
   expect(screen.getByRole("button", { name: "Atualizar" }).disabled).toBe(false);
+});
+
+const macPreview = {
+  target_mac: "02:00:00:00:00:03",
+  current: { identity: "Station", addresses: [], api_enabled: false },
+  commands: ["Adicionar 192.0.2.1/24 em ether1"], warnings: [],
+};
+
+async function prepareMac() {
+  const user = userEvent.setup();
+  discoverLanDevices.mockResolvedValue({ devices: [device("Station", "0.0.0.0", macPreview.target_mac)] });
+  getMacBootstrapAdapters.mockResolvedValue([{ interface_index: 1, name: "Ethernet", ipv4_address: "192.0.2.10" }]);
+  render(<RadioConnection onConnect={vi.fn().mockResolvedValue(false)} />);
+  await user.click(await screen.findByRole("button", { name: "Preparar por MAC" }));
+  await screen.findByRole("option", { name: "Ethernet · 192.0.2.10" });
+  return user;
+}
+
+test("MAC writes require reviewed changes and a failed attempt requires a new preview", async () => {
+  previewMacBootstrap.mockResolvedValue(macPreview);
+  applyMacBootstrap.mockRejectedValue(new Error("Conexão interrompida"));
+  const user = await prepareMac();
+  await user.click(screen.getByRole("button", { name: "Verificar configuração atual" }));
+  const apply = await screen.findByRole("button", { name: "Aplicar IP e conectar" });
+  expect(apply.disabled).toBe(true);
+  expect(applyMacBootstrap).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("checkbox", { name: "Conferi o equipamento, o IP e as alterações acima." }));
+  await user.click(apply);
+  await screen.findByText("Conexão interrompida");
+  expect(applyMacBootstrap).toHaveBeenCalledWith(expect.objectContaining({
+    mac_address: macPreview.target_mac, adapter_index: 1, management_address: "192.0.2.1/24", router_interface: "ether1",
+  }));
+  expect(screen.queryByRole("button", { name: "Aplicar IP e conectar" })).toBeNull();
+});
+
+test.each(["Senha", "IP de acesso do MikroTik"])("editing %s invalidates the MAC preview", async (field) => {
+  previewMacBootstrap.mockResolvedValue(macPreview);
+  const user = await prepareMac();
+  await user.click(screen.getByRole("button", { name: "Verificar configuração atual" }));
+  await screen.findByRole("button", { name: "Aplicar IP e conectar" });
+  await user.type(screen.getByLabelText(field), "1");
+  expect(screen.queryByRole("button", { name: "Aplicar IP e conectar" })).toBeNull();
+  expect(applyMacBootstrap).not.toHaveBeenCalled();
+});
+
+test("a pending MAC preview cannot restore approval after credentials change", async () => {
+  let resolvePreview;
+  previewMacBootstrap.mockReturnValue(new Promise((resolve) => { resolvePreview = resolve; }));
+  const user = await prepareMac();
+  await user.click(screen.getByRole("button", { name: "Verificar configuração atual" }));
+  await user.type(screen.getByLabelText("Senha"), "nova-senha");
+  await act(async () => resolvePreview(macPreview));
+  expect(screen.queryByRole("button", { name: "Aplicar IP e conectar" })).toBeNull();
+  expect(applyMacBootstrap).not.toHaveBeenCalled();
 });
