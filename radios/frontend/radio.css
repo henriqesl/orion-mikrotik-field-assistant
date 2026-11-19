@@ -1,59 +1,168 @@
-.radio-overview {
-  padding: 1.5rem;
+/* Radio workspace: compact instrument panels, shared ORION palette. */
+.page--radios {
+  --radio-radius: 12px;
+  --radio-inset: #0a1523;
+  width: min(1240px, calc(100% - 2.5rem));
+  padding-top: 1.5rem;
+}
+.page--radios .app-header { margin-bottom: 1.25rem; padding-bottom: 1.25rem; }
+.page--radios .brand-mark { width: 3rem; height: 3rem; border-radius: 10px; box-shadow: none; }
+.page--radios .brand-mark img { width: 2.2rem; height: 2.2rem; }
+.page--radios h1 { font-size: 1.75rem; }
+.page--radios h2 { font-size: 1.2rem; letter-spacing: -0.025em; margin-bottom: 0.35rem; }
+.page--radios h3 { font-size: 1rem; color: var(--color-text); }
+.page--radios .card-kicker { font-size: 0.65rem; letter-spacing: 0.12em; }
+.page--radios .tagline { font-size: 0.78rem; }
+.page--radios .workspace, .page--radios .tab-panel { gap: 1rem; }
+.page--radios :is(.connection-form, .configuration-card, .device-card, .alignment-card, .diagnostic-card),
+.radio-overview, .radio-validation {
   border: 1px solid var(--color-line);
-  border-radius: 1rem;
+  border-radius: var(--radio-radius, 12px);
   background: var(--color-panel);
+  padding: 1.4rem;
+  box-shadow: none;
+  min-width: 0;
 }
-.radio-overview header, .radio-overview footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.radio-overview h2 { margin-bottom: 0.35rem; }
-.radio-overview p, .radio-overview span { color: var(--color-text-muted); }
-.radio-overview__status { color: var(--color-signal); font-size: 0.9rem; }
-.radio-overview__interfaces, .radio-overview__peers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 0.75rem;
-  margin: 1rem 0;
+.page--radios .workspace-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 0;
-  list-style: none;
+  gap: 0;
+  border-radius: var(--radio-radius);
+  box-shadow: none;
+  overflow: hidden;
 }
-.radio-overview__interfaces > div, .radio-overview__peers > li {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.85rem;
-  border: 1px solid var(--color-line);
-  border-radius: 0.65rem;
-  overflow-wrap: anywhere;
+.page--radios .workspace-tab {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 0.65rem; min-height: 3.4rem; border-radius: 0;
+  border-bottom: 2px solid transparent;
 }
-.radio-overview footer p { flex: 1 1 320px; margin: 0; }
-.radio-overview footer div { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-.radio-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 1.25rem 0;
+.page--radios .workspace-tab--active {
+  background: rgb(47 125 246 / 10%);
+  color: var(--color-signal); border-bottom-color: var(--color-signal); box-shadow: none;
 }
-.radio-steps button { flex: 1 1 180px; }
-.radio-steps [aria-current="step"] {
-  border-color: var(--color-signal);
-  color: var(--color-signal);
+.page--radios .workspace-tab small { flex-basis: 100%; text-align: center; }
+:where(.page--radios) button { padding: 0.65rem 0.85rem; border: 1px solid var(--color-line-strong); color: var(--color-text-secondary); background: var(--color-panel-elevated); cursor: pointer; font-size: 0.8rem; font-weight: 650; }
+:where(.page--radios) button:hover:not(:disabled) { border-color: var(--color-signal); color: var(--color-text); }
+:where(.page--radios) button:disabled { cursor: not-allowed; opacity: 0.55; }
+.page--radios button:has(> .orion-icon) { display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; }
+.page--radios button { border-radius: 8px; }
+.page--radios :is(button, input, select, summary):focus-visible { outline: 2px solid var(--color-signal); outline-offset: 3px; }
+.page--radios :is(input, select) { min-height: 2.8rem; border-radius: 8px; }
+.page--radios .section-heading { margin-bottom: 1rem; }
+.page--radios .demo-banner { padding: 0.65rem 1rem; font-size: 0.78rem; }
+.page--radios .monitoring-bar { padding: 0.85rem; border-radius: 8px; }
+.page--radios .monitoring-actions { gap: 0.4rem; flex-wrap: wrap; }
+.page--radios .monitoring-actions button { padding: 0.55rem 0.7rem; font-size: 0.75rem; }
+.page--radios .traffic-monitor { border-radius: 8px; }
+.page--radios :is(.traffic-values, .ping-metrics, .peer-metrics) > :is(article, div) { border-radius: 8px; }
+.page--radios .configuration-grid { gap: 1rem; }
+.page--radios .configuration-current-banner { padding: 0.75rem 1rem; border-radius: 8px; }
+.page--radios .configuration-current-banner strong { font-size: 0.78rem; font-weight: 500; }
+.page--radios .field-profile-grid { gap: 0.75rem; }
+.page--radios .field-profile { border-radius: 10px; padding: 1rem; }
+.page--radios .field-profile > .orion-icon { width: 26px; height: 26px; margin-bottom: 0.35rem; color: var(--color-signal); }
+.page--radios .field-profile span { font-size: 0.75rem; }
+.page--radios .role-option { border-radius: 10px; padding: 1rem; }
+.page--radios .role-option__mark { border-radius: 8px; }
+.page--radios .role-option__mark .orion-icon { width: 26px; height: 26px; }
+.page--radios .role-option__content small { font-size: 0.75rem; }
+.page--radios .change-list article { border-radius: 8px; }
+.page--radios .alignment-peer { border-radius: 10px; }
+.page--radios .alignment-values strong { font-family: var(--font-data); font-size: 1.15rem; }
+.page--radios .connection-form { max-width: 960px; width: 100%; margin-inline: auto; }
+.radio-access-steps {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;
+  list-style: none; margin: 0 0 1.25rem; padding: 0;
 }
+.radio-access-steps li { display: flex; gap: 0.65rem; align-items: center; padding: 0.85rem; background: var(--radio-inset); border: 1px solid var(--color-line); border-radius: 8px; font-size: 0.8rem; }
+.radio-access-steps .orion-icon { color: var(--color-signal); }
+.radio-overview > header, .radio-overview > footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.radio-overview__status { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--color-signal); }
+.radio-status-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
+.radio-overview__status[data-state="unknown"], .radio-validation [data-state="unknown"] { color: var(--color-text-secondary); }
+.radio-overview__status[data-state="pending"], .radio-validation [data-state="pending"] { color: var(--color-warning); }
+.radio-topology { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1.5fr); align-items: center; margin: 1.5rem 0; }
+.radio-local-node { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 1.5rem 1rem; min-width: 0; }
+.radio-node-icon { display: grid; place-items: center; width: 72px; height: 72px; border: 1px solid var(--color-line-strong); border-radius: 18px; color: var(--color-signal); background: var(--radio-inset); margin-bottom: 1rem; }
+.radio-node-icon .orion-icon { width: 38px; height: 38px; }
+.radio-node-label { font-size: 0.68rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.radio-local-node h3 { margin: 0.35rem 0; font-size: 1.15rem; overflow-wrap: anywhere; }
+.radio-local-node p { margin: 0 0 0.5rem; font-size: 0.8rem; color: var(--color-text-secondary); }
+.radio-os { font-size: 0.7rem; color: var(--color-text-muted); }
+.radio-link-line { display: flex; align-items: center; gap: 0.4rem; color: var(--color-text-muted); }
+.radio-link-line > span { flex: 1; border-top: 1px dashed currentColor; }
+.radio-topology[data-state="detected"] .radio-link-line { color: var(--color-signal); }
+.radio-remote-nodes { min-width: 0; }
+.radio-remote-heading { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem; font-size: 0.75rem; color: var(--color-text-secondary); }
+.radio-remote-heading b { margin-left: auto; font-family: var(--font-data); color: var(--color-text); }
+.radio-overview__peers { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.radio-overview__peers > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.55rem 0.8rem; padding: 0.95rem; background: var(--radio-inset); border: 1px solid var(--color-line); border-radius: 10px; }
+.radio-peer-identity { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+.radio-peer-identity > .orion-icon { color: var(--color-signal); }
+.radio-peer-identity strong { display: block; font-size: 0.85rem; color: var(--color-text); overflow-wrap: anywhere; }
+.radio-peer-identity span { display: block; font-size: 0.65rem; font-family: var(--font-data); color: var(--color-text-muted); overflow-wrap: anywhere; margin-top: 0.3rem; }
+.radio-peer-signal { display: flex; align-items: center; gap: 0.35rem; font-family: var(--font-data); font-size: 0.8rem; color: var(--color-text); }
+.radio-peer-auth { grid-column: 1 / -1; font-size: 0.68rem; color: var(--color-text-muted); }
+.radio-peer-auth[data-authorized="true"] { color: var(--color-success); }
+.radio-peer-auth[data-authorized="false"] { color: var(--color-warning); }
+.radio-empty-peer { display: grid; justify-items: center; gap: 0.65rem; padding: 1.5rem 1rem; border: 1px dashed var(--color-line-strong); border-radius: 10px; text-align: center; color: var(--color-text-secondary); }
+.radio-empty-peer > .orion-icon { width: 32px; height: 32px; color: var(--color-text-muted); }
+.radio-empty-peer strong { font-size: 0.85rem; }
+.radio-empty-peer span { font-size: 0.75rem; }
+.radio-overview__interfaces { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.radio-overview__interfaces > div { border: 1px solid var(--color-line); border-radius: 10px; padding: 1rem; }
+.radio-interface-name { display: flex; align-items: center; gap: 0.55rem; font-size: 0.8rem; color: var(--color-text); }
+.radio-interface-name .orion-icon { color: var(--color-signal); }
+.radio-interface-name span { margin-left: auto; color: var(--color-text-secondary); font-size: 0.7rem; }
+.radio-overview__interfaces dl { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 0.75rem; margin: 0.9rem 0 0; }
+.radio-overview__interfaces dt { font-size: 0.65rem; color: var(--color-text-muted); margin-bottom: 0.3rem; }
+.radio-overview__interfaces dd { font-size: 0.8rem; color: var(--color-text); margin: 0; overflow-wrap: anywhere; }
+.radio-overview > footer { padding-top: 1rem; border-top: 1px solid var(--color-line); }
+.radio-overview > footer > div { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.page--radios .radio-overview .primary-button { margin-top: 0; box-shadow: none; }
+.radio-inline-help { font-size: 0.8rem; color: var(--color-text-secondary); }
+.radio-inline-help summary { cursor: pointer; padding: 0.5rem 0; }
+.radio-inline-help summary .orion-icon { width: 16px; height: 16px; margin-right: 0.35rem; vertical-align: middle; }
+.radio-inline-help p { max-width: 64ch; line-height: 1.6; margin-top: 0.65rem; }
+.radio-technical-details { border-top: 1px solid var(--color-line); margin-top: 1.25rem; padding-top: 0.75rem; }
+.radio-technical-details > summary { cursor: pointer; color: var(--color-text-secondary); padding: 0.5rem 0; font-size: 0.85rem; }
+.radio-technical-details > summary .orion-icon { margin-right: 0.5rem; vertical-align: middle; }
+.radio-technical-details[open] > summary { margin-bottom: 1rem; }
+.radio-check-count { display: inline-block; margin-left: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 5px; background: rgb(243 181 68 / 8%); color: var(--color-warning); font-size: 0.7rem; }
+.radio-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem 0; }
+.radio-steps button { flex: 1 1 180px; font-size: 0.8rem; }
+.radio-steps [aria-current="step"] { border-color: var(--color-signal); color: var(--color-signal); background: rgb(53 208 226 / 5%); }
 .configuration-form[hidden] { display: none; }
-
-.radio-validation { padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 1rem; background: var(--color-panel); }
-.radio-validation__steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1.5rem; margin: 1rem 0; }
-.radio-validation__steps h3 { font-size: 1rem; }
-.radio-validation__steps p { color: var(--color-text-muted); }
-.radio-validation footer { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.radio-overview__status[data-state="unknown"], .radio-validation [data-state="unknown"] { color: var(--color-text-muted); }
-.radio-overview__status[data-state="pending"], .radio-validation [data-state="pending"] { color: var(--color-text); }
+.radio-validation__steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
+.radio-validation__steps > div { border: 1px solid var(--color-line); border-radius: 10px; padding: 1rem; background: var(--radio-inset); }
+.radio-validation__steps > div > .orion-icon { color: var(--color-signal); width: 24px; height: 24px; }
+.radio-validation__steps h3 { margin: 0.6rem 0 0.35rem; font-size: 0.85rem; }
+.radio-validation__steps :is(strong, span) { font-size: 0.75rem; font-weight: 500; }
+.radio-validation footer { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
 .radio-validation [data-state="detected"] { color: var(--color-signal); }
 .radio-validation__session { border-bottom: 1px solid var(--color-line); padding-bottom: 1rem; margin-top: 1rem; }
-.radio-validation__session p { color: var(--color-text-muted); }
-.radio-validation__targets { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.radio-validation__session p { color: var(--color-text-secondary); font-size: 0.8rem; }
+.radio-validation__targets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+@media (max-width: 760px) {
+  .page--radios { width: calc(100% - 1.25rem); padding-top: 1rem; }
+  .page--radios :is(.connection-form, .configuration-card, .device-card, .alignment-card, .diagnostic-card), .radio-overview, .radio-validation { padding: 1rem; }
+  .page--radios .app-header { flex-direction: row; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+  .page--radios .tagline { display: none; }
+  .page--radios .app-header-actions { gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .page--radios .workspace-tab { padding: 0.6rem 0.3rem; gap: 0.35rem; font-size: 0.75rem; }
+  .radio-topology { grid-template-columns: 1fr; gap: 0.75rem; }
+  .radio-local-node { padding: 0.75rem; }
+  .radio-link-line { width: 100%; max-width: 120px; justify-self: center; }
+  .radio-access-steps { gap: 0.4rem; }
+  .radio-access-steps li { flex-direction: column; text-align: center; padding: 0.75rem 0.4rem; font-size: 0.7rem; }
+  .radio-validation__steps { grid-template-columns: 1fr; }
+  .radio-validation__steps > div { display: grid; grid-template-columns: 24px 1fr; gap: 0.3rem 0.75rem; align-items: center; }
+  .radio-validation__steps h3 { margin: 0; }
+  .radio-validation__steps :is(strong, span) { grid-column: 2; }
+}
+@media (max-width: 400px) {
+  .page--radios .brand-name span { display: none; }
+  .page--radios .brand-mark { display: none; }
+  .radio-overview__peers > li { grid-template-columns: 1fr; }
+  .radio-overview__interfaces dl { grid-template-columns: 1fr; }
+}

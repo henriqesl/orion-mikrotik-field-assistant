@@ -60,6 +60,11 @@ button {
   font: inherit;
 }
 
+.orion-icon { display: inline-block; flex-shrink: 0; vertical-align: middle; }
+.workspace-tab > .orion-icon { justify-self: center; }
+.global-disconnect-button { display: inline-flex; align-items: center; gap: 0.5rem; }
+.device-details-expanded { display: contents; }
+
 .page {
   width: min(1120px, calc(100% - 2rem));
   min-height: 100vh;

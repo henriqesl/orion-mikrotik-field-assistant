@@ -18,6 +18,8 @@ Failed readback does not advance the session. Retry verification without writing
 
 ## Check the result
 
+The Equipment tab presents the local radio and its remote peers as a link diagram, with signal and interface settings alongside it. Live traffic stays visible; detailed RouterOS data is expandable. Update failures and the count of diagnostic items needing attention remain visible when details are closed.
+
 Confirm the remote MAC and authorization, then test its actual IP and a device beyond the link. Repeat for each Station. Finishing setup retains only a temporary, password-free endpoint summary; selecting an endpoint fills the ping form without starting a test.
 
 Alignment records valid signal readings and lets the technician choose the Station followed by sound. Missing readings and failed updates are not reported as a healthy link. Monitoring pauses and configuration tabs are blocked if hardware identity cannot be confirmed.

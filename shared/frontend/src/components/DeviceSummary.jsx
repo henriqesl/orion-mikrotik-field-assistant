@@ -6,6 +6,7 @@ import { createSupportBundle, downloadBlob } from "../services/api.js";
 import { isDesktopRuntime } from "../services/runtime.js";
 import AssessmentBadge from "./AssessmentBadge.jsx";
 import TrafficMonitor from "./TrafficMonitor.jsx";
+import Icon from "./Icon.jsx";
 
 const DEVICE_FIELDS = [
   ["Identidade", "identity"],
@@ -112,9 +113,12 @@ function DeviceSummary({
   monitoringError,
   onRefresh,
   onToggleMonitoring,
+  compact = false,
 }) {
   const wifiAvailable = device.wifi_interfaces.length > 0;
   const radioDevice = Boolean(device.radio_device);
+  const Details = compact ? "details" : "div";
+  const pendingChecks = device.structural_diagnostic.checks.filter((check) => ["warning", "failed"].includes(check.status)).length;
   const [supportStatus, setSupportStatus] = useState("");
   const [diagnosticOpen, setDiagnosticOpen] = useState(false);
   const [diagnosticBusy, setDiagnosticBusy] = useState(false);
@@ -154,9 +158,9 @@ function DeviceSummary({
       <div className="section-heading">
         <div>
           <p className="card-kicker">Dados reais do RouterOS</p>
-          <h2 id="device-title">Equipamento identificado</h2>
+          <h2 id="device-title">{compact ? "Monitoramento" : "Equipamento identificado"}</h2>
         </div>
-        <span className="success-badge">Conectado</span>
+        <span className={monitoringError ? "preview-badge" : "success-badge"}>{monitoringError ? "Leitura anterior" : "Conectado"}</span>
       </div>
 
       <div className="monitoring-bar" aria-live="polite">
@@ -180,6 +184,7 @@ function DeviceSummary({
         </div>
         <div className="monitoring-actions">
           <button disabled={isRefreshing} onClick={onRefresh} type="button">
+            <Icon name="refresh" />
             Atualizar agora
           </button>
           <button onClick={onToggleMonitoring} type="button">
@@ -230,6 +235,11 @@ function DeviceSummary({
         </div>
       )}
 
+      {compact && <TrafficMonitor connection={connection} device={device} enabled={isActive && !monitoringError} />}
+      <Details className={compact ? "radio-technical-details" : "device-details-expanded"}>
+      {compact && <summary><Icon name="settings" /> Dados técnicos e diagnóstico
+        {pendingChecks > 0 && <span className="radio-check-count">{pendingChecks} {pendingChecks === 1 ? "item para conferir" : "itens para conferir"}</span>}
+      </summary>}
       <dl className="device-grid">
         {DEVICE_FIELDS.map(([label, key]) => (
           <div className="device-field" key={key}>
@@ -256,7 +266,7 @@ function DeviceSummary({
         </section>
       )}
 
-      <TrafficMonitor connection={connection} device={device} enabled={isActive} />
+      {!compact && <TrafficMonitor connection={connection} device={device} enabled={isActive} />}
 
       <div className={`wifi-heading${wifiAvailable ? "" : " capability-heading--unavailable"}`}>
         <div>
@@ -441,6 +451,7 @@ function DeviceSummary({
           Diagnóstico de enlace desativado porque nenhuma interface de rádio foi detectada.
         </p>
       )}
+      </Details>
     </section>
   );
 }

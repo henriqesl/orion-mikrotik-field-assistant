@@ -7,7 +7,7 @@ Radio-workspace closure, November 19, 2026. This is the local web implementation
 | Check | Result |
 |---|---|
 | Backend | 166 passed; 2 opt-in physical tests excluded |
-| Frontend | 14 unit tests and 65 React interaction tests |
+| Frontend | 14 unit tests and 67 React interaction tests |
 | Production builds | Radios and RouterBoards |
 | npm dependency audit | No known vulnerabilities reported on November 19, 2026 |
 | Native engine and Windows installer | Unchanged; not rebuilt or revalidated in this pass |

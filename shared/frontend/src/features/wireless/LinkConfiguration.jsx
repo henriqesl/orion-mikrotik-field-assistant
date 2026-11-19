@@ -9,6 +9,7 @@ import AccessPointSelector from "./AccessPointSelector.jsx";
 import fieldProfiles from "./field-profiles.json";
 import { verifyRadio } from "./verification.js";
 import { managementNetworksDiffer } from "./managementNetwork.js";
+import Icon from "../../components/Icon.jsx";
 
 function nextManagementAddress(value) {
   const match = value?.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d|[12]\d|3[0-2])$/);
@@ -404,6 +405,7 @@ function LinkConfiguration({
               ["existing", "Conectar a AP existente", "Configure somente esta Station"],
             ].map(([value, title, description]) => <label key={value} className={`field-profile ${form.link_scenario === value ? "field-profile--selected" : ""}`}>
               <input type="radio" name="link-scenario" value={value} checked={form.link_scenario === value} onChange={() => chooseScenario(value)} />
+              <Icon name={value === "pair" ? "link" : value === "multipoint" ? "network" : "radio"} />
               <strong>{title}</strong><span>{description}</span>
             </label>)}
           </div>
@@ -481,7 +483,7 @@ function LinkConfiguration({
         {["Função do rádio", "Dados do enlace", "Revisão"].map((label, index) => <button key={label} type="button"
           aria-current={step === index + 1 ? "step" : undefined} disabled={isApplying || isPreviewing || isScanning || (index === 2 && !preview)}
           onClick={() => { setStep(index + 1); if (index < 2) { setPreview(null); previewRequest.current = null; setConfirmation(""); } }}>
-          {index + 1}. {label}
+          <Icon name={["radio", "settings", "shield"][index]} />{index + 1}. {label}
         </button>)}
       </nav>}
       <form className="configuration-form" onSubmit={handlePreview} hidden={guided && step === 3}
@@ -501,7 +503,7 @@ function LinkConfiguration({
                 type="radio"
                 value="ap"
               />
-              <span className="role-option__mark" aria-hidden="true">AP</span>
+              <span className="role-option__mark" aria-hidden="true"><Icon name="radio" /></span>
               <span className="role-option__content">
                 <strong>AP</strong>
                 <small>
@@ -521,7 +523,7 @@ function LinkConfiguration({
                 type="radio"
                 value="station"
               />
-              <span className="role-option__mark" aria-hidden="true">ST</span>
+              <span className="role-option__mark" aria-hidden="true"><Icon name="device" /></span>
               <span className="role-option__content">
                 <strong>Station</strong>
                 <small>

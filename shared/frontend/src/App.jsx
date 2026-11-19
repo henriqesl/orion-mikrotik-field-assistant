@@ -9,6 +9,7 @@ import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
 import { sameDevice } from "./services/deviceIdentity.js";
 import { sessionSummary } from "./features/wireless/sessionSummary.js";
+import Icon from "./components/Icon.jsx";
 
 const API_STATES = {
   checking: {
@@ -357,7 +358,7 @@ function App({ workspace }) {
   }
 
   return (
-    <main className="page">
+    <main className={`page${workspace.id === "radios" ? " page--radios" : ""}`}>
       <header className="app-header">
         <section className="hero">
           <div className="brand-mark">
@@ -380,6 +381,7 @@ function App({ workspace }) {
           </div>
           {device && (
             <button className="global-disconnect-button" disabled={isOperating} onClick={handleDisconnect} type="button">
+              <Icon name="power" />
               Desconectar
             </button>
           )}
@@ -404,11 +406,6 @@ function App({ workspace }) {
             <span>{errorMessage}</span>
             {ConnectionHelp && <ConnectionHelp {...connectionFailure} />}
           </div>
-        )}
-
-        {device && Overview && activeTab === "routeros" && (
-          <Overview device={device} monitoringError={monitoringError} disabled={isOperating}
-            onConfigure={() => handleTabChange("configuration")} onTests={() => handleTabChange("tests")} />
         )}
 
         {device?.demo_mode && (
@@ -448,6 +445,7 @@ function App({ workspace }) {
                     : undefined}
                   type="button"
                 >
+                  <Icon name={tab.icon || ({ routeros: "device", configuration: "radio", tests: "activity", network: "network", lora: "shield" })[tab.id]} />
                   <span>
                     {tab.wifiLabel && !radioDevice
                       ? tab.wifiLabel
@@ -468,7 +466,10 @@ function App({ workspace }) {
             id="panel-routeros"
             role="tabpanel"
           >
+            {Overview && activeTab === "routeros" && <Overview device={device} monitoringError={monitoringError} disabled={isOperating}
+              onConfigure={() => handleTabChange("configuration")} onTests={() => handleTabChange("tests")} />}
             <DeviceSummary
+              compact={workspace.id === "radios"}
               connection={activeConnection}
               device={device}
               isActive={activeTab === "routeros"}

@@ -1,12 +1,15 @@
 import ConnectionForm from "../../shared/frontend/src/components/ConnectionForm.jsx";
+import Icon from "../../shared/frontend/src/components/Icon.jsx";
+import "./radio.css";
 
 export default function RadioConnection(props) {
   return (
     <ConnectionForm {...props} initialHost="" title="Conecte seu rádio">
-      <p>
-        Ligue o rádio com a alimentação adequada e conecte o computador à mesma rede.
-        Escolha o equipamento encontrado abaixo ou informe o IP que ele já utiliza.
-      </p>
+      <ol className="radio-access-steps" aria-label="Primeiro acesso">
+        <li><Icon name="ethernet" /><span>Conecte por cabo</span></li>
+        <li><Icon name="radio" /><span>Escolha o rádio</span></li>
+        <li><Icon name="shield" /><span>Informe o acesso</span></li>
+      </ol>
       <details className="advanced-options">
         <summary>O rádio não apareceu?</summary>
         <p>
