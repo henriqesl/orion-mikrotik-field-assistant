@@ -49,7 +49,7 @@ npm audit --audit-level=high
 
 Automated tests do not replace a hardware trial. Consult the [validation status](docs/MVP-VALIDATION.md) and [compatibility record](docs/COMPATIBILITY.md) for the remaining physical checks.
 
-As of November 18, 2026, the full npm audit still reports a transitive `picomatch` ReDoS advisory in the development toolchain after compatible updates. Keep development servers local; do not use `npm audit fix --force` without reviewing its proposed downgrades. Production dependencies can be checked separately with `npm audit --omit=dev`.
+The full npm audit reported no known vulnerabilities on November 19, 2026. This is a point-in-time dependency check, not a security guarantee. Keep development servers local and review updates before applying them.
 
 ## Package for Windows
 
@@ -67,7 +67,7 @@ Installers and build outputs are generated locally, not stored in Git. Pulling m
 
 ## Use in the field
 
-Connect by Ethernet and follow the [field manual](docs/manual-de-campo.md). Local configuration does not require internet. Discovery can help prepare temporary IPv4 access through MAC, but subsequent management uses the RouterOS API. Prefer a VPN for remote access and validated API-SSL; the MikroTik's API certificate is separate from the installer certificate.
+Connect by Ethernet and follow the [field manual](docs/manual-de-campo.md). Local configuration does not require internet. MAC preparation establishes API access; the MAC session is temporary, but the added IP remains on the device. Prefer a VPN for remote access and validated API-SSL; the MikroTik's API certificate is separate from the installer certificate.
 
 Existing WAN, LAN and DNS remain protected until selected for editing. Leave advanced topology and custom rules to the network administrator. If an operation is interrupted, reconnect and read the device before repeating it; backup restoration is manual.
 

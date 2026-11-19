@@ -1,38 +1,43 @@
-# ORION Field 0.7.3 — MVP validation
+# ORION Radios — validation status
 
-Scope: straightforward field configuration, preserving existing settings, with AP discovery and classic-wireless Station locking. No ARGOS, cloud, inventory, or technician accounts.
+Radio-workspace closure, November 19, 2026. This is the local web implementation, not a new installer release. RouterBoard and LoRa workflows remain separate. No ARGOS, cloud, inventory or technician accounts were added.
 
 ## Automated checks
 
 | Check | Result |
 |---|---|
-| Backend | 166 passed; 2 opt-in physical tests skipped |
-| Frontend | 13 unit tests and 12 React interaction tests passed |
-| Native network metrics | CTest passed |
-| Frontend production build | Passed |
-| Dependency audit | npm reported no known vulnerabilities |
+| Backend | 166 passed; 2 opt-in physical tests excluded |
+| Frontend | 14 unit tests and 65 React interaction tests |
+| Production builds | Radios and RouterBoards |
+| npm dependency audit | No known vulnerabilities reported on November 19, 2026 |
+| Native engine and Windows installer | Unchanged; not rebuilt or revalidated in this pass |
 
-Stateful RouterOS doubles cover new routers, Wi-Fi uplinks, static IP without a gateway, existing bridges/DHCP/NAT, LAN toggles, classic/modern Wi-Fi, AP lock/change/unlock, LoRa scripts/schedulers, backup failure, and interrupted writes. These are simulations, not RouterOS hardware or firmware emulation.
+The frontend suite covers access selection and credential isolation, reviewed MAC preparation, AP-to-Station handoff, multipoint continuation, existing settings, duplicate IPs within a session, mismatched readback, read-only retry, device identity changes, ping lifecycle and alignment audio. Backend doubles cover existing RouterOS configurations and partial-write failures. These are simulations, not firmware or hardware emulation.
 
-React tests exercise loading existing values, changing interfaces, scan consent, AP selection, preview/apply, and recovery after failure. Native/browser automation was unavailable in this environment; an actual-window visual review remains pending.
+A real-window visual review remains pending: the computer-use runtime required by the installed skill was not available in this session. No physical tests were run. Passing automated checks is not approval for unattended production use.
 
-The subsequent radio-scenario extension adds pair (default), multipoint continuation and existing-AP workflows, with session-local IP reuse checks. These source changes require a new desktop build; the previously generated 0.7.3 installer does not include them.
+## Radio bench validation
 
-## Final bench gate
+Use recoverable equipment and an Ethernet connection. Record the model, RouterOS version and Wi-Fi driver for each radio. Do not test disruptive changes on a production device without authorization.
 
-Use recoverable equipment and an Ethernet connection. Never apply these checks to a production device without authorization.
+Begin with two radios that need preparation. Confirm discovery, credentials and MAC preparation where available. Check that the reviewed IP remains after disconnecting, and that API access works without internet.
 
-1. On two classic-wireless radios, configure AP/Station, scan and lock to the intended AP. Confirm the associated MAC. With another AP advertising the same SSID/security, verify the Station does not switch to it when its locked AP is unavailable. Restore the intended AP; then test explicit unlock.
-2. On a configured router with Wi-Fi uplink, preserve WAN/DNS, review LAN changes, and verify the IP, DHCP pool, NAT and recovery access afterward. Verify a removed Ethernet LAN member no longer serves that LAN.
-3. On a compatible LoRa gateway, load saved protections, change one option, apply, and inspect execution at the next scheduler interval. Keep automatic device reboot off unless explicitly required.
-4. Install/upgrade on Windows 10 and Windows 11 x64; check launch, dragging, scrolling, discovery and disconnect. Target compatibility is not a claim of testing both operating systems.
+Configure a dedicated AP/Station pair through the guided flow. Confirm the saved identity, Wi-Fi settings, bridge and management access on each device. Check the expected remote MAC, authorization, ping to the other radio and communication with a device beyond the link.
 
-## Operational limits
+Repeat with already-configured radios. Confirm that unrelated settings and recovery access remain intact. Exercise different management subnets, a duplicate address within the session and a failed readback; verification retry must not send another write.
 
-- Scanning interrupts Wi-Fi. Classic `wireless` connect-list provides the implemented BSSID lock; modern `wifi`/`wifiwave2` do not receive a substitute roaming setting disguised as a lock.
-- Successful command/save verification does not prove RF association or scheduler execution.
-- Backups are created on the MikroTik. Interrupted writes may be partial; recovery is manual. Reconnect and read the device before retrying.
-- Complex bridges, shared pools, CAPsMAN and custom connection/NAT rules are administrator work, not silently normalized by the basic form.
-- Internal code signing identifies the internal publisher on trusted company PCs. It does not guarantee public trust, SmartScreen reputation, or antivirus acceptance.
+On classic `wireless`, validate scan consent, BSSID lock and explicit unlock. Test a second AP with the same SSID/security to confirm lock behavior. On modern `wifi`, validate the supported Station-bridge pairing and MAC comparison without claiming a BSSID lock. Include the intended SXTsq 5 ax / RouterOS 7.19+ equipment; driver-family compatibility alone is not hardware approval.
 
-See the [field manual](manual-de-campo.md) and [Windows installation guide](instalacao-interna-windows.md).
+For multipoint, configure a second Station, confirm its unique address and test each remote endpoint. Select each Station for alignment audio, interrupt an update and confirm that stale data does not continue generating samples or sound.
+
+Finally, inspect the real browser at normal and narrow window widths: connection, all three tabs, review, error recovery, keyboard focus, selectors and scrolling. Record observed results before approving the radio workflow for technicians.
+
+## Distribution and limits
+
+The current installed application does not update with a Git pull. Rebuild and validate a new installer separately, including install/upgrade and launch on Windows 10 and Windows 11 x64. Neither platform has been revalidated in this closure pass.
+
+Readback confirms readable settings, not password contents, RF association or performance. A ping response does not identify the path taken. Suggested addresses are not a network-wide conflict check.
+
+Backups are stored on the MikroTik; interrupted writes may be partial and restoration is manual. CAPsMAN, custom routing, shared pools and complex bridges remain administrator work. Internal signing does not guarantee public certificate trust, SmartScreen reputation or antivirus acceptance.
+
+Follow the [field manual](manual-de-campo.md), [compatibility record](COMPATIBILITY.md) and [Windows installation guide](instalacao-interna-windows.md).

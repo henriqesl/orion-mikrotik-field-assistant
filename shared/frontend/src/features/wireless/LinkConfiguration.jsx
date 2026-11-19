@@ -8,6 +8,7 @@ import CurrentConfiguration from "../../components/CurrentConfiguration.jsx";
 import AccessPointSelector from "./AccessPointSelector.jsx";
 import fieldProfiles from "./field-profiles.json";
 import { verifyRadio } from "./verification.js";
+import { managementNetworksDiffer } from "./managementNetwork.js";
 
 function nextManagementAddress(value) {
   const match = value?.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d|[12]\d|3[0-2])$/);
@@ -658,6 +659,9 @@ function LinkConfiguration({
           </fieldset>
         )}
 
+        {fieldSession?.next_role === "station" && managementNetworksDiffer(fieldSession.ap_management_ip, form.management_ip) && <p className="configuration-note" role="status">
+          O AP usa {fieldSession.ap_management_ip}; esta Station usa {form.management_ip}. Os IPs de gerenciamento estão em redes diferentes. Confirme o roteamento com o responsável ou escolha um IP livre na rede do AP.
+        </p>}
         <p className="configuration-note">
           {isRadioDevice || form.manage_topology
             ? "O ORION cria backup e preserva IPs, DHCP, NAT e firewall existentes."

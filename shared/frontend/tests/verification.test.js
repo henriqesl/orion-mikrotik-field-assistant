@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { sameDevice } from "../src/services/deviceIdentity.js";
 import { verifyRadio } from "../src/features/wireless/verification.js";
 import { verifyNetwork } from "../../../routerboards/frontend/verification.js";
+import { managementNetworksDiffer } from "../src/features/wireless/managementNetwork.js";
 
 test("reconnection requires a matching hardware MAC, not just an identity or IP", () => {
   const first = { identity: "MikroTik", ethernet_interfaces: [{ mac_address: "AA:BB:CC:00:00:01" }] };
@@ -12,6 +13,15 @@ test("reconnection requires a matching hardware MAC, not just an identity or IP"
 });
 
 const settings = { identity: "AP", wifi_interface: "wifi1", role: "ap", device_kind: "radio", link_scenario: "pair", ssid: "ENLACE", frequency_mhz: null, channel_width: null, manage_topology: false };
+test("management guidance compares both masks without inventing a network for invalid input", () => {
+  assert.equal(managementNetworksDiffer("192.0.2.1/24", "192.0.2.10/24"), false);
+  assert.equal(managementNetworksDiffer("192.0.2.1/24", "198.51.100.10/24"), true);
+  assert.equal(managementNetworksDiffer("192.0.2.1/24", "192.0.2.130/25"), true);
+  assert.equal(managementNetworksDiffer("192.0.2.130/25", "192.0.2.1/24"), true);
+  assert.equal(managementNetworksDiffer("192.0.2.0/31", "192.0.2.1/31"), false);
+  assert.equal(managementNetworksDiffer("192.0.2.1/24", ""), false);
+  assert.equal(managementNetworksDiffer("999.0.2.1/24", "192.0.2.1/24"), false);
+});
 const device = { identity: "AP", wifi_stack: "wifi", wifi_interfaces: [{ name: "wifi1", mode: "ap", ssid: "ENLACE", disabled: false }] };
 test("readback separates matching radio fields from a silent write failure", () => {
   assert.deepEqual(verifyRadio(settings, device), []);

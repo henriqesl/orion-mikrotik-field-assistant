@@ -261,8 +261,9 @@ test("management defaults follow the selected radio bridge and retain an existin
   const device = { ...demoDevice({ host: "demo" }), demo_mode: false };
   const bridge = device.bridge_ports.find((port) => port.interface === device.wifi_interfaces[0].name).bridge;
   device.ip_addresses = [{ address: "198.51.100.10/24", interface: "ether9" }, { address: "192.0.2.77/24", interface: bridge }];
-  render(<LinkConfiguration connection={connection} device={device} fieldSession={{ next_role: "station", completed_roles: ["ap"], ap_management_ip: "192.0.2.1/24", station_management_ip: "192.0.2.2/24" }} {...callbacks()} />);
+  render(<LinkConfiguration connection={connection} device={device} fieldSession={{ next_role: "station", completed_roles: ["ap"], ap_management_ip: "198.51.100.1/24", station_management_ip: "198.51.100.2/24" }} {...callbacks()} />);
   expect(screen.getByLabelText("IP de gerenciamento").value).toBe("192.0.2.77/24");
+  expect(screen.getByText(/IPs de gerenciamento estão em redes diferentes/)).toBeTruthy();
 });
 
 test("ending a session discards its reviewed write and password", async () => {

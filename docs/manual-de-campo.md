@@ -1,112 +1,61 @@
-# ORION Field — Manual de campo
+# ORION — Rádios: manual de campo
 
-Guia rápido para preparar routers e enlaces MikroTik.
+## Preparar a bancada
 
-## Antes de começar
+Confirme alimentação, modelo e portas do injetor PoE. Conecte o computador por cabo e trabalhe com um rádio por vez, sem criar um segundo caminho Ethernet entre AP e Station. Internet não é necessária para o acesso local.
 
-- IPs exibidos pelo ORION são sugestões, não valores obrigatórios.
-- Internet não é necessária para configuração local.
-- Não resete um equipamento configurado sem autorização.
-- Em bancada, trabalhe com um rádio por vez e evite loops Ethernet.
-- Confirme modelo, alimentação e portas do injetor PoE.
-- Tenha o plano de IPs, usuário RouterOS, SSID, senha, frequência e largura.
+Tenha usuário e senha do RouterOS, nomes dos equipamentos, plano de IPs e dados do enlace. Todo endereço apresentado como exemplo ou sugestão pode ser alterado; ele não garante que o IP esteja livre. Não resete um equipamento configurado sem autorização.
 
-## Conectar
+## Acessar o primeiro rádio
 
-1. Conecte o computador ao MikroTik por Ethernet.
-2. Abra o ORION e aguarde a descoberta local.
-3. Com IP disponível, clique em **Usar no ORION** e informe o acesso.
-4. Se aparecer **Sem IP**, clique em **Preparar por MAC**.
-5. Confirme porta, placa de rede e IP temporário; depois use **Verificar configuração atual**.
-6. Clique em **Aplicar IP e conectar**.
+Abra o ORION, confira o equipamento encontrado e clique em **Usar no ORION**. Informe as credenciais. Se souber o IP, também pode digitá-lo diretamente.
 
-O IP temporário é editável. O MAC é usado somente nessa preparação; o gerenciamento continua pela API IPv4. Se falhar, use **Plano B: abrir o WinBox** e confira a API do RouterOS.
+**IP não anunciado** não significa necessariamente ausência de IP. Se não houver um endereço conhecido, use **Preparar por MAC**: informe as credenciais, selecione a placa de rede do computador e confira a porta do MikroTik e o IP proposto. Clique em **Verificar configuração atual**, revise as alterações, marque a confirmação e use **Aplicar IP e conectar**.
 
-Em API-SSL, mantenha a validação do certificado do **MikroTik**. O certificado BIONIC do instalador não serve para essa conexão. A exceção sem validação é somente para bancada controlada.
+A sessão MAC é temporária; o IP adicionado permanece no equipamento. A preparação depende dos serviços permitidos e das credenciais do rádio. Se falhar, use **Plano B: abrir o WinBox** ou peça ao responsável que prepare o acesso pela API.
 
-## Router novo
+A porta redirecionada do WinBox não substitui a porta da API. Para acesso remoto, use VPN ou um encaminhamento específico da API. Com API-SSL, a validação usa o certificado do MikroTik, não o certificado do instalador ORION.
 
-Na aba **Rede básica**:
+## Configurar o AP
 
-1. escolha DHCP ou IP fixo para a WAN;
-2. confirme a interface WAN;
-3. defina bridge, IP e portas da LAN;
-4. escolha NAT, DHCP Server, pool e serviços;
-5. revise, digite `APLICAR` e confirme.
+Na aba **Equipamento**, confira modelo e interfaces. Abra **Enlace**, mantenha **Par de rádios** e clique em **Configurar o AP primeiro**. Para várias Stations, escolha **AP com várias Stations** antes de continuar.
 
-O ORION cria um backup antes da escrita. Se a LAN mudar, conecte o computador a uma porta selecionada e use o novo IP.
+Preencha nome, SSID e senha do enlace. Confira frequência, largura do canal, país, portas cabeadas, bridge e IP de gerenciamento. Use parâmetros definidos para a instalação; configurações complexas devem ser revisadas pelo responsável.
 
-## Router configurado
+Clique em **Revisar alterações**, confira cada mudança e digite `APLICAR`. Aguarde o backup, a aplicação e a releitura. Só use **Desconectar AP e configurar Station** depois da conferência dos campos.
 
-A configuração atual é carregada; WAN, LAN e DNS começam protegidos.
+## Configurar a Station
 
-- mantenha **Manter rede LAN atual** quando não houver mudança de topologia;
-- altere somente o solicitado pela ordem de serviço;
-- confira cada item da prévia;
-- preserve os acessos necessários para recuperação.
+Mantenha o AP energizado e conecte o computador por cabo à Station. Acesse-a pelo ORION e abra **Enlace**. A sessão reaproveita SSID e senha do AP; confira o nome e o endereço deste segundo rádio.
 
-## Enlace AP + Station
+Um IP existente pode ser preservado. Se houver uma sugestão, confirme se está livre. AP e Station precisam de endereços exclusivos; para comunicação direta por IP, use endereçamento compatível. Se o ORION indicar redes diferentes, confirme o roteamento com o responsável.
 
-Planeje nomes e IPs exclusivos. SSID, senha WPA2, frequência e largura devem ser iguais nos dois lados.
+Se precisar localizar o AP, confirme o acesso por cabo antes de **Buscar APs**: a busca pode interromper o Wi-Fi. No driver `wireless`, **Selecionar e fixar** prepara o lock pelo MAC. Nos drivers `wifi`/`wifiwave2`, este fluxo não aplica lock por BSSID; use SSID e senha exclusivos e confira o MAC associado.
 
-Na seleção **O que você quer configurar?**, mantenha **Par de rádios** para o fluxo principal abaixo. Para um AP atendendo vários clientes, selecione **AP com várias Stations**; após cada Station, use **Desconectar e configurar outra Station** e informe um IP exclusivo. Para ajustar apenas um cliente, escolha **Conectar a AP existente**: o ORION não configura o AP remoto.
+Revise e aplique. A sessão só avança após a releitura dos campos. Para multiponto, use **Desconectar e configurar outra Station** e repita com um IP exclusivo. Ao terminar, clique em **Concluir sessão e abrir os testes**.
 
-### AP
+O modo `station-bridge` depende da compatibilidade entre os MikroTiks e da família de driver. Não misture `wireless` com `wifi` nesse fluxo. Os dados da sessão ficam na memória; não feche o ORION durante a configuração dos dois lados.
 
-1. Conecte somente o AP e abra **Configuração do rádio**.
-2. Preencha SSID e uma senha WPA2 de pelo menos oito caracteres; clique em **Usar estes dados para configurar o par AP + Station**.
-3. Confirme função, enlace, bridge e IP de gerenciamento.
-4. Revise, aplique e aguarde a reconexão.
-5. Clique em **Desconectar AP e configurar Station**.
+## Ajustar um rádio existente
 
-### Station
+Use **Ajustar somente este rádio**, confira os valores carregados e altere apenas o necessário. Para conectar um cliente a um AP já existente, escolha **Conectar a AP existente**. Esse caminho não altera o AP remoto.
 
-1. Mantenha o AP energizado, mas conecte o computador por cabo somente à Station, sem criar um segundo caminho Ethernet entre eles.
-2. Acesse-a pelo ORION e confirme os dados reaproveitados da sessão.
-3. Confira o IP exclusivo da Station; a sugestão não garante que o endereço esteja livre.
-4. Para localizar o AP, confirme o acesso por cabo e clique em **Buscar APs**. A busca interrompe o Wi-Fi temporariamente.
-5. No driver `wireless`, use **Selecionar e fixar** e confira o MAC do AP na prévia. Para remover o vínculo, escolha remover o lock criado pelo ORION.
-6. Revise e aplique. Confirme a associação ao AP esperado após a reconexão.
+Não trate **Configuração enviada** como prova de funcionamento. Se a releitura falhar, use **Conferir novamente sem reaplicar**. Uma aplicação interrompida pode deixar alterações parciais.
 
-Os dados do par ficam somente na memória enquanto o ORION estiver aberto. `station-bridge` exige MikroTiks compatíveis e a mesma família de driver nos dois lados.
+## Testar e alinhar
 
-Drivers `wifi`/`wifiwave2` não têm lock por BSSID neste fluxo: use SSID e senha exclusivos. Regras de conexão personalizadas devem ser revisadas pelo responsável no WinBox.
+Na aba **Testes**, confira o MAC remoto e a autorização. Se houver várias Stations, verifique cada uma. O resumo da sessão permite preencher o IP do outro lado, mas o teste só começa ao clicar em **Testar conexão**.
 
-Na sessão guiada, confira o MAC do AP esperado e o MAC associado da última leitura. Essa conferência não impede outras associações. No multiponto, todos usam os dados do mesmo AP; a capacidade é compartilhada e as Stations precisam estar na cobertura da antena.
+Teste o IP do rádio remoto e depois um equipamento além dele. O ping parte do MikroTik conectado: uma resposta confirma acesso ao destino, não o caminho utilizado nem a capacidade máxima do enlace. Gateway e internet só entram na validação quando fizerem parte da instalação.
 
-## LoRa
+Inicie o alinhamento, mova um eixo por vez e acompanhe o sinal. Com várias Stations, escolha qual acompanhar pelo som. Se a leitura falhar, aguarde a atualização antes de continuar. Repita um teste mais longo após fixar a antena.
 
-Abra **LoRa**, aguarde a leitura das proteções salvas e marque somente as desejadas. **Reiniciar dispositivo** é opcional e não é ativado automaticamente. Revise e aplique; depois aguarde o intervalo escolhido e confira o funcionamento. A confirmação de gravação não substitui esse teste no gateway.
+## Recuperar e entregar
 
-## Validar
+Se perder acesso, aguarde a reconfiguração da interface, confira o IP do computador, cabo e PoE. Tente o novo IP e o anterior preservado. Se necessário, use WinBox por MAC. Não reaplique sem reler o equipamento; a restauração do backup é manual.
 
-1. Energize os dois lados sem criar loop Ethernet.
-2. Confirme a associação da Station no AP.
-3. Verifique sinal, taxas negociadas e tráfego atual.
-4. Execute o teste rápido entre os IPs de gerenciamento.
-5. Faça o alinhamento movendo um eixo por vez.
-6. Execute o teste estável após o alinhamento.
+Se o ORION não confirmar a identidade física do MikroTik, confira possíveis IPs duplicados e reconecte ao equipamento correto. Não contorne esse aviso para continuar configurando.
 
-Valide gateway e internet somente quando fizerem parte da instalação.
+Antes de entregar, confirme comunicação, acesso de recuperação e backup no dispositivo. Registre nomes e IPs conforme o procedimento da empresa e confira cabos, aterramento, vedação e fixação.
 
-## Se perder o acesso
-
-1. Aguarde o Wi-Fi ou a bridge reiniciar.
-2. Confirme o IP atual do computador.
-3. Tente o novo IP e depois o IP anterior preservado.
-4. Confira cabo, PoE e interface conectada.
-5. Tente o WinBox pelo MAC.
-6. Não reaplique sem reler o equipamento.
-
-“Comandos enviados” não significa “enlace funcionando”. Após reconectar, confira eventuais diferenças apontadas pela releitura; depois valide associação e tráfego. Se o IP responder com outro MAC de equipamento, confira possíveis IPs duplicados antes de continuar.
-
-Se o enlace não associar, compare função, SSID, senha, frequência, largura e driver.
-
-## Entrega
-
-- [ ] Identidade, função e IPs registrados
-- [ ] Acesso de recuperação confirmado
-- [ ] Backup criado
-- [ ] Associação e comunicação aprovadas
-- [ ] Alinhamento concluído
-- [ ] Cabos, aterramento, vedação e fixação conferidos
+As telas **Rede básica** e **LoRa** pertencem ao workspace [RouterBoards](../routerboards/README.md), não ao fluxo de rádios.
