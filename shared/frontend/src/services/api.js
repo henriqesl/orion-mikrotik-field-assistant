@@ -21,21 +21,25 @@ async function postJson(path, body) {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error(
+    const error = new Error(
       isDesktopRuntime()
         ? "Os serviços do ORION não responderam. Feche o aplicativo, abra novamente e tente outra vez."
         : "O backend do ORION não está disponível. Inicie o FastAPI e tente novamente.",
     );
+    error.code = "BACKEND_UNREACHABLE";
+    throw error;
   }
 
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     const message = requestErrorMessage(data?.detail);
-    throw new Error(
+    const error = new Error(
       message ||
         "Não foi possível concluir a comunicação com o backend do ORION.",
     );
+    error.status = response.status;
+    throw error;
   }
 
   return data;

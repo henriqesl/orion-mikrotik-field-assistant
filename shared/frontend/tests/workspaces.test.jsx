@@ -66,3 +66,17 @@ test("devices without Wi-Fi cannot open link configuration", async () => {
   expect(screen.getByRole("tab", { name: /Enlace/ }).disabled).toBe(true);
   expect(screen.queryByText("Editor de enlace de teste")).toBeNull();
 });
+
+test("radio overview shortcuts open the corresponding workspace tab", async () => {
+  const user = await connect(radios);
+  await user.click(screen.getByRole("button", { name: "Configurar enlace" }));
+  expect(screen.getByRole("tab", { name: "Enlace" }).getAttribute("aria-selected")).toBe("true");
+  await user.click(screen.getByRole("tab", { name: "Equipamento" }));
+  await user.click(screen.getByRole("button", { name: "Testar comunicação" }));
+  expect(screen.getByRole("tab", { name: "Testes" }).getAttribute("aria-selected")).toBe("true");
+});
+
+test("RouterBoards do not mount the radio overview", async () => {
+  await connect(routerboards);
+  expect(screen.queryByRole("region", { name: "Resumo do enlace" })).toBeNull();
+});

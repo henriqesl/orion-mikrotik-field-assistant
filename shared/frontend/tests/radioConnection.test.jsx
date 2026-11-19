@@ -142,3 +142,19 @@ test("a pending MAC preview cannot restore approval after credentials change", a
   expect(screen.queryByRole("button", { name: "Aplicar IP e conectar" })).toBeNull();
   expect(applyMacBootstrap).not.toHaveBeenCalled();
 });
+
+test("multiple network adapters require an explicit choice", async () => {
+  const user = userEvent.setup();
+  discoverLanDevices.mockResolvedValue({ devices: [device("Station", "0.0.0.0", macPreview.target_mac)] });
+  getMacBootstrapAdapters.mockResolvedValue([
+    { interface_index: 1, name: "Ethernet", ipv4_address: "192.0.2.10" },
+    { interface_index: 2, name: "Wi-Fi", ipv4_address: "198.51.100.10" },
+  ]);
+  render(<RadioConnection onConnect={vi.fn()} />);
+  await user.click(await screen.findByRole("button", { name: "Preparar por MAC" }));
+  await screen.findByText("Escolha a placa de rede conectada ao rádio.");
+  expect(screen.getByLabelText("Placa de rede deste computador").value).toBe("");
+  expect(screen.getByRole("button", { name: "Verificar configuração atual" }).disabled).toBe(true);
+  await user.selectOptions(screen.getByLabelText("Placa de rede deste computador"), "1");
+  expect(screen.getByRole("button", { name: "Verificar configuração atual" }).disabled).toBe(false);
+});

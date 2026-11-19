@@ -74,6 +74,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [isDiscovering, setIsDiscovering] = useState(true);
   const discoveryInFlight = useRef(false);
+  const adapterGeneration = useRef(0);
+  const [adaptersLoading, setAdaptersLoading] = useState(false);
 
   const refreshLanDevices = useCallback(async () => {
     if (discoveryInFlight.current) return;
@@ -130,6 +132,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       setEndpointMessage("");
     }
     if (name === "host") {
+      adapterGeneration.current += 1;
+      setAdaptersLoading(false);
       if (selectedDevice) setForm((current) => ({ ...current, password: "" }));
       setSelectedDevice(null);
       setMacPreparation("");
@@ -175,6 +179,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   }
 
   function useDeviceIp(device) {
+    adapterGeneration.current += 1;
+    setAdaptersLoading(false);
     setForm((current) => ({
       ...current,
       host: device.ip_address,
@@ -206,21 +212,27 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       setBootstrapInterface(device.interface || "ether1");
       invalidateBootstrap();
       setBootstrapStatus("");
+      const generation = ++adapterGeneration.current;
+      setNetworkAdapters([]);
+      setAdapterIndex("");
+      setBootstrapAddress("");
+      setAdaptersLoading(true);
       try {
         const adapters = await getMacBootstrapAdapters();
+        if (generation !== adapterGeneration.current) return;
         setNetworkAdapters(adapters);
-        setAdapterIndex((current) => {
-          const nextIndex = current || String(adapters[0]?.interface_index || "");
-          const selectedAdapter = adapters.find(
-            (adapter) => String(adapter.interface_index) === nextIndex,
-          );
-          if (!bootstrapAddress && selectedAdapter) {
-            setBootstrapAddress(suggestedManagementAddress(selectedAdapter));
-          }
-          return nextIndex;
-        });
+        if (adapters.length === 1) {
+          setAdapterIndex(String(adapters[0].interface_index));
+          setBootstrapAddress(suggestedManagementAddress(adapters[0]));
+        } else {
+          setBootstrapStatus(adapters.length
+            ? "Escolha a placa de rede conectada ao rádio."
+            : "Nenhuma placa IPv4 disponível. Confira a conexão do computador e tente novamente.");
+        }
       } catch (error) {
-        setBootstrapStatus(error.message);
+        if (generation === adapterGeneration.current) setBootstrapStatus(error.message);
+      } finally {
+        if (generation === adapterGeneration.current) setAdaptersLoading(false);
       }
       return;
     }
@@ -353,7 +365,33 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     : null;
   const bootstrapReady = isValidIpv4Cidr(bootstrapAddress)
     && isValidInterfaceName(bootstrapInterface)
-    && Boolean(adapterIndex);
+    && Boolean(adapterIndex)
+    && Boolean(form.username.trim())
+    && !adaptersLoading;
+
+  const credentials = <>
+        <label className="field">
+          <span>Usuário</span>
+          <input
+            autoComplete="off"
+            name="username"
+            onChange={updateField}
+            required
+            value={form.username}
+          />
+        </label>
+
+        <label className="field">
+          <span>Senha</span>
+          <input
+            autoComplete="off"
+            name="password"
+            onChange={updateField}
+            type="password"
+            value={form.password}
+          />
+        </label>
+  </>;
 
   return (
     <form className="connection-form" onSubmit={handleSubmit}>
@@ -456,13 +494,14 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                     {preparedDevice.identity || preparedDevice.mac_address}
                   </strong>
                 </div>
-                <button onClick={() => { setMacPreparation(""); invalidateBootstrap(); }} type="button">Fechar</button>
+                <button onClick={() => { setMacPreparation(""); adapterGeneration.current += 1; setAdaptersLoading(false); invalidateBootstrap(); }} type="button">Fechar</button>
               </header>
 
+              <div className="form-grid">{credentials}</div>
               <div className="mac-access-panel__terminal">
                   <div>
                     <strong>Preparar acesso por IP</strong>
-                    <span>Primeiro, informe as credenciais abaixo e verifique a configuração. Nada será aplicado nessa verificação.</span>
+                    <span>Primeiro, informe as credenciais e verifique a configuração. Nada será aplicado nessa verificação.</span>
                   </div>
                   <div className="mac-access-panel__network-fields">
                     <label className="field">
@@ -504,7 +543,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                         }}
                         value={adapterIndex}
                       >
-                        <option value="">Selecione a conexão por cabo</option>
+                        <option value="">{adaptersLoading ? "Lendo placas de rede…" : "Selecione a conexão por cabo"}</option>
                         {networkAdapters.map((adapter) => (
                           <option key={`${adapter.interface_index}-${adapter.ipv4_address}`} value={adapter.interface_index}>
                             {adapter.name} · {adapter.ipv4_address}
@@ -612,27 +651,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
           />
         </label>
 
-        <label className="field">
-          <span>Usuário</span>
-          <input
-            autoComplete="off"
-            name="username"
-            onChange={updateField}
-            required
-            value={form.username}
-          />
-        </label>
-
-        <label className="field">
-          <span>Senha</span>
-          <input
-            autoComplete="off"
-            name="password"
-            onChange={updateField}
-            type="password"
-            value={form.password}
-          />
-        </label>
+        {!preparedDevice && credentials}
 
       </div>
 
