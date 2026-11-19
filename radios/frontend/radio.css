@@ -32,3 +32,16 @@
 }
 .radio-overview footer p { flex: 1 1 320px; margin: 0; }
 .radio-overview footer div { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.radio-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0;
+}
+.radio-steps button { flex: 1 1 180px; }
+.radio-steps [aria-current="step"] {
+  border-color: var(--color-signal);
+  color: var(--color-signal);
+}
+.configuration-form[hidden] { display: none; }

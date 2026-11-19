@@ -1,4 +1,4 @@
-import LinkConfiguration from "../shared/frontend/src/features/wireless/LinkConfiguration.jsx";
+import LinkConfiguration from "./frontend/RadioLink.jsx";
 import AlignmentMonitor from "../shared/frontend/src/features/wireless/AlignmentMonitor.jsx";
 import ConnectionForm from "./frontend/RadioConnection.jsx";
 import Overview from "./frontend/RadioOverview.jsx";
