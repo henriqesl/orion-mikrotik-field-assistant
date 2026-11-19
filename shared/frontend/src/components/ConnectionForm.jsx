@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import {
@@ -67,15 +67,23 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   const [bootstrapStatus, setBootstrapStatus] = useState("");
   const [bootstrapBusy, setBootstrapBusy] = useState(false);
   const [endpointMessage, setEndpointMessage] = useState("");
-  const [selectedDeviceMac, setSelectedDeviceMac] = useState("");
+  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [isDiscovering, setIsDiscovering] = useState(true);
+  const discoveryInFlight = useRef(false);
 
   const refreshLanDevices = useCallback(async () => {
+    if (discoveryInFlight.current) return;
+    discoveryInFlight.current = true;
+    setIsDiscovering(true);
     try {
       const result = await discoverLanDevices();
       setLanDiscovery(result);
-      setDiscoveryError(result.message || "");
+      setDiscoveryError(result.message || (result.status === "unavailable" ? "A descoberta local está indisponível." : ""));
     } catch (error) {
       setDiscoveryError(error.message);
+    } finally {
+      discoveryInFlight.current = false;
+      setIsDiscovering(false);
     }
   }, []);
 
@@ -94,9 +102,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
       preparedDevice?.ip_address
       && preparedDevice.ip_address !== "0.0.0.0"
     ) {
-      setForm((current) => ({ ...current, host: preparedDevice.ip_address }));
       setWinboxMessageKind("success");
-      setWinboxMessage(`Novo IP detectado: ${preparedDevice.ip_address}.`);
+      setWinboxMessage(`IP anunciado: ${preparedDevice.ip_address}. Selecione Usar no ORION para acessar.`);
     }
   }, [macPreparation, lanDiscovery.devices]);
 
@@ -109,6 +116,13 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     }));
     if (name === "host" || name === "port") {
       setEndpointMessage("");
+    }
+    if (name === "host") {
+      if (selectedDevice) setForm((current) => ({ ...current, password: "" }));
+      setSelectedDevice(null);
+      setMacPreparation("");
+      setBootstrapPreview(null);
+      setWinboxMessage("");
     }
   }
 
@@ -149,11 +163,19 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   }
 
   function useDeviceIp(device) {
-    setForm((current) => ({ ...current, host: device.ip_address }));
-    setSelectedDeviceMac(device.mac_address);
+    setForm((current) => ({
+      ...current,
+      host: device.ip_address,
+      password: selectedDevice?.mac_address === device.mac_address ? current.password : "",
+    }));
+    setSelectedDevice({ ...device });
+    setMacPreparation("");
+    setBootstrapPreview(null);
+    setEndpointMessage("");
+    setInsecureAccepted(false);
     setWinboxMessage("");
     window.requestAnimationFrame(() => {
-      document.querySelector("#connection-credentials")?.scrollIntoView({
+      document.querySelector("#connection-credentials")?.scrollIntoView?.({
         behavior: "smooth",
         block: "center",
       });
@@ -163,6 +185,11 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
   async function selectMacDevice(device) {
     if (!device.ip_address || device.ip_address === "0.0.0.0") {
+      setSelectedDevice(null);
+      setForm((current) => ({ ...current, host: "", password: "" }));
+      setInsecureAccepted(false);
+      setEndpointMessage("");
+      setWinboxMessage("");
       setMacPreparation(device.mac_address);
       setBootstrapInterface(device.interface || "ether1");
       setBootstrapPreview(null);
@@ -329,8 +356,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             <strong id="lan-discovery-title">MikroTiks na rede</strong>
             <span>Equipamentos encontrados na rede local</span>
           </div>
-          <button disabled={isLoading} onClick={refreshLanDevices} type="button">
-            Atualizar
+          <button disabled={isLoading || isDiscovering} onClick={refreshLanDevices} type="button">
+            {isDiscovering ? "Buscando…" : "Atualizar"}
           </button>
         </header>
 
@@ -340,7 +367,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
               const hasUsableIp = device.ip_address && device.ip_address !== "0.0.0.0";
               return (
                 <article
-                  className={selectedDeviceMac === device.mac_address
+                  className={selectedDevice?.mac_address === device.mac_address && selectedDevice.ip_address === device.ip_address
                     ? "lan-device lan-device--selected"
                     : "lan-device"}
                   key={device.mac_address}
@@ -350,22 +377,24 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
                     <span>{device.board || device.platform || "Modelo não informado"}</span>
                   </div>
                   <div className="lan-device__addresses">
-                    <span>{hasUsableIp ? device.ip_address : "Sem IP"}</span>
+                    <span>{hasUsableIp ? device.ip_address : "IP não anunciado"}</span>
                     <small>{device.mac_address}</small>
                   </div>
                   <div className="lan-device__actions">
                     {hasUsableIp && (
                       <button
                         className="lan-device__primary-action"
+                        disabled={isLoading || bootstrapBusy}
+                        aria-pressed={selectedDevice?.mac_address === device.mac_address && selectedDevice.ip_address === device.ip_address}
                         onClick={() => useDeviceIp(device)}
                         type="button"
                       >
-                        {selectedDeviceMac === device.mac_address ? "Selecionado" : "Usar no ORION"}
+                        {selectedDevice?.mac_address === device.mac_address && selectedDevice.ip_address === device.ip_address ? "Selecionado" : "Usar no ORION"}
                       </button>
                     )}
                     <button
                       className={!hasUsableIp ? "lan-device__primary-action" : "lan-device__secondary-action"}
-                      disabled={openingMac === device.mac_address}
+                      disabled={isLoading || bootstrapBusy || openingMac === device.mac_address}
                       onClick={() => selectMacDevice(device)}
                       type="button"
                     >
@@ -379,7 +408,11 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             })}
           </div>
         ) : (
-          <p className="lan-discovery__empty">Procurando equipamentos conectados à mesma rede local…</p>
+          <p className="lan-discovery__empty" role="status">
+            {isDiscovering ? "Buscando equipamentos na rede local…"
+              : discoveryError ? "Descoberta indisponível. Você ainda pode informar o IP."
+                : "Nenhum equipamento anunciado até agora. A busca continua; se souber o IP, informe abaixo."}
+          </p>
         )}
 
         {preparedDevice && (
@@ -511,14 +544,21 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
         )}
       </section>
 
-      <div className="connection-selection-hint" role="status">
+      {selectedDevice ? (
+        <aside className="connection-target" aria-label="Equipamento selecionado" role="status">
+          <strong>{selectedDevice.identity || "MikroTik"}</strong>
+          <span>{selectedDevice.board || selectedDevice.platform || "Modelo não informado"} · {selectedDevice.ip_address}</span>
+          <span>MAC {selectedDevice.mac_address}</span>
+          <small>Selecionado para acesso. Informe as credenciais deste equipamento.</small>
+        </aside>
+      ) : <div className="connection-selection-hint">
         <span>1</span>
-        <strong>Escolha o MikroTik acima</strong>
+        <strong>Escolha acima ou informe o IP</strong>
         <b>2</b>
         <strong>Informe o acesso abaixo</strong>
         <b>3</b>
         <strong>Conecte e revise antes de alterar</strong>
-      </div>
+      </div>}
 
       <div className="form-grid" id="connection-credentials">
         <label className="field field--wide">

@@ -14,7 +14,8 @@ export default function RadioConnection(props) {
           A descoberta pode estar desativada no MikroTik; se souber o IP, tente o acesso direto.
         </p>
         <p>
-          Se ele aparecer sem IP, use Preparar por MAC. A preparação depende dos serviços
+          Se ele aparecer com IP não anunciado, use Preparar por MAC ou informe um IP conhecido.
+          A preparação depende dos serviços
           permitidos no equipamento e das credenciais de acesso. Não precisa de internet.
         </p>
       </details>
