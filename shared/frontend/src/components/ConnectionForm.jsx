@@ -76,6 +76,8 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
   const discoveryInFlight = useRef(false);
   const adapterGeneration = useRef(0);
   const [adaptersLoading, setAdaptersLoading] = useState(false);
+  const connecting = useRef(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const refreshLanDevices = useCallback(async () => {
     if (discoveryInFlight.current) return;
@@ -134,7 +136,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
     if (name === "host") {
       adapterGeneration.current += 1;
       setAdaptersLoading(false);
-      if (selectedDevice) setForm((current) => ({ ...current, password: "" }));
+      setForm((current) => ({ ...current, password: "" }));
       setSelectedDevice(null);
       setMacPreparation("");
       invalidateBootstrap();
@@ -150,6 +152,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (connecting.current || isLoading || bootstrapBusy || bootstrapApplying) return;
     if (needsCertificateAcknowledgement(form, insecureAccepted)) {
       setEndpointMessage("Mantenha a validação do certificado ou confirme explicitamente a exceção de bancada.");
       return;
@@ -164,17 +167,27 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
     const connection = {
       ...form,
+      host: form.host.trim(),
+      username: form.username.trim(),
       port: Number(form.port),
     };
-    const succeeded = await onConnect(connection);
-
-    if (succeeded) {
-      setEndpointMessage("");
-      setForm((current) => ({ ...current, password: "" }));
-    } else if (![8728, 8729].includes(connection.port)) {
-      setEndpointMessage(
-        `A porta ${connection.port} foi tentada como API. Se ela redireciona para o WinBox (8291), o ORION não consegue usá-la; crie outro encaminhamento para a API ou use VPN.`,
-      );
+    connecting.current = true;
+    setIsConnecting(true);
+    try {
+      const succeeded = await onConnect(connection);
+      if (succeeded) {
+        setEndpointMessage("");
+        setForm((current) => ({ ...current, password: "" }));
+      } else if (![8728, 8729].includes(connection.port)) {
+        setEndpointMessage(
+          `A porta ${connection.port} foi tentada como API. Se ela redireciona para o WinBox (8291), o ORION não consegue usá-la; crie outro encaminhamento para a API ou use VPN.`,
+        );
+      }
+    } catch (error) {
+      setEndpointMessage(error.message || "Não foi possível concluir a conexão.");
+    } finally {
+      connecting.current = false;
+      setIsConnecting(false);
     }
   }
 
@@ -395,7 +408,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
 
   return (
     <form className="connection-form" onSubmit={handleSubmit}>
-      <fieldset className="connection-fields" disabled={bootstrapApplying}>
+      <fieldset className="connection-fields" disabled={bootstrapApplying || isLoading || isConnecting}>
       <div className="section-heading">
         <div>
           <p className="card-kicker">Conectar ao equipamento</p>
@@ -720,7 +733,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
         <p className="security-note" role="alert">{endpointMessage}</p>
       )}
 
-      <button className="primary-button" disabled={isLoading} type="submit">
+      <button className="primary-button" disabled={isLoading || isConnecting || bootstrapBusy} type="submit">
         {isLoading ? "Conectando…" : "Conectar e identificar"}
       </button>
       </fieldset>

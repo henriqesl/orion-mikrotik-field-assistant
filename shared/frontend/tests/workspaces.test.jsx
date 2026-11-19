@@ -80,3 +80,21 @@ test("RouterBoards do not mount the radio overview", async () => {
   await connect(routerboards);
   expect(screen.queryByRole("region", { name: "Resumo do enlace" })).toBeNull();
 });
+
+test("polling another device at the same IP locks configuration until identity is confirmed", async () => {
+  const user = await connect(radios);
+  const original = { ...demoDevice({ host: "demo-router" }), lora_available: true };
+  const other = { ...original,
+    wifi_interfaces: original.wifi_interfaces.map((wifi) => ({ ...wifi, mac_address: "02:00:00:99:00:01" })),
+    ethernet_interfaces: original.ethernet_interfaces.map((ethernet) => ({ ...ethernet, mac_address: "02:00:00:99:00:02" })),
+  };
+  discoverDevice.mockResolvedValue(other);
+  await user.click(screen.getByRole("tab", { name: "Testes" }));
+  await user.click(screen.getByRole("button", { name: "Atualizar associação" }));
+  expect(screen.getByRole("tab", { name: /Enlace/ }).disabled).toBe(true);
+  expect(screen.getByRole("tab", { name: "Equipamento" }).getAttribute("aria-selected")).toBe("true");
+  discoverDevice.mockResolvedValue(original);
+  await user.click(screen.getByRole("tab", { name: "Testes" }));
+  await user.click(screen.getByRole("button", { name: "Atualizar associação" }));
+  expect(screen.getByRole("tab", { name: "Enlace" }).disabled).toBe(false);
+});

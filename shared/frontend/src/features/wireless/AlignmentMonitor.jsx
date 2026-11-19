@@ -8,7 +8,7 @@ const CHART_MAX_SIGNAL = -45;
 
 function peerKey(peer, index) {
   return (
-    peer.mac_address ||
+    (peer.mac_address ? `${peer.interface || ""}:${peer.mac_address.toUpperCase()}` : null) ||
     [peer.interface, peer.radio_name, peer.ssid].filter(Boolean).join(":") ||
     `peer-${index}`
   );
@@ -94,16 +94,25 @@ function AlignmentMonitor({
   isMonitoring,
   lastUpdatedAt,
   onToggleAlignment,
-  peers,
+  peers = [],
   radioAvailable,
   registrationTableAvailable,
+  monitoringError = "",
+  disabled = false,
 }) {
   const [histories, setHistories] = useState({});
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioPeer, setAudioPeer] = useState("");
+  const [audioError, setAudioError] = useState("");
   const audioContextRef = useRef(null);
   const startedAtRef = useRef(null);
   const wasAlignmentModeRef = useRef(false);
+  const lastAudioSample = useRef(null);
+  const audioGeneration = useRef(0);
+  const validPeers = peers.filter((peer) => Number.isFinite(peer.signal_dbm));
+  const selectedAudioPeer = peers.find((peer, index) => peerKey(peer, index) === audioPeer)
+    || (peers.length === 1 && !audioPeer ? validPeers[0] : null);
 
   useEffect(() => {
     const justStarted = isAlignmentMode && !wasAlignmentModeRef.current;
@@ -113,15 +122,18 @@ function AlignmentMonitor({
       setHistories({});
       setElapsedSeconds(0);
       startedAtRef.current = Date.now();
+      lastAudioSample.current = null;
     }
 
     if (!isAlignmentMode) {
+      audioGeneration.current += 1;
       startedAtRef.current = null;
       setAudioEnabled(false);
     }
   }, [isAlignmentMode]);
 
   useEffect(() => () => {
+    audioGeneration.current += 1;
     audioContextRef.current?.close();
   }, []);
 
@@ -140,7 +152,7 @@ function AlignmentMonitor({
   }, [isAlignmentMode]);
 
   useEffect(() => {
-    if (!isAlignmentMode || !lastUpdatedAt) {
+    if (!isAlignmentMode || !lastUpdatedAt || monitoringError || !registrationTableAvailable) {
       return;
     }
 
@@ -148,7 +160,7 @@ function AlignmentMonitor({
       const updated = { ...current };
 
       peers.forEach((peer, index) => {
-        if (peer.signal_dbm === null) {
+        if (!Number.isFinite(peer.signal_dbm)) {
           return;
         }
 
@@ -168,19 +180,20 @@ function AlignmentMonitor({
 
       return updated;
     });
-  }, [isAlignmentMode, lastUpdatedAt, peers]);
+  }, [isAlignmentMode, lastUpdatedAt, peers, monitoringError, registrationTableAvailable]);
 
   useEffect(() => {
-    if (!audioEnabled || !isAlignmentMode || !lastUpdatedAt) {
+    if (!audioEnabled || !isAlignmentMode || !lastUpdatedAt || monitoringError || !registrationTableAvailable || disabled) {
       return;
     }
 
-    const signal = peers.find((peer) => peer.signal_dbm !== null)?.signal_dbm;
+    const signal = selectedAudioPeer?.signal_dbm;
     const audioContext = audioContextRef.current;
 
-    if (signal === undefined || !audioContext) {
+    if (!Number.isFinite(signal) || !audioContext || lastAudioSample.current === lastUpdatedAt.getTime()) {
       return;
     }
+    lastAudioSample.current = lastUpdatedAt.getTime();
 
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -196,24 +209,32 @@ function AlignmentMonitor({
     gain.connect(audioContext.destination);
     oscillator.start(now);
     oscillator.stop(now + 0.15);
-  }, [audioEnabled, isAlignmentMode, lastUpdatedAt, peers]);
+  }, [audioEnabled, isAlignmentMode, lastUpdatedAt, selectedAudioPeer, monitoringError, registrationTableAvailable, disabled]);
 
   async function handleAudioToggle() {
-    if (!audioEnabled) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
+    setAudioError("");
+    if (disabled || monitoringError) return;
+    const generation = ++audioGeneration.current;
+    try {
+      if (!audioEnabled) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
 
-      if (!AudioContext) {
-        return;
+        if (!AudioContext) {
+          setAudioError("O áudio não está disponível neste navegador. Você pode acompanhar o sinal pelo gráfico.");
+          return;
+        }
+
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+
+        await audioContextRef.current.resume();
       }
 
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-
-      await audioContextRef.current.resume();
+      if (generation === audioGeneration.current) setAudioEnabled((current) => !current);
+    } catch {
+      if (generation === audioGeneration.current) setAudioError("Não foi possível ativar o áudio. Continue pelo gráfico ou tente novamente.");
     }
-
-    setAudioEnabled((current) => !current);
   }
 
   if (!radioAvailable) {
@@ -244,10 +265,16 @@ function AlignmentMonitor({
           </p>
         </div>
         <div className="alignment-controls">
+          {peers.length > 1 && <label className="field"><span>Rádio para acompanhar pelo som</span>
+            <select value={audioPeer} disabled={disabled} onChange={(event) => { audioGeneration.current += 1; setAudioPeer(event.target.value); setAudioEnabled(false); }}>
+              <option value="">Escolha o equipamento remoto</option>
+              {peers.map((peer, index) => <option key={peerKey(peer, index)} value={peerKey(peer, index)}>{peerName(peer)} · {peer.interface}</option>)}
+            </select>
+          </label>}
           <button
             aria-pressed={audioEnabled}
             className={audioEnabled ? "audio-toggle audio-toggle--active" : "audio-toggle"}
-            disabled={!isAlignmentMode}
+            disabled={!isAlignmentMode || disabled || Boolean(monitoringError) || !selectedAudioPeer || !Number.isFinite(selectedAudioPeer.signal_dbm)}
             onClick={handleAudioToggle}
             type="button"
           >
@@ -255,6 +282,7 @@ function AlignmentMonitor({
           </button>
           <button
             className={isAlignmentMode ? "alignment-toggle alignment-toggle--active" : "alignment-toggle"}
+            disabled={disabled || (!isAlignmentMode && (Boolean(monitoringError) || !registrationTableAvailable || !validPeers.length))}
             onClick={onToggleAlignment}
             type="button"
           >
@@ -263,13 +291,16 @@ function AlignmentMonitor({
         </div>
       </div>
 
+      {audioError && <p role="status">{audioError}</p>}
+      {monitoringError && <p role="status">Leitura desatualizada. O histórico e o áudio aguardam uma nova leitura do rádio.</p>}
+
       <div className="alignment-status" aria-live="polite">
         <span
           aria-hidden="true"
           className={isMonitoring ? "monitoring-dot monitoring-dot--active" : "monitoring-dot"}
         />
         <span>
-          {isAlignmentMode
+          {monitoringError ? "Aguardando leitura válida" : isAlignmentMode
             ? `Sessão ativa · ${formatDuration(elapsedSeconds)}`
             : isMonitoring
               ? "Pronto para iniciar"
@@ -304,13 +335,13 @@ function AlignmentMonitor({
                     <strong>{peerName(peer)}</strong>
                     <span>{peer.mac_address || peer.interface || "Identificação não informada"}</span>
                   </div>
-                  <AssessmentBadge assessment={peer.signal_assessment} />
+                  {peer.signal_assessment && <AssessmentBadge assessment={peer.signal_assessment} />}
                 </header>
 
                 <div className="alignment-values alignment-values--session">
                   <div>
                     <span>Atual</span>
-                    <strong>{peer.signal_dbm === null ? "Sem leitura" : `${peer.signal_dbm} dBm`}</strong>
+                    <strong>{!Number.isFinite(peer.signal_dbm) ? "Sem leitura" : `${peer.signal_dbm} dBm`}</strong>
                   </div>
                   <div>
                     <span>Melhor</span>
@@ -328,7 +359,7 @@ function AlignmentMonitor({
 
                 <SignalHistoryChart samples={samples} />
 
-                {peer.signal_dbm !== null && (
+                {Number.isFinite(peer.signal_dbm) && (
                   <div className="signal-scale" aria-hidden="true">
                     <div style={{ width: `${signalPosition(peer.signal_dbm)}%` }} />
                   </div>

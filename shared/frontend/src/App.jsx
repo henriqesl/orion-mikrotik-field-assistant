@@ -51,6 +51,7 @@ function App({ workspace }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [monitoringError, setMonitoringError] = useState("");
+  const [identityUncertain, setIdentityUncertain] = useState(false);
   const [isAlignmentMode, setIsAlignmentMode] = useState(false);
   const [activeTab, setActiveTab] = useState("routeros");
   const [linkSession, setLinkSession] = useState(null);
@@ -58,6 +59,7 @@ function App({ workspace }) {
   const [testTarget, setTestTarget] = useState(null);
   const refreshInFlight = useRef(false);
   const connectionGeneration = useRef(0);
+  const connectedDevice = useRef(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -113,7 +115,17 @@ function App({ workspace }) {
         return;
       }
 
+      if (!sameDevice(connectedDevice.current, refreshedDevice)) {
+        setIdentityUncertain(true);
+        setActiveTab("routeros");
+        setMonitoringError("O IP respondeu, mas a identidade física do MikroTik não foi confirmada. Reconecte e confira o equipamento antes de alterar configurações.");
+        setIsMonitoring(false);
+        setIsAlignmentMode(false);
+        return;
+      }
+
       setDevice(refreshedDevice);
+      setIdentityUncertain(false);
       setLastUpdatedAt(new Date());
       setMonitoringError("");
     } catch (error) {
@@ -186,6 +198,8 @@ function App({ workspace }) {
 
     try {
       const discoveredDevice = await discoverDevice(connection);
+      connectedDevice.current = discoveredDevice;
+      setIdentityUncertain(false);
       connectionGeneration.current += 1;
       setDevice(discoveredDevice);
       setActiveConnection(connection);
@@ -207,6 +221,8 @@ function App({ workspace }) {
   function handleDisconnect() {
     if (isOperating) return;
     connectionGeneration.current += 1;
+    connectedDevice.current = null;
+    setIdentityUncertain(false);
     setDevice(null);
     setActiveConnection(null);
     setIsMonitoring(false);
@@ -278,6 +294,7 @@ function App({ workspace }) {
 
   function handleTabChange(tabId) {
     if (isOperating) return;
+    if (identityUncertain && !["routeros", "tests"].includes(tabId)) return;
     if (
       (tabId === "configuration" && !wifiAvailable) ||
       (tabId === "lora" && !loraAvailable) ||
@@ -303,11 +320,15 @@ function App({ workspace }) {
       try {
         const refreshedDevice = await discoverDevice(nextConnection);
         if (!sameDevice(device, refreshedDevice)) {
+          setIdentityUncertain(true);
+          setActiveTab("routeros");
           setMonitoringError("O IP respondeu, mas não foi possível confirmar que é o mesmo MikroTik. Confira o equipamento e possíveis IPs duplicados antes de continuar.");
           return null;
         }
         connectionGeneration.current += 1;
         setDevice(refreshedDevice);
+        connectedDevice.current = refreshedDevice;
+        setIdentityUncertain(false);
         setActiveConnection(nextConnection);
         setLastUpdatedAt(new Date());
         setMonitoringError("");
@@ -403,7 +424,8 @@ function App({ workspace }) {
               const unavailable =
                 (tab.capability === "wifi" && !wifiAvailable) ||
                 (tab.capability === "lora" && !loraAvailable) ||
-                (tab.capability === "router" && radioDevice);
+                (tab.capability === "router" && radioDevice) ||
+                (identityUncertain && !["routeros", "tests"].includes(tab.id));
 
               return (
                 <button
@@ -420,7 +442,7 @@ function App({ workspace }) {
                   onClick={() => handleTabChange(tab.id)}
                   role="tab"
                   title={unavailable
-                    ? tab.id === "network"
+                    ? identityUncertain ? "Reconecte para confirmar o equipamento" : tab.id === "network"
                       ? "Rede básica indisponível para equipamentos classificados como rádio"
                       : "Recurso não detectado neste equipamento"
                     : undefined}
@@ -508,6 +530,8 @@ function App({ workspace }) {
               peers={device.wifi_peers}
               radioAvailable={radioDevice}
               registrationTableAvailable={device.registration_table_available}
+              monitoringError={monitoringError}
+              disabled={isOperating}
             />
             <PingTest connection={activeConnection} suggestedTarget={testTarget} disabled={isOperating} radioContext={Boolean(LinkValidation)} />
           </section>

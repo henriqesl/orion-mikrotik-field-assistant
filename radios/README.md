@@ -25,3 +25,5 @@ In Tests, check association first, then test the other radio's actual IP and a d
 Finishing setup keeps a temporary, password-free summary of the configured endpoints. On a recognized AP or Station, select the other side's address to fill the ping form, then start the test explicitly. The summary is discarded when ORION closes or another setup session starts.
 
 An existing Station management address and bridge are retained when possible. A proposed address is only a suggestion, not evidence that the address is unused. If a write fails, return to the fields for a fresh review; if the write returned but readback failed, retry verification without writing again.
+
+Monitoring checks hardware identity before replacing the displayed readings. An unconfirmed identity pauses monitoring and blocks configuration tabs. Alignment ignores missing or stale signal readings; with several remote radios, select which one to follow by sound.

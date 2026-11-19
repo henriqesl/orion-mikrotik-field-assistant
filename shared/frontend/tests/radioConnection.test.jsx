@@ -42,6 +42,24 @@ test("the shared connection screen keeps RouterBoard defaults", () => {
   expect(screen.queryByText("O rádio não apareceu?")).toBeNull();
 });
 
+test("connecting locks the target and submits only once, then releases after failure", async () => {
+  const user = userEvent.setup();
+  let reject;
+  const onConnect = vi.fn(() => new Promise((resolve, fail) => { reject = fail; }));
+  render(<RadioConnection onConnect={onConnect} />);
+  await user.type(screen.getByLabelText("Endereço IP"), " 192.0.2.15 ");
+  await user.type(screen.getByLabelText("Senha"), "senha-atual");
+  await user.dblClick(screen.getByRole("button", { name: "Conectar e identificar" }));
+  expect(onConnect).toHaveBeenCalledOnce();
+  expect(onConnect.mock.calls[0][0].host).toBe("192.0.2.15");
+  expect(screen.getByLabelText("Endereço IP").matches(":disabled")).toBe(true);
+  await act(async () => { reject(new Error("Conexão recusada")); });
+  expect(screen.getByLabelText("Endereço IP").matches(":disabled")).toBe(false);
+  expect(screen.getByText("Conexão recusada")).toBeTruthy();
+  await user.clear(screen.getByLabelText("Endereço IP"));
+  expect(screen.getByLabelText("Senha").value).toBe("");
+});
+
 const device = (identity, ip_address, mac_address) => ({ identity, ip_address, mac_address, board: "SXTsq", interface: "ether1" });
 
 test("changing the target clears the previous password and manual IP edits clear selection", async () => {
