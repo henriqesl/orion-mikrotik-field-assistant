@@ -8,6 +8,7 @@ import { discoverDevice } from "./services/api.js";
 import { apiUrl, isDesktopRuntime } from "./services/runtime.js";
 import orionMark from "./assets/orion-mark.svg";
 import { sameDevice } from "./services/deviceIdentity.js";
+import { sessionSummary } from "./features/wireless/sessionSummary.js";
 
 const API_STATES = {
   checking: {
@@ -53,6 +54,8 @@ function App({ workspace }) {
   const [isAlignmentMode, setIsAlignmentMode] = useState(false);
   const [activeTab, setActiveTab] = useState("routeros");
   const [linkSession, setLinkSession] = useState(null);
+  const [linkValidation, setLinkValidation] = useState(null);
+  const [testTarget, setTestTarget] = useState(null);
   const refreshInFlight = useRef(false);
   const connectionGeneration = useRef(0);
 
@@ -212,6 +215,7 @@ function App({ workspace }) {
     setMonitoringError("");
     setIsAlignmentMode(false);
     setActiveTab("routeros");
+    setTestTarget(null);
     refreshInFlight.current = false;
   }
 
@@ -221,11 +225,19 @@ function App({ workspace }) {
 
   function handleClearLinkSession() {
     setLinkSession(null);
+    setLinkValidation(null);
   }
 
   function handleFinishLinkSession() {
+    setLinkValidation(sessionSummary(linkSession));
     setLinkSession(null);
     setActiveTab("tests");
+  }
+
+  function handleLinkSessionChange(session) {
+    setLinkSession(session);
+    setLinkValidation(null);
+    setTestTarget(null);
   }
 
   function handleToggleMonitoring() {
@@ -466,7 +478,7 @@ function App({ workspace }) {
               connection={activeConnection}
               device={device}
               fieldSession={linkSession}
-              onFieldSessionChange={setLinkSession}
+              onFieldSessionChange={handleLinkSessionChange}
               onFinishFieldSession={handleFinishLinkSession}
               onApplyStart={handleConfigurationApplyStart}
               onApplyEnd={handleConfigurationApplyEnd}
@@ -485,6 +497,7 @@ function App({ workspace }) {
             role="tabpanel"
           >
             {LinkValidation && <LinkValidation device={device} monitoringError={monitoringError}
+              summary={linkValidation || sessionSummary(linkSession)} onSelectTarget={(host) => setTestTarget({ host })}
               disabled={isOperating || isRefreshing} onRefresh={refreshDevice}
               onConfigure={() => handleTabChange("configuration")} />}
             <AlignmentMonitor
@@ -496,7 +509,7 @@ function App({ workspace }) {
               radioAvailable={radioDevice}
               registrationTableAvailable={device.registration_table_available}
             />
-            <PingTest connection={activeConnection} />
+            <PingTest connection={activeConnection} suggestedTarget={testTarget} disabled={isOperating} radioContext={Boolean(LinkValidation)} />
           </section>
         )}
 

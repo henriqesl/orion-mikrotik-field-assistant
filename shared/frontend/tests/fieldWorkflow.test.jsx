@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { useState } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import BasicNetworkConfiguration from "../../../routerboards/frontend/BasicNetworkConfiguration.jsx";
@@ -58,7 +59,7 @@ test.each(["pair", "multipoint"])("%s session completes a Station with the corre
   const handlers = callbacks();
   handlers.onApplied.mockResolvedValue(verifiedStation("192.0.2.20/24"));
   const session = { link_scenario: scenario, stations: [], completed_roles: ["ap"], next_role: "station", ssid: "ENLACE", passphrase: "lab-password", station_management_ip: "192.0.2.20/24" };
-  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} fieldSession={session} {...handlers} />);
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false, ip_addresses: [] }} fieldSession={session} {...handlers} />);
   await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
   await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
   await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
@@ -77,7 +78,7 @@ test("multipoint continuation requires a unique management IP and retains earlie
   const handlers = callbacks();
   handlers.onApplied.mockResolvedValue(verifiedStation("192.0.2.21/24"));
   const session = { link_scenario: "multipoint", stations: ["02:11:11:11:11:11"], station_addresses: { "02:11:11:11:11:11": "192.0.2.20/24" }, completed_roles: ["ap", "station"], next_role: "station", ssid: "ENLACE", passphrase: "lab-password", station_management_ip: "" };
-  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} fieldSession={session} {...handlers} />);
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false, ip_addresses: [] }} fieldSession={session} {...handlers} />);
   const ip = screen.getByLabelText("IP de gerenciamento");
   expect(ip.value).toBe("");
   await user.type(ip, "192.0.2.20/24");
@@ -122,7 +123,7 @@ test.each([null, { device: demoDevice({ host: "demo" }) }])("a session cannot ad
   const user = userEvent.setup();
   const handlers = callbacks();
   handlers.onApplied.mockResolvedValue(readback);
-  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }}
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false, ip_addresses: [] }}
     fieldSession={{ next_role: "station", completed_roles: ["ap"], ssid: "ENLACE", station_management_ip: "192.0.2.20/24" }} {...handlers} />);
   await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
   await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
@@ -254,4 +255,77 @@ test("reconnecting alone never hides a radio setting that was not saved", async 
   await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
   await screen.findByText(/Acesso confirmado; confira estes campos: SSID/);
   expect(handlers.onApplyEnd).toHaveBeenCalledTimes(1);
+});
+
+test("management defaults follow the selected radio bridge and retain an existing Station IP", async () => {
+  const device = { ...demoDevice({ host: "demo" }), demo_mode: false };
+  const bridge = device.bridge_ports.find((port) => port.interface === device.wifi_interfaces[0].name).bridge;
+  device.ip_addresses = [{ address: "198.51.100.10/24", interface: "ether9" }, { address: "192.0.2.77/24", interface: bridge }];
+  render(<LinkConfiguration connection={connection} device={device} fieldSession={{ next_role: "station", completed_roles: ["ap"], ap_management_ip: "192.0.2.1/24", station_management_ip: "192.0.2.2/24" }} {...callbacks()} />);
+  expect(screen.getByLabelText("IP de gerenciamento").value).toBe("192.0.2.77/24");
+});
+
+test("ending a session discards its reviewed write and password", async () => {
+  const user = userEvent.setup();
+  render(<LinkConfiguration connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }}
+    fieldSession={{ next_role: "station", completed_roles: ["ap"], ssid: "ENLACE", passphrase: "senha-do-ap" }} {...callbacks()} />);
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await screen.findByLabelText(/Digite APLICAR/);
+  await user.click(screen.getByRole("button", { name: "Encerrar sessão" }));
+  expect(screen.queryByRole("button", { name: "Criar backup e aplicar" })).toBeNull();
+  expect(screen.getByLabelText("Nova senha WPA2 (opcional)").value).toBe("");
+  expect(api.applyLinkConfiguration).not.toHaveBeenCalled();
+});
+
+test("guided setup recovers from a failed write without a blank review step", async () => {
+  const user = userEvent.setup();
+  api.applyLinkConfiguration.mockRejectedValue(new Error("Falha de conexão"));
+  render(<RadioLink connection={connection} device={{ ...demoDevice({ host: "demo" }), demo_mode: false }} {...callbacks()} />);
+  await user.click(screen.getByRole("button", { name: "Ajustar somente este rádio" }));
+  await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+  await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
+  await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
+  await user.click(await screen.findByRole("button", { name: "Voltar aos dados e revisar novamente" }));
+  expect(screen.getByRole("textbox", { name: "SSID" }).value).not.toBe("");
+  expect(api.applyLinkConfiguration).toHaveBeenCalledOnce();
+});
+
+test.each(["pair", "multipoint"])("guided %s setup carries verified AP settings to a different Station", async (scenario) => {
+  const user = userEvent.setup();
+  const finished = vi.fn();
+  function Workflow() {
+    const [session, setSession] = useState(null);
+    const [index, setIndex] = useState(0);
+    const device = { ...demoDevice({ host: "demo" }), demo_mode: false, identity: index ? "Station-campo" : "AP-campo", ip_addresses: [] };
+    device.wifi_interfaces = device.wifi_interfaces.map((wifi) => ({ ...wifi, mac_address: index ? "02:00:00:00:09:02" : "02:00:00:00:09:01" }));
+    const readback = async () => {
+      const request = api.applyLinkConfiguration.mock.lastCall[1];
+      return { device: { ...device, identity: request.identity,
+        wifi_interfaces: device.wifi_interfaces.map((wifi) => ({ ...wifi, mode: request.role === "ap" ? "ap" : "station-bridge", ssid: request.ssid, frequency: String(request.frequency_mhz), channel_width: request.channel_width || wifi.channel_width })),
+        ip_addresses: [{ address: request.management_ip }],
+        bridge_ports: [request.wifi_interface, ...request.bridge_interfaces].map((name) => ({ interface: name, bridge: request.bridge_name })),
+      } };
+    };
+    return <RadioLink key={index} connection={connection} device={device} fieldSession={session} {...callbacks()}
+      onApplied={readback} onFieldSessionChange={setSession} onPrepareNextDevice={() => setIndex(index + 1)} onFinishFieldSession={() => finished(session)} />;
+  }
+  render(<Workflow />);
+  if (scenario === "multipoint") await user.click(screen.getByRole("radio", { name: /AP com várias Stations/ }));
+  await user.click(screen.getByRole("button", { name: "Configurar o AP primeiro" }));
+  await user.type(screen.getByLabelText("Senha do enlace"), "senha-do-enlace");
+  await user.type(screen.getByLabelText("IP de gerenciamento"), "192.0.2.10/24");
+  for (let index = 0; index < 2; index += 1) {
+    await user.click(screen.getByRole("button", { name: "Revisar alterações" }));
+    await user.type(await screen.findByLabelText(/Digite APLICAR/), "APLICAR");
+    await user.click(screen.getByRole("button", { name: "Criar backup e aplicar" }));
+    if (!index) {
+      await user.click(await screen.findByRole("button", { name: "Desconectar AP e configurar Station" }));
+      await user.click(screen.getByRole("button", { name: "Continuar para os dados do enlace" }));
+      expect(screen.getByLabelText("IP de gerenciamento").value).toBe("192.0.2.11/24");
+      expect(screen.getByLabelText("Nova senha WPA2 (opcional)").value).toBe("senha-do-enlace");
+    }
+  }
+  await user.click(await screen.findByRole("button", { name: "Concluir sessão e abrir os testes" }));
+  expect(finished.mock.calls[0][0]).toMatchObject({ next_role: scenario === "pair" ? "complete" : "station", ap_identity: "AP-campo", station_details: { "02:00:00:00:09:02": { identity: "Station-campo", address: "192.0.2.11/24" } } });
+  expect(api.applyLinkConfiguration).toHaveBeenCalledTimes(2);
 });

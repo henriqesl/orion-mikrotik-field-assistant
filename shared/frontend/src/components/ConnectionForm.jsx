@@ -412,6 +412,7 @@ function ConnectionForm({ fieldSession, isLoading, onClearFieldSession, onConnec
             <strong>
               {fieldSession.next_role === "station"
                 ? "Conecte agora o equipamento que será a Station"
+                : fieldSession.next_role === "complete" ? "Configuração conferida. Reconecte um dos rádios para testar o enlace"
                 : "Conecte o equipamento que será o AP"}
             </strong>
             <small>{fieldSession.ssid} · os dados serão descartados ao encerrar a sessão</small>

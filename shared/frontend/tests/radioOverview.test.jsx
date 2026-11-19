@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import RadioOverview from "../../../radios/frontend/RadioOverview.jsx";
 import RadioValidation from "../../../radios/frontend/RadioValidation.jsx";
 import { linkStatus } from "../../../radios/frontend/linkStatus.js";
+import { sessionSummary } from "../src/features/wireless/sessionSummary.js";
 import ConnectionHelp from "../../../radios/frontend/ConnectionHelp.jsx";
 import { discoverDevice } from "../src/services/api.js";
 
@@ -79,4 +80,18 @@ test("link validation refreshes readings without applying configuration", async 
   view.rerender(<RadioValidation device={radio} disabled onRefresh={onRefresh} onConfigure={onConfigure} />);
   expect(screen.getByRole("button", { name: "Atualizar associação" }).disabled).toBe(true);
   expect(screen.getByRole("button", { name: "Revisar enlace" }).disabled).toBe(true);
+});
+
+test("finished-session guidance retains endpoints, not credentials, and selects a target without running it", async () => {
+  const summary = sessionSummary({ ssid: "CAMPO", passphrase: "private-password", ap_identity: "Torre", ap_bssid: "02:00:00:00:00:01", ap_management_ip: "192.0.2.1/24", station_addresses: { "02:00:00:00:00:02": "192.0.2.2/24" }, station_details: { "02:00:00:00:00:02": { identity: "Galpão", wifi_interface: "wifi1" } } });
+  expect(JSON.stringify(summary)).not.toContain("private-password");
+  const onSelectTarget = vi.fn();
+  const device = { ...radio, wifi_interfaces: [{ name: "wifi1", mac_address: "02:00:00:00:00:02" }], wifi_peers: [{ interface: "wifi1", mac_address: "02:00:00:00:00:09" }] };
+  const view = render(<RadioValidation device={device} summary={summary} onSelectTarget={onSelectTarget} />);
+  expect(screen.getByText(/associado a outro MAC/)).toBeTruthy();
+  expect(onSelectTarget).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "Usar IP de Torre: 192.0.2.1" }));
+  expect(onSelectTarget).toHaveBeenCalledWith("192.0.2.1");
+  view.rerender(<RadioValidation device={radio} summary={summary} onSelectTarget={onSelectTarget} />);
+  expect(screen.queryByRole("region", { name: "Equipamentos configurados nesta sessão" })).toBeNull();
 });

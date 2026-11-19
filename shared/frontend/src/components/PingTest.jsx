@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { runPing } from "../services/api.js";
 import AssessmentBadge from "./AssessmentBadge.jsx";
@@ -13,26 +13,48 @@ function formatDelta(value, suffix = "") {
   return `${rounded > 0 ? "+" : ""}${rounded}${suffix}`;
 }
 
-function PingTest({ connection }) {
+function PingTest({ connection, suggestedTarget, disabled = false, radioContext = false }) {
   const [target, setTarget] = useState("");
   const [sampleCount, setSampleCount] = useState(10);
   const [baseline, setBaseline] = useState(null);
   const [result, setResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const requestGeneration = useRef(0);
+  const busy = useRef(false);
+  const targetInput = useRef(null);
+  const usedSuggestion = useRef(null);
+
+  useEffect(() => {
+    requestGeneration.current += 1;
+    busy.current = false;
+    setIsLoading(false); setResult(null); setBaseline(null); setErrorMessage(""); setTarget("");
+    return () => { requestGeneration.current += 1; };
+  }, [connection]);
+
+  useEffect(() => {
+    if (!suggestedTarget || suggestedTarget === usedSuggestion.current || busy.current || disabled) return;
+    usedSuggestion.current = suggestedTarget;
+    setTarget(suggestedTarget.host);
+    targetInput.current?.focus();
+  }, [suggestedTarget, disabled, isLoading]);
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (busy.current || disabled || !target.trim()) return;
+    busy.current = true;
+    const generation = ++requestGeneration.current;
     setIsLoading(true);
     setErrorMessage("");
     setResult(null);
 
     try {
-      setResult(await runPing(connection, target, sampleCount));
+      const measured = await runPing(connection, target.trim(), sampleCount);
+      if (generation === requestGeneration.current) setResult(measured);
     } catch (error) {
-      setErrorMessage(error.message);
+      if (generation === requestGeneration.current) setErrorMessage(error.message);
     } finally {
-      setIsLoading(false);
+      if (generation === requestGeneration.current) { busy.current = false; setIsLoading(false); }
     }
   }
 
@@ -83,6 +105,8 @@ function PingTest({ connection }) {
         <label className="field">
           <span>IP do destino</span>
           <input
+            ref={targetInput}
+            disabled={isLoading || disabled}
             inputMode="decimal"
             onChange={(event) => setTarget(event.target.value)}
             placeholder="Outro rádio, gateway ou internet"
@@ -93,7 +117,7 @@ function PingTest({ connection }) {
         <label className="field test-duration-field">
           <span>Duração do teste</span>
           <select
-            disabled={isLoading}
+            disabled={isLoading || disabled}
             onChange={(event) => setSampleCount(Number(event.target.value))}
             value={sampleCount}
           >
@@ -102,7 +126,7 @@ function PingTest({ connection }) {
             <option value="60">Prolongado · 60 amostras</option>
           </select>
         </label>
-        <button className="primary-button" disabled={isLoading} type="submit">
+        <button className="primary-button" disabled={isLoading || disabled} type="submit">
           {isLoading ? "Testando…" : "Testar conexão"}
         </button>
       </form>
@@ -138,7 +162,7 @@ function PingTest({ connection }) {
                 <span>/100</span>
               </div>
               <div className="health-content">
-                <p>Saúde do enlace</p>
+                <p>{radioContext ? "Qualidade da resposta ao destino" : "Saúde do enlace"}</p>
                 <h3 id="health-title">{result.link_health.status_label}</h3>
                 <p>{result.link_health.summary}</p>
                 <div className="health-recommendation">

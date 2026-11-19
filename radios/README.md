@@ -21,3 +21,7 @@ Each write requires a fresh review and explicit confirmation. The session advanc
 If readback fails, use the read-only verification retry before considering another write. Stations in a session must retain its AP credentials; end the session to configure a different link.
 
 In Tests, check association first, then test the other radio's actual IP and a device beyond it. Repeat for each Station. Disabled Wi-Fi, pending authorization and unavailable readings remain distinct; a ping response confirms reachability, not the route taken or the capacity of the wireless link.
+
+Finishing setup keeps a temporary, password-free summary of the configured endpoints. On a recognized AP or Station, select the other side's address to fill the ping form, then start the test explicitly. The summary is discarded when ORION closes or another setup session starts.
+
+An existing Station management address and bridge are retained when possible. A proposed address is only a suggestion, not evidence that the address is unused. If a write fails, return to the fields for a fresh review; if the write returned but readback failed, retry verification without writing again.
