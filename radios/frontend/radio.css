@@ -45,3 +45,12 @@
   color: var(--color-signal);
 }
 .configuration-form[hidden] { display: none; }
+
+.radio-validation { padding: 1.5rem; border: 1px solid var(--color-line); border-radius: 1rem; background: var(--color-panel); }
+.radio-validation__steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1.5rem; margin: 1rem 0; }
+.radio-validation__steps h3 { font-size: 1rem; }
+.radio-validation__steps p { color: var(--color-text-muted); }
+.radio-validation footer { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.radio-overview__status[data-state="unknown"], .radio-validation [data-state="unknown"] { color: var(--color-text-muted); }
+.radio-overview__status[data-state="pending"], .radio-validation [data-state="pending"] { color: var(--color-text); }
+.radio-validation [data-state="detected"] { color: var(--color-signal); }

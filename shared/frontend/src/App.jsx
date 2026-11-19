@@ -37,7 +37,7 @@ function resetWorkspaceScroll() {
 function App({ workspace }) {
   const { AlignmentMonitor, LinkConfiguration, BasicNetworkConfiguration, LoraProtection } = workspace.components;
   const ConnectionForm = workspace.components.ConnectionForm || DefaultConnectionForm;
-  const { Overview, ConnectionHelp } = workspace.components;
+  const { Overview, ConnectionHelp, LinkValidation } = workspace.components;
   const hasPanel = (id) => workspace.tabs.some((tab) => tab.id === id);
   const [apiState, setApiState] = useState("checking");
   const [device, setDevice] = useState(null);
@@ -484,6 +484,9 @@ function App({ workspace }) {
             id="panel-tests"
             role="tabpanel"
           >
+            {LinkValidation && <LinkValidation device={device} monitoringError={monitoringError}
+              disabled={isOperating || isRefreshing} onRefresh={refreshDevice}
+              onConfigure={() => handleTabChange("configuration")} />}
             <AlignmentMonitor
               isAlignmentMode={isAlignmentMode}
               isMonitoring={isMonitoring}

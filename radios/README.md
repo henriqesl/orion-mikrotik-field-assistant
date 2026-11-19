@@ -19,3 +19,5 @@ Link setup has three steps: role, link settings and review. Start with the AP to
 Each write requires a fresh review and explicit confirmation. The session advances only after reconnecting and checking the saved fields. A confirmed configuration still needs association and traffic tests; it is not proof of a working link.
 
 If readback fails, use the read-only verification retry before considering another write. Stations in a session must retain its AP credentials; end the session to configure a different link.
+
+In Tests, check association first, then test the other radio's actual IP and a device beyond it. Repeat for each Station. Disabled Wi-Fi, pending authorization and unavailable readings remain distinct; a ping response confirms reachability, not the route taken or the capacity of the wireless link.

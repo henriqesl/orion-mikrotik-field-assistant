@@ -2,6 +2,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RadioOverview from "../../../radios/frontend/RadioOverview.jsx";
+import RadioValidation from "../../../radios/frontend/RadioValidation.jsx";
+import { linkStatus } from "../../../radios/frontend/linkStatus.js";
 import ConnectionHelp from "../../../radios/frontend/ConnectionHelp.jsx";
 import { discoverDevice } from "../src/services/api.js";
 
@@ -49,4 +51,32 @@ test("API failures preserve their status for connection guidance", async () => {
 test("a local service failure is distinguished from a MikroTik rejection", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network")));
   await expect(discoverDevice({ host: "192.0.2.15" })).rejects.toMatchObject({ code: "BACKEND_UNREACHABLE" });
+});
+
+test.each([
+  [{ ...radio, wifi_interfaces: [{ name: "wifi1", disabled: true }] }, "", "Wi-Fi desativado"],
+  [{ ...radio, wifi_peers: [{ authorized: true }, { authorized: false }] }, "", "Autorização pendente"],
+  [{ ...radio, wifi_peers: [{ authorized: true }] }, "timeout", "Leitura desatualizada"],
+  [{ ...radio, registration_table_available: false, wifi_peers: [{ authorized: true }] }, "", "Associação não disponível para leitura"],
+  [{ ...radio, wifi_peers: [{ authorized: null }] }, "", "Associação detectada"],
+])("link guidance does not infer connectivity from incomplete evidence", (device, error, label) => {
+  expect(linkStatus(device, error).label).toBe(label);
+});
+
+test("an unassociated Station is directed to check its AP", () => {
+  expect(linkStatus({ ...radio, wifi_interfaces: [{ mode: "station-bridge" }] }).hint).toContain("AP está ligado");
+  expect(linkStatus(radio).hint).toContain("Ligue a Station");
+});
+
+test("link validation refreshes readings without applying configuration", async () => {
+  const onRefresh = vi.fn();
+  const onConfigure = vi.fn();
+  const view = render(<RadioValidation device={radio} onRefresh={onRefresh} onConfigure={onConfigure} />);
+  await userEvent.click(screen.getByRole("button", { name: "Atualizar associação" }));
+  expect(onRefresh).toHaveBeenCalledOnce();
+  expect(onConfigure).not.toHaveBeenCalled();
+  expect(screen.getByText(/confira cada uma separadamente/)).toBeTruthy();
+  view.rerender(<RadioValidation device={radio} disabled onRefresh={onRefresh} onConfigure={onConfigure} />);
+  expect(screen.getByRole("button", { name: "Atualizar associação" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Revisar enlace" }).disabled).toBe(true);
 });
